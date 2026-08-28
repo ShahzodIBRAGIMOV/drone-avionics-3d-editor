@@ -7,6 +7,8 @@
   "estop": {"format":"obj","parts":["estop.obj.gz.part-aa.b64"]},
   "here3": {"format":"obj","parts":["here3.obj.gz.part-aa.b64"]},
   "hm30": {"format":"obj","parts":["hm30.obj.gz.part-aa.b64","hm30.obj.gz.part-ab.b64"]},
+  "hobbywing-ubec": {"format":"obj","path":"/models/hobbywing-ubec.obj"},
+  "jetson-orin-nx": {"format":"obj","path":"/models/jetson-orin-nx.obj"},
   "led": {"format":"obj","parts":["led.obj.gz.part-aa.b64","led.obj.gz.part-ab.b64"]},
   "matek-bec": {"format":"obj","parts":["matek-bec.obj.gz.part-aa.b64","matek-bec.obj.gz.part-ab.b64"]},
   "motor": {"format":"obj","parts":["motor.obj.gz.part-aa.b64","motor.obj.gz.part-ab.b64","motor.obj.gz.part-ac.b64","motor.obj.gz.part-ad.b64","motor.obj.gz.part-ae.b64"]},
