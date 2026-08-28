@@ -7,6 +7,9 @@ Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor 
 - public/models/drone.stl — original dron modeli.
 - public/models/*.obj — brauzerga tayyor avionika modellari.
 - public/data/component_manifest.csv — komponentlar ro‘yxati va miqdorlari.
+- public/data/model-assets.json — barcha 3D assetlar indeksi.
+- public/model-parts/*.b64 — katta modellar gzip/base64 qismlari.
+- src/modelAssetLoader.ts — qismlarni brauzerda asl STL/OBJ ko‘rinishiga qaytaruvchi loader.
 - AI_STUDIO_PROMPT_UZ.md — AI Studio uchun asosiy topshiriq.
 
 ## AI Studio
