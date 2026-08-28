@@ -20,3 +20,7 @@ Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor 
 4. AI_STUDIO_PROMPT_UZ.md ichidagi promptni yuboring.
 
 Komponentlar avtomatik joylashtirilmasligi kerak. Foydalanuvchi ularni TransformControls yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi.
+
+Hobbywing UBEC original STEP geometriyasidan konvertatsiya qilingan. Jetson P3767/P3768
+STEP assembly brauzer tessellatorida geometriya bermagani sababli uning 114 × 64 × 47 mm
+o‘lchamli tashqi ko‘rinish proksi modeli ishlatiladi.
