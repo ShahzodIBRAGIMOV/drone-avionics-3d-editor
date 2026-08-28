@@ -16,6 +16,6 @@ id,component,quantity,preferred_web_file,original_source,notes
 15,Eagle Eye LED,2,led.obj,eagle_eye_LED_lamp_9W.stp,Left and right wingtip
 16,Emergency Stop,1,estop.obj,E-Stop_Assembled.stp,E-stop
 17,Two-blade 20x10 propeller,2,propeller.obj,,Generated engineering model
-18,Hobbywing UBEC,2,,Hobbywing UBEC 12A v4(1).step,Original STEP included
-19,Jetson carrier assembly,1,,P3766-P3768SKU4-P3767ENVELOPE.stp,Heavy detailed CAD source
+18,Hobbywing UBEC,2,hobbywing-ubec.obj,Hobbywing UBEC 12A v4(1).step,Original STEP geometry
+19,Jetson carrier assembly,1,jetson-orin-nx.obj,P3766-P3768SKU4-P3767ENVELOPE.stp,P3767 P3768 dimensional visual proxy
 20,SIYI 4-18S BEC HM30,1,siyi-bec.obj,,Generated engineering model
