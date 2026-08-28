@@ -1,0 +1,20 @@
+{
+  "drone": {"format":"stl","parts":["drone.stl.gz.part-aa.b64","drone.stl.gz.part-ab.b64","drone.stl.gz.part-ac.b64","drone.stl.gz.part-ad.b64","drone.stl.gz.part-ae.b64"]},
+  "airspeed-module": {"format":"obj","path":"/models/airspeed-module.obj"},
+  "avionics-battery": {"format":"obj","parts":["avionics-battery.obj.gz.part-aa.b64"]},
+  "cube-orange": {"format":"obj","parts":["cube-orange.obj.gz.part-aa.b64","cube-orange.obj.gz.part-ab.b64"]},
+  "esc": {"format":"obj","path":"/models/esc.obj"},
+  "estop": {"format":"obj","parts":["estop.obj.gz.part-aa.b64"]},
+  "here3": {"format":"obj","parts":["here3.obj.gz.part-aa.b64"]},
+  "hm30": {"format":"obj","parts":["hm30.obj.gz.part-aa.b64","hm30.obj.gz.part-ab.b64"]},
+  "led": {"format":"obj","parts":["led.obj.gz.part-aa.b64","led.obj.gz.part-ab.b64"]},
+  "matek-bec": {"format":"obj","parts":["matek-bec.obj.gz.part-aa.b64","matek-bec.obj.gz.part-ab.b64"]},
+  "motor": {"format":"obj","parts":["motor.obj.gz.part-aa.b64","motor.obj.gz.part-ab.b64","motor.obj.gz.part-ac.b64","motor.obj.gz.part-ad.b64","motor.obj.gz.part-ae.b64"]},
+  "pitot": {"format":"obj","path":"/models/pitot.obj"},
+  "pm07": {"format":"obj","path":"/models/pm07.obj"},
+  "propeller": {"format":"obj","path":"/models/propeller.obj"},
+  "servo": {"format":"obj","parts":["servo.obj.gz.part-aa.b64","servo.obj.gz.part-ab.b64"]},
+  "siyi-bec": {"format":"obj","path":"/models/siyi-bec.obj"},
+  "tattu": {"format":"obj","parts":["tattu.obj.gz.part-aa.b64","tattu.obj.gz.part-ab.b64"]},
+  "zr10": {"format":"obj","parts":["zr10.obj.gz.part-aa.b64"]}
+}
