@@ -13,21 +13,21 @@ function decodeBase64(value: string): Uint8Array {
 }
 
 async function gunzip(bytes: Uint8Array): Promise<ArrayBuffer> {
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const stream = new Blob([bytes.slice().buffer as ArrayBuffer]).stream().pipeThrough(new DecompressionStream("gzip"));
   return new Response(stream).arrayBuffer();
 }
 
 export async function loadModelAsset(asset: ModelAsset): Promise<ArrayBuffer> {
   if (asset.path) {
     const response = await fetch(asset.path);
-    if (!response.ok) throw new Error(\`Model yuklanmadi: \${asset.path}\`);
+    if (!response.ok) throw new Error(`Model yuklanmadi: ${asset.path}`);
     return response.arrayBuffer();
   }
   if (!asset.parts?.length) throw new Error("Model manzili mavjud emas");
   const encodedParts = await Promise.all(
     asset.parts.map(async name => {
-      const response = await fetch(\`/model-parts/\${name}\`);
-      if (!response.ok) throw new Error(\`Model qismi yuklanmadi: \${name}\`);
+      const response = await fetch(`/model-parts/${name}`);
+      if (!response.ok) throw new Error(`Model qismi yuklanmadi: ${name}`);
       return decodeBase64(await response.text());
     })
   );
