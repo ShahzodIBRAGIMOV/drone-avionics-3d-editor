@@ -4,8 +4,10 @@ Ushbu repository asosida React, TypeScript va Three.js bilan interaktiv dron avi
 
 ## Modellardan foydalanish
 
-- Dron: /models/drone.stl
-- Komponentlar: /models/*.obj
+- Modellarning to‘liq indeksi: /data/model-assets.json
+- Kichik modellar /models ichida, katta modellar /model-parts ichida gzip/base64 qismlarga bo‘lingan.
+- src/modelAssetLoader.ts dagi loadModelIndex va loadModelAsset funksiyalaridan foydalan.
+- Katta modellarni o‘zing qayta yozma; loader qismlarni birlashtirib DecompressionStream orqali asl STL/OBJ geometriyasini tiklaydi.
 - Ro‘yxat: /data/component_manifest.csv
 - Hech qanday placeholder model yaratma.
 - Dron qanot oralig‘ini 3500 mm qil.
