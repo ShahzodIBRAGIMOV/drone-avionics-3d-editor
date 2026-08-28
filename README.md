@@ -2,6 +2,10 @@
 
 Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor UAV loyihasi.
 
+Repository to‘g‘ridan-to‘g‘ri ishlaydigan Three.js editorni ham o‘z ichiga oladi: model tanlash,
+W/E/R orqali ko‘chirish-aylantirish-masshtablash, olti kamera ko‘rinishi, shaffof korpus,
+wireframe, lock/hide/duplicate/remove, avtomatik saqlash hamda JSON va PNG eksport.
+
 ## Tarkib
 
 - public/models/drone.stl — original dron modeli.
