@@ -17,5 +17,5 @@ id,component,quantity,preferred_web_file,original_source,notes
 16,Emergency Stop,1,estop.obj,E-Stop_Assembled.stp,E-stop
 17,Two-blade 20x10 propeller,2,propeller.obj,,Generated engineering model
 18,Hobbywing UBEC,2,hobbywing-ubec.obj,Hobbywing UBEC 12A v4(1).step,Original STEP geometry
-19,Jetson carrier assembly,1,jetson-orin-nx.obj,P3766-P3768SKU4-P3767ENVELOPE.stp,P3767 P3768 dimensional visual proxy
+19,Jetson carrier assembly,1,jetson-p3737.stl,00_top_lvl_p3737_01142022.stp,P3737 detailed assembly accepted by user as the project Jetson computer
 20,SIYI 4-18S BEC HM30,1,siyi-bec.obj,,Generated engineering model
