@@ -24,3 +24,5 @@ Komponentlar avtomatik joylashtirilmasligi va ko‘paytirilmasligi kerak. Manife
 Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va portlarga ulanishi kerak. Tasdiqlanmagan ulanish nuqtasi o‘ylab topilmaydi va model “100% real” deb belgilanmaydi.
 
 Jetson uchun foydalanuvchi qabul qilgan `00_top_lvl_p3737_01142022.stp` asosidagi batafsil P3737 modeli ishlatiladi. Model GitHub cheklovlariga mos ravishda gzip/base64 qismlariga bo‘lingan va loader orqali asl STL geometriyasiga tiklanadi.
+
+Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun OBJ, procedural yoki fallback model saqlanmaydi va yaratilmaydi.
