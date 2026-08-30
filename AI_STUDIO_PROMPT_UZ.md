@@ -27,7 +27,9 @@ Ushbu repository asosida React, TypeScript va Three.js bilan interaktiv dron avi
 - Raycaster bilan pin yoki portni alohida tanlash mumkin bo‘lsin. Tanlangan ulanish nuqtasi yoritilsin va nomi o‘ng panelda ko‘rinsin.
 - Kabel aynan tanlangan pin/port koordinatasidan boshlansin. Komponent ko‘chirilsa yoki aylantirilsa kabelning boshlanish nuqtasi komponent bilan birga yangilansin.
 - Datasheet yoki original CAD bilan tasdiqlanmagan port/pinni o‘ylab topma. Tasdiqlanmagan modelni “Tekshirilmagan” deb belgilab, kabel ulashni blokla.
-- Jetson uchun `jetson-p3737.stl` qismlaridan tiklanadigan, foydalanuvchi qabul qilgan P3737 modeli ishlatilsin; eski tashqi quti proksisiga qaytilmasin.
+- Jetson assetining yagona ruxsat etilgan identifikatori `jetson-p3737`. Uni `/data/model-assets.json` indeksidan yukla.
+- Jetson uchun faqat 35 ta `jetson-p3737.stl.gz.part-XX.b64` qismidan tiklanadigan, foydalanuvchi qabul qilgan P3737 modeli ishlatilsin.
+- Jetson yuklanmasa hech qanday eski OBJ, procedural radiator, oddiy quti, primitive, proxy yoki fallback geometriya yaratma. Jetsonni sahnaga qo‘shma va foydalanuvchiga “P3737 modeli yuklanmadi” xatosini ko‘rsat.
 
 ## Muharrir
 
