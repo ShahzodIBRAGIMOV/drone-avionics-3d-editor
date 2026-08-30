@@ -53,7 +53,7 @@
     "format": "obj",
     "path": "/models/hobbywing-ubec.obj"
   },
-  "jetson-orin-nx": {
+  "jetson-p3737": {
     "format": "stl",
     "parts": [
       "jetson-p3737.stl.gz.part-00.b64",
