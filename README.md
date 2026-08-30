@@ -19,8 +19,8 @@ Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor 
 3. Shu repository’ni import qiling.
 4. AI_STUDIO_PROMPT_UZ.md ichidagi promptni yuboring.
 
-Komponentlar avtomatik joylashtirilmasligi kerak. Foydalanuvchi ularni TransformControls yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi.
+Komponentlar avtomatik joylashtirilmasligi va ko‘paytirilmasligi kerak. Manifestda 20 turdagi, miqdorlar bilan jami 32 dona fizik komponent bor. Foydalanuvchi ularni TransformControls yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi.
 
-Hobbywing UBEC original STEP geometriyasidan konvertatsiya qilingan. Jetson P3767/P3768
-STEP assembly brauzer tessellatorida geometriya bermagani sababli uning 114 × 64 × 47 mm
-o‘lchamli tashqi ko‘rinish proksi modeli ishlatiladi.
+Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va portlarga ulanishi kerak. Tasdiqlanmagan ulanish nuqtasi o‘ylab topilmaydi va model “100% real” deb belgilanmaydi.
+
+Jetson uchun foydalanuvchi qabul qilgan `00_top_lvl_p3737_01142022.stp` asosidagi batafsil P3737 modeli ishlatiladi. Model GitHub cheklovlariga mos ravishda gzip/base64 qismlariga bo‘lingan va loader orqali asl STL geometriyasiga tiklanadi.
