@@ -1,56 +1,70 @@
-# AI Studio topshirig‘i
+# Google AI Studio uchun topshiriq
 
-Ushbu repository asosida React, TypeScript va Three.js bilan interaktiv dron avionika joylashtirish muharririni yarat.
+Ushbu GitHub repository ichida React, TypeScript va Three.js asosidagi ishlaydigan dron avionika 3D montaj muharriri mavjud. Mavjud kodni saqla va uning ustida ishlashni davom ettir. Ilovani boshqatdan yozma, 3D assetlarni placeholder bilan almashtirma.
 
-## Modellardan foydalanish
+## Asosiy maqsad
 
-- Modellarning to‘liq indeksi: /data/model-assets.json
-- Kichik modellar /models ichida, katta modellar /model-parts ichida gzip/base64 qismlarga bo‘lingan.
-- src/modelAssetLoader.ts dagi loadModelIndex va loadModelAsset funksiyalaridan foydalan.
-- Katta modellarni o‘zing qayta yozma; loader qismlarni birlashtirib DecompressionStream orqali asl STL/OBJ geometriyasini tiklaydi.
-- Ro‘yxat: /data/component_manifest.csv
-- Hech qanday placeholder model yaratma.
-- Manifestda 20 turdagi komponent va quantity ustuni bo‘yicha jami 32 dona fizik obyekt bor. Sahnada bundan ortiq komponent yaratma.
-- Faqat manifestdagi id va quantity qiymatlarini inventarning yagona manbasi deb ol. Ro‘yxatda yo‘q komponentni qo‘shma.
-- Bir turdagi komponent uchun aynan quantity miqdorida nusxa yarat; ortiqcha avtomatik nusxa, demo obyekt va test geometriyasi yaratma.
-- “Duplicate” funksiyasini qo‘shma. “Remove” komponentni inventardan yo‘q qilmasin, faqat sahnadan “Joylashtirilmagan komponentlar” paneliga qaytarsin.
-- Dron qanot oralig‘ini 3500 mm qil.
-- Komponentlarni avtomatik joylashtirma.
+Ilova 3.5 metr qanot oralig‘iga ega twin-motor UAV ichida avionika komponentlari va kabellarni aniq joylashtirish uchun ishlatiladi. Ko‘rinish CAD dasturidagi texnik chizmaga o‘xshasin: dron korpusi och kulrang, yarim shaffof va kontur chiziqlari ko‘rinadigan bo‘lsin.
 
-## Model aniqligi, pinlar va portlar
+## Kamera — qat’iy talab
 
-- Oddiy quti, taxminiy korpus, rangli blok yoki proksi geometriyani 100% real model deb ko‘rsatma.
-- Har bir komponent ishlab chiqaruvchining aynan ro‘yxatda ko‘rsatilgan modeli ko‘rinishiga, o‘lchamiga va ulagich joylashuviga mos bo‘lsin.
-- Modelda mavjud barcha tashqi elektr pinlari va portlari ko‘rinadigan geometriya bo‘lsin: quvvat, GND, signal, PWM/servo, CAN, UART, USB, Ethernet, HDMI, antennalar va boshqa real ulagichlar.
-- Pin yoki portlarni korpus ichiga yashirma va tekstura bilan soxta chizma sifatida ko‘rsatma. Kabel chiqadigan kontakt yuzasi 3D geometriya bo‘lishi kerak.
-- Har bir ulanish nuqtasiga barqaror nom ber: `componentId.connectorId.pinId`. Masalan: `19.usb-c.port`, `02.can1.h`, `02.can1.l`.
-- Raycaster bilan pin yoki portni alohida tanlash mumkin bo‘lsin. Tanlangan ulanish nuqtasi yoritilsin va nomi o‘ng panelda ko‘rinsin.
-- Kabel aynan tanlangan pin/port koordinatasidan boshlansin. Komponent ko‘chirilsa yoki aylantirilsa kabelning boshlanish nuqtasi komponent bilan birga yangilansin.
-- Datasheet yoki original CAD bilan tasdiqlanmagan port/pinni o‘ylab topma. Tasdiqlanmagan modelni “Tekshirilmagan” deb belgilab, kabel ulashni blokla.
-- Jetson assetining yagona ruxsat etilgan identifikatori `jetson-p3737`. Uni `/data/model-assets.json` indeksidan yukla.
-- Jetson uchun faqat 35 ta `jetson-p3737.stl.gz.part-XX.b64` qismidan tiklanadigan, foydalanuvchi qabul qilgan P3737 modeli ishlatilsin.
-- Jetson yuklanmasa hech qanday eski OBJ, procedural radiator, oddiy quti, primitive, proxy yoki fallback geometriya yaratma. Jetsonni sahnaga qo‘shma va foydalanuvchiga “P3737 modeli yuklanmadi” xatosini ko‘rsat.
+- Kamera faqat ortografik bo‘lsin.
+- Qo‘lda kamera aylantirish o‘chirilgan holda qolsin: `OrbitControls.enableRotate = false`.
+- Foydalanuvchi `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` tugmalaridan birini tanlaganda dron aynan shu o‘q bo‘yicha ko‘rinsin.
+- `+Z/-Z` — tepa/past, `+X/-X` va `+Y/-Y` — old/orqa hamda chap/o‘ng texnik ko‘rinishlar.
+- Zoom va pan ishlasin, lekin perspektiva va erkin orbit rejimini qo‘shma.
+- Har bir o‘q tanlanganda dron avtomatik ravishda ekran markaziga sig‘dirilsin.
 
-## Muharrir
+## Dron modeli
 
-- STLLoader, OBJLoader, OrbitControls, TransformControls va Raycaster ishlat.
-- Foydalanuvchi komponentni sichqoncha bilan tanlasin.
-- Tanlangan komponentni ushlab istalgan joyga sudray olsin.
-- W — ko‘chirish, E — aylantirish, R — masshtablash.
-- Ko‘chirish vaqtida OrbitControls o‘chsin.
-- X/Y/Z koordinatalari, rotatsiya va o‘lchamlar o‘ng panelda millimetrda tahrirlansin.
-- Yuqoridan, oldindan, orqadan, chapdan, o‘ngdan va perspektiv kamera tugmalari bo‘lsin.
-- Dron shaffofligi, wireframe va yashirish boshqaruvlari bo‘lsin.
-- Komponentlarni lock, hide, reset va “inventarga qaytarish” mumkin bo‘lsin.
-- Joylashuv localStorage’da avtomatik saqlansin.
-- JSON import/export, CSV eksport va yuqori sifatli PNG eksport bo‘lsin.
+- Dron modeli `/data/model-assets.json` ichidagi `drone` assetidan yuklanadi.
+- Katta STL `/model-parts/drone.stl.gz.part-*.b64` qismlaridan `src/modelAssetLoader.ts` orqali tiklanadi.
+- Dron qanot oralig‘i avtomatik 3500 mm qilinadi.
+- Modelning tashqi shaklini o‘zgartirma va yangi taxminiy dron yaratma.
+- Shaffoflik, wireframe va ko‘rsatish/yashirish boshqaruvlari saqlansin.
 
-## Servolar
+## Komponentlar
 
-Savox servolar jami 8 ta: chap qanotda 2 ta, o‘ng qanotda 2 ta, old shassi buruvchi 1 ta, vertikal fin 1 ta, chap dum qanotchasi 1 ta va o‘ng dum qanotchasi 1 ta.
+- Model indeksi: `/data/model-assets.json`.
+- Ro‘yxat: `/data/component_manifest.csv`.
+- Rangli Holybro PM02D modeli: `/models/Holybro_PM02D_colored.glb`.
+- Katta assetlar gzip/base64 qismlardan mavjud loader yordamida tiklanadi.
+- Foydalanuvchi “Sahnaga qo‘shish” tugmasini bosmaguncha komponentni avtomatik joylashtirma.
+- Komponentlar Three.js `TransformControls` orqali ko‘chirilsin, burilsin va masshtablansin.
+- X/Y/Z pozitsiya millimetrda, burilish gradusda tahrirlansin.
+- Manifestda 20 turdagi, miqdorlar bilan jami 32 dona fizik komponent bor. Sahnada bundan ortiq komponent yaratma.
+- Har bir fizik obyekt faqat “Joylashtirilmagan” yoki “Sahnada” holatidan birida bo‘lsin. `Duplicate` funksiyasini qo‘shma.
+- “Inventarga qaytarish” obyektni o‘chirmaydi; uni sahnadan chiqarib, kutubxonadagi mavjud miqdorga qaytaradi.
+- JSON import manifestdagi `id`, asset va miqdorga mos kelmagan ortiqcha obyektlarni rad etsin.
+- Jetsonning yagona asset identifikatori `jetson-p3737`. U faqat 35 ta `jetson-p3737.stl.gz.part-XX.b64` qismidan tiklansin.
+- Jetson yuklanmasa OBJ, primitive, procedural, proksi yoki boshqa fallback model yaratma; “P3737 modeli yuklanmadi” xatosini ko‘rsat.
 
-Har bir komponent dastlab “Joylashtirilmagan komponentlar” panelida tursin. “Sahnaga qo‘shish” bosilganda kamera markazida paydo bo‘lsin. Foydalanuvchining o‘rniga dron ichiga taxminiy joylashtirma.
+## Model aniqligi va ulagichlar
 
-Bir fizik obyekt bir vaqtda faqat bitta holatda bo‘lsin: “Joylashtirilmagan” yoki “Sahnada”. Sahifani qayta yuklash, JSON import qilish va reset qilish komponentlarni ko‘paytirib yubormasin. JSON import manifestdagi id va instance indeksiga mos kelmagan obyektlarni rad etsin.
+- Oddiy quti, proksi yoki taxminiy geometriyani “100% real” deb ko‘rsatma.
+- Kabel chiqadigan elektr pinlari va portlari modelda ko‘rinadigan 3D geometriya bo‘lishi kerak.
+- Tasdiqlangan ulanish nuqtasiga `componentId.connectorId.pinId` formatida barqaror nom ber.
+- Raycaster pin yoki portni alohida tanlasin va tanlangan ulanish nuqtasini yoritib ko‘rsatsin.
+- Komponent ko‘chirilsa yoki burilsa kabelning unga bog‘langan uchi ham birga yangilansin.
+- Datasheet yoki original CAD bilan tasdiqlanmagan pin/portni o‘ylab topma. Bunday modelni “Tekshirilmagan” deb belgilab, elektr ulanishini blokla.
 
-Interfeys o‘zbek tilida, qoramtir aviatsiya muhandislik uslubida bo‘lsin. Ish tugagach barcha modellar yuklanishini, drag/rotate/scale, JSON va PNG eksportni tekshir.
+## Kabel montaji
+
+- “Yangi kabel boshlash” bosilganda kabel rejimi yoqilsin.
+- Birinchi va oxirgi nuqta faqat tasdiqlangan real pin yoki port ustiga bosib tanlansin.
+- Keyingi nuqtalar tanlangan ortografik o‘q tekisligida ketma-ket qo‘yilsin.
+- Nuqtalardan `CatmullRomCurve3` va `TubeGeometry` yordamida silliq kabel yaratiladi.
+- Kabel rangi va diametri foydalanuvchi tomonidan belgilanadi.
+- Kabel uzunligi millimetrda avtomatik hisoblanadi.
+- Oxirgi nuqtani qaytarish, yakunlash, bekor qilish va kabelni o‘chirish ishlasin.
+
+## Saqlash va eksport
+
+- Komponent transformlari va kabel nuqtalari `localStorage`’da saqlansin.
+- JSON import/export ishlasin.
+- Joriy ortografik ko‘rinishni shaffof dron, komponentlar va kabellar bilan PNG qilib eksport qilish ishlasin.
+- Interfeys o‘zbek tilida va qoramtir aviatsiya-muhandislik uslubida qolsin.
+
+## Tekshiruv
+
+O‘zgartirishdan keyin `npm run build` xatosiz tugashini tekshir. Barcha o‘q tugmalari, dron modeli, PM02D GLB, komponent tanlash/ko‘chirish va kabel chizishni sinab ko‘r. Mavjud ishlaydigan funksiyani olib tashlama.

@@ -1,11 +1,23 @@
 # Drone Avionics 3D Editor
 
-Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor UAV loyihasi.
+Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor UAV
+avionika va kabel montaji muharriri.
+
+## Ishlaydigan funksiyalar
+
+- `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` ortografik texnik ko‘rinishlar.
+- Kamera aylanishi qulflangan; zoom va pan ishlaydi.
+- Shaffof, konturli va 3500 mm ga masshtablangan haqiqiy dron STL modeli.
+- Komponentlarni kutubxonadan qo‘shish va TransformControls bilan joylashtirish.
+- Millimetrdagi X/Y/Z koordinatalari, gradusdagi burilish va masshtab nazorati.
+- Port/pin ustidan boshlanadigan ko‘p nuqtali rangli kabel chizish.
+- Kabel diametri va uzunligini millimetrda hisoblash.
+- localStorage, JSON import/eksport va PNG eksport.
+- Ranglari ichiga joylangan Holybro PM02D GLB modeli.
 
 ## Tarkib
 
-- public/models/drone.stl — original dron modeli.
-- public/models/*.obj — brauzerga tayyor avionika modellari.
+- public/models/* — brauzerga tayyor OBJ va rangli GLB avionika modellari.
 - public/data/component_manifest.csv — komponentlar ro‘yxati va miqdorlari.
 - public/data/model-assets.json — barcha 3D assetlar indeksi.
 - public/model-parts/*.b64 — katta modellar gzip/base64 qismlari.
@@ -19,10 +31,20 @@ Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor 
 3. Shu repository’ni import qiling.
 4. AI_STUDIO_PROMPT_UZ.md ichidagi promptni yuboring.
 
-Komponentlar avtomatik joylashtirilmasligi va ko‘paytirilmasligi kerak. Manifestda 20 turdagi, miqdorlar bilan jami 32 dona fizik komponent bor. Foydalanuvchi ularni TransformControls yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi.
+Komponentlar avtomatik joylashtirilmaydi. Foydalanuvchi ularni TransformControls
+yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi. Kamera erkin aylanmaydi;
+texnik ko‘rinish yuqoridagi o‘q tugmalari bilan tanlanadi.
 
-Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va portlarga ulanishi kerak. Tasdiqlanmagan ulanish nuqtasi o‘ylab topilmaydi va model “100% real” deb belgilanmaydi.
+Holybro PM02D original SolidWorks geometriyasidan GLB formatiga konvertatsiya qilingan
+va uning material ranglari fayl ichida saqlanadi. P3737 detailed assembly foydalanuvchi
+tomonidan loyiha Jetson kompyuteri sifatida qabul qilingan.
 
-Jetson uchun foydalanuvchi qabul qilgan `00_top_lvl_p3737_01142022.stp` asosidagi batafsil P3737 modeli ishlatiladi. Model GitHub cheklovlariga mos ravishda gzip/base64 qismlariga bo‘lingan va loader orqali asl STL geometriyasiga tiklanadi.
+Manifest inventarning yagona manbasi: 20 turdagi, jami 32 dona fizik komponentdan
+ortiq nusxa yaratilmaydi. Sahnadan chiqarilgan komponent inventarga qaytadi.
 
-Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun OBJ, procedural yoki fallback model saqlanmaydi va yaratilmaydi.
+Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va
+portga elektr ulanish sifatida belgilanadi. Tasdiqlanmagan sirt nuqtasi elektr porti
+deb ko‘rsatilmaydi.
+
+Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun OBJ,
+procedural, primitive yoki fallback model yaratilmaydi.

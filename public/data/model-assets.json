@@ -121,6 +121,10 @@
     "format": "obj",
     "path": "/models/pitot.obj"
   },
+  "pm02d": {
+    "format": "glb",
+    "path": "/models/Holybro_PM02D_colored.glb"
+  },
   "pm07": {
     "format": "obj",
     "path": "/models/pm07.obj"

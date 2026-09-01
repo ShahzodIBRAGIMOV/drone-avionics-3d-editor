@@ -5,7 +5,7 @@ id,component,quantity,preferred_web_file,original_source,notes
 04,MK32 HM30 Air Unit,1,hm30.obj,MK32 HM30 Air Unit.step,Datalink
 05,SIYI ZR10,1,zr10.obj,SIYI ZR10.STEP,ZR30 visual alternative accepted
 06,Matek BEC12S PRO,1,matek-bec.obj,Matek Systems BEC12S PRO.stp,Computer regulator
-07,PM07 Power Module,1,pm07.obj,1fc2584f-7f47-4939-af41-b1e71226baf7.STEP,PM02 visual alternative
+07,Holybro PM02 V3 12S,1,Holybro_PM02D_colored.glb,User Library-PM02D(1).sldprt,Colored GLB with XT60 connectors and cables
 08,TATTU 22000 mAh battery,1,tattu.obj,TATTU 22000 mAh TAA22K6S30ASX.STEP,6S geometry used as visual proxy
 09,4S avionics battery,1,avionics-battery.obj,4S 14.8V Li-PO Battery.STEP,Scale to target battery envelope
 10,SunnySky motor,2,motor.obj,SunnySky X2212 v3.step,Visual motor proxy
