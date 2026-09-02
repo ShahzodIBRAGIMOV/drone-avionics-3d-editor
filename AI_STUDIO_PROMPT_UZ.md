@@ -18,7 +18,7 @@ Ilova 3.5 metr qanot oralig‘iga ega twin-motor UAV ichida avionika komponentla
 ## Dron modeli
 
 - Dron modeli `/data/model-assets.json` ichidagi `drone` assetidan yuklanadi.
-- Katta STL `/model-parts/drone.stl.gz.part-*.b64` qismlaridan `src/modelAssetLoader.ts` orqali tiklanadi.
+- Tasdiqlangan GLB `/model-parts/uav-airframe-3p5m.glb.gz.part-aa.b64` faylidan `src/modelAssetLoader.ts` orqali tiklanadi.
 - Dron qanot oralig‘i avtomatik 3500 mm qilinadi.
 - Modelning tashqi shaklini o‘zgartirma va yangi taxminiy dron yaratma.
 - Shaffoflik, wireframe va ko‘rsatish/yashirish boshqaruvlari saqlansin.

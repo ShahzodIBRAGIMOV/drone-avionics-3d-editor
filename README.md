@@ -7,7 +7,7 @@ avionika va kabel montaji muharriri.
 
 - `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` ortografik texnik ko‘rinishlar.
 - Kamera aylanishi qulflangan; zoom va pan ishlaydi.
-- Shaffof, konturli va 3500 mm ga masshtablangan haqiqiy dron STL modeli.
+- Shaffof, konturli va 3500 mm ga masshtablangan tasdiqlangan dron GLB modeli.
 - Komponentlarni kutubxonadan qo‘shish va TransformControls bilan joylashtirish.
 - Millimetrdagi X/Y/Z koordinatalari, gradusdagi burilish va masshtab nazorati.
 - Port/pin ustidan boshlanadigan ko‘p nuqtali rangli kabel chizish.
@@ -21,7 +21,7 @@ avionika va kabel montaji muharriri.
 - public/data/component_manifest.csv — komponentlar ro‘yxati va miqdorlari.
 - public/data/model-assets.json — barcha 3D assetlar indeksi.
 - public/model-parts/*.b64 — katta modellar gzip/base64 qismlari.
-- src/modelAssetLoader.ts — qismlarni brauzerda asl STL/OBJ ko‘rinishiga qaytaruvchi loader.
+- src/modelAssetLoader.ts — qismlarni brauzerda asl GLB/STL/OBJ ko‘rinishiga qaytaruvchi loader.
 - AI_STUDIO_PROMPT_UZ.md — AI Studio uchun asosiy topshiriq.
 
 ## AI Studio

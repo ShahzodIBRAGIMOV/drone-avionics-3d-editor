@@ -1,21 +1,21 @@
 id,component,quantity,preferred_web_file,original_source,notes
-01,Drone airframe,1,,Drone.stl,3500 mm wingspan
-02,CUBE Orange ADS-B,1,cube-orange.obj,CUBE Orange ADS-B v2.step,Flight controller
-03,Here3 GPS,1,here3.obj,Here3 .step,Here4 visual alternative accepted
-04,MK32 HM30 Air Unit,1,hm30.obj,MK32 HM30 Air Unit.step,Datalink
-05,SIYI ZR10,1,zr10.obj,SIYI ZR10.STEP,ZR30 visual alternative accepted
-06,Matek BEC12S PRO,1,matek-bec.obj,Matek Systems BEC12S PRO.stp,Computer regulator
-07,Holybro PM02 V3 12S,1,Holybro_PM02D_colored.glb,User Library-PM02D(1).sldprt,Colored GLB with XT60 connectors and cables
-08,TATTU 22000 mAh battery,1,tattu.obj,TATTU 22000 mAh TAA22K6S30ASX.STEP,6S geometry used as visual proxy
-09,4S avionics battery,1,avionics-battery.obj,4S 14.8V Li-PO Battery.STEP,Scale to target battery envelope
-10,SunnySky motor,2,motor.obj,SunnySky X2212 v3.step,Visual motor proxy
+01,Drone airframe,1,,,3500 mm wingspan
+02,CUBE Orange ADS-B,1,cube-orange.obj,,Flight controller
+03,Here3 GPS,1,here3.obj,,Here4 visual alternative accepted
+04,MK32 HM30 Air Unit,1,hm30.obj,,Datalink
+05,SIYI ZR10,1,zr10.obj,,ZR30 visual alternative accepted
+06,Matek BEC12S PRO,1,matek-bec.obj,,Computer regulator
+07,Holybro PM02 V3 12S,1,Holybro_PM02D_colored.glb,,Colored GLB with XT60 connectors and cables
+08,TATTU 22000 mAh battery,1,tattu.obj,,6S geometry used as visual proxy
+09,4S avionics battery,1,avionics-battery.obj,,Scale to target battery envelope
+10,SunnySky motor,2,motor.obj,,Visual motor proxy
 11,AT115A ESC,2,esc.obj,,Engineering model from product drawing
-12,Savox servo,8,servo.obj,Savox 0236MG.stp,4 wing + steering + fin + 2 tailplane
-13,Holybro pitot tube,1,pitot.obj,Pitot Tube Holybro.step,Airspeed probe
+12,Savox servo,8,servo.obj,,4 wing + steering + fin + 2 tailplane
+13,Holybro pitot tube,1,pitot.obj,,Airspeed probe
 14,Holybro MS5525DSO module,1,airspeed-module.obj,,Engineering visual model
-15,Eagle Eye LED,2,led.obj,eagle_eye_LED_lamp_9W.stp,Left and right wingtip
-16,Emergency Stop,1,estop.obj,E-Stop_Assembled.stp,E-stop
+15,Eagle Eye LED,2,led.obj,,Left and right wingtip
+16,Emergency Stop,1,estop.obj,,E-stop
 17,Two-blade 20x10 propeller,2,propeller.obj,,Generated engineering model
-18,Hobbywing UBEC,2,hobbywing-ubec.obj,Hobbywing UBEC 12A v4(1).step,Original STEP geometry
-19,Jetson carrier assembly,1,jetson-p3737.stl,00_top_lvl_p3737_01142022.stp,P3737 detailed assembly accepted by user as the project Jetson computer
+18,Hobbywing UBEC,2,hobbywing-ubec.glb,,Original STEP geometry
+19,Jetson carrier assembly,1,jetson-p3737.stl,,P3737 detailed assembly accepted by user as the project Jetson computer
 20,SIYI 4-18S BEC HM30,1,siyi-bec.obj,,Generated engineering model

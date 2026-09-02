@@ -1,12 +1,8 @@
 {
   "drone": {
-    "format": "stl",
+    "format": "glb",
     "parts": [
-      "drone.stl.gz.part-aa.b64",
-      "drone.stl.gz.part-ab.b64",
-      "drone.stl.gz.part-ac.b64",
-      "drone.stl.gz.part-ad.b64",
-      "drone.stl.gz.part-ae.b64"
+      "uav-airframe-3p5m.glb.gz.part-aa.b64"
     ]
   },
   "airspeed-module": {
@@ -50,8 +46,10 @@
     ]
   },
   "hobbywing-ubec": {
-    "format": "obj",
-    "path": "/models/hobbywing-ubec.obj"
+    "format": "glb",
+    "parts": [
+      "hobbywing-ubec-12a-v4.glb.gz.part-aa.b64"
+    ]
   },
   "jetson-p3737": {
     "format": "stl",
@@ -124,10 +122,6 @@
   "pm02d": {
     "format": "glb",
     "path": "/models/Holybro_PM02D_colored.glb"
-  },
-  "pm07": {
-    "format": "obj",
-    "path": "/models/pm07.obj"
   },
   "propeller": {
     "format": "obj",
