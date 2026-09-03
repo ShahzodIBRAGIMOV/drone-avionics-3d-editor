@@ -1,0 +1,9 @@
+{
+  "id": "hm30",
+  "name": "MK32 HM30 Air Unit",
+  "model": "/models/hm30/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

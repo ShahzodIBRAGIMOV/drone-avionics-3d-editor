@@ -1,0 +1,9 @@
+{
+  "id": "zr10",
+  "name": "SIYI ZR10",
+  "model": "/models/zr10/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

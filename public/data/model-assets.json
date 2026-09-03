@@ -1,160 +1,86 @@
 {
   "drone": {
     "format": "glb",
-    "parts": [
-      "uav-airframe-3p8m.glb.gz.part-aa.b64"
-    ]
+    "path": "/models/drone/model.glb"
   },
   "airspeed-module": {
-    "format": "obj",
-    "path": "/models/airspeed-module.obj"
+    "format": "glb",
+    "path": "/models/airspeed-module/model.glb"
   },
   "avionics-battery": {
-    "format": "obj",
-    "parts": [
-      "avionics-battery.obj.gz.part-aa.b64"
-    ]
+    "format": "glb",
+    "path": "/models/avionics-battery/model.glb"
   },
   "cube-orange": {
-    "format": "obj",
-    "parts": [
-      "cube-orange.obj.gz.part-aa.b64",
-      "cube-orange.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/cube-orange/model.glb"
   },
   "esc": {
-    "format": "obj",
-    "path": "/models/esc.obj"
+    "format": "glb",
+    "path": "/models/esc/model.glb"
   },
   "estop": {
-    "format": "obj",
-    "parts": [
-      "estop.obj.gz.part-aa.b64"
-    ]
+    "format": "glb",
+    "path": "/models/estop/model.glb"
   },
   "here3": {
-    "format": "obj",
-    "parts": [
-      "here3.obj.gz.part-aa.b64"
-    ]
+    "format": "glb",
+    "path": "/models/here3/model.glb"
   },
   "hm30": {
-    "format": "obj",
-    "parts": [
-      "hm30.obj.gz.part-aa.b64",
-      "hm30.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/hm30/model.glb"
   },
   "hobbywing-ubec": {
     "format": "glb",
-    "parts": [
-      "hobbywing-ubec-12a-v4.glb.gz.part-aa.b64"
-    ]
+    "path": "/models/hobbywing-ubec/model.glb"
   },
   "jetson-p3737": {
-    "format": "stl",
-    "parts": [
-      "jetson-p3737.stl.gz.part-00.b64",
-      "jetson-p3737.stl.gz.part-01.b64",
-      "jetson-p3737.stl.gz.part-02.b64",
-      "jetson-p3737.stl.gz.part-03.b64",
-      "jetson-p3737.stl.gz.part-04.b64",
-      "jetson-p3737.stl.gz.part-05.b64",
-      "jetson-p3737.stl.gz.part-06.b64",
-      "jetson-p3737.stl.gz.part-07.b64",
-      "jetson-p3737.stl.gz.part-08.b64",
-      "jetson-p3737.stl.gz.part-09.b64",
-      "jetson-p3737.stl.gz.part-10.b64",
-      "jetson-p3737.stl.gz.part-11.b64",
-      "jetson-p3737.stl.gz.part-12.b64",
-      "jetson-p3737.stl.gz.part-13.b64",
-      "jetson-p3737.stl.gz.part-14.b64",
-      "jetson-p3737.stl.gz.part-15.b64",
-      "jetson-p3737.stl.gz.part-16.b64",
-      "jetson-p3737.stl.gz.part-17.b64",
-      "jetson-p3737.stl.gz.part-18.b64",
-      "jetson-p3737.stl.gz.part-19.b64",
-      "jetson-p3737.stl.gz.part-20.b64",
-      "jetson-p3737.stl.gz.part-21.b64",
-      "jetson-p3737.stl.gz.part-22.b64",
-      "jetson-p3737.stl.gz.part-23.b64",
-      "jetson-p3737.stl.gz.part-24.b64",
-      "jetson-p3737.stl.gz.part-25.b64",
-      "jetson-p3737.stl.gz.part-26.b64",
-      "jetson-p3737.stl.gz.part-27.b64",
-      "jetson-p3737.stl.gz.part-28.b64",
-      "jetson-p3737.stl.gz.part-29.b64",
-      "jetson-p3737.stl.gz.part-30.b64",
-      "jetson-p3737.stl.gz.part-31.b64",
-      "jetson-p3737.stl.gz.part-32.b64",
-      "jetson-p3737.stl.gz.part-33.b64",
-      "jetson-p3737.stl.gz.part-34.b64"
-    ]
+    "format": "glb",
+    "path": "/models/jetson-p3737/model.glb"
   },
   "led": {
-    "format": "obj",
-    "parts": [
-      "led.obj.gz.part-aa.b64",
-      "led.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/led/model.glb"
   },
   "matek-bec": {
-    "format": "obj",
-    "parts": [
-      "matek-bec.obj.gz.part-aa.b64",
-      "matek-bec.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/matek-bec/model.glb"
   },
   "motor": {
-    "format": "obj",
-    "parts": [
-      "motor.obj.gz.part-aa.b64",
-      "motor.obj.gz.part-ab.b64",
-      "motor.obj.gz.part-ac.b64",
-      "motor.obj.gz.part-ad.b64",
-      "motor.obj.gz.part-ae.b64"
-    ]
+    "format": "glb",
+    "path": "/models/motor/model.glb"
   },
   "pitot": {
-    "format": "obj",
-    "path": "/models/pitot.obj"
+    "format": "glb",
+    "path": "/models/pitot/model.glb"
   },
   "pm02d": {
     "format": "glb",
-    "path": "/models/Holybro_PM02D_colored.glb"
+    "path": "/models/pm02d/model.glb"
   },
   "propeller": {
-    "format": "obj",
-    "path": "/models/propeller.obj"
+    "format": "glb",
+    "path": "/models/propeller/model.glb"
   },
   "servo": {
-    "format": "obj",
-    "parts": [
-      "servo.obj.gz.part-aa.b64",
-      "servo.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/servo/model.glb"
   },
   "siyi-bec": {
-    "format": "obj",
-    "path": "/models/siyi-bec.obj"
+    "format": "glb",
+    "path": "/models/siyi-bec/model.glb"
   },
   "tattu": {
-    "format": "obj",
-    "parts": [
-      "tattu.obj.gz.part-aa.b64",
-      "tattu.obj.gz.part-ab.b64"
-    ]
+    "format": "glb",
+    "path": "/models/tattu/model.glb"
   },
   "zr10": {
-    "format": "obj",
-    "parts": [
-      "zr10.obj.gz.part-aa.b64"
-    ]
+    "format": "glb",
+    "path": "/models/zr10/model.glb"
   },
   "foldable-omni-antenna": {
     "format": "glb",
-    "parts": [
-      "foldable-omni-antenna-approx.glb.gz.part-aa.b64"
-    ]
+    "path": "/models/foldable-omni-antenna/model.glb"
   }
 }

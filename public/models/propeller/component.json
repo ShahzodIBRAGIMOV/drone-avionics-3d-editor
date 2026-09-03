@@ -1,0 +1,9 @@
+{
+  "id": "propeller",
+  "name": "Two-blade 20x10 propeller",
+  "model": "/models/propeller/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

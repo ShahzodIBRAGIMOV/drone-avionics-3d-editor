@@ -1,0 +1,9 @@
+{
+  "id": "servo",
+  "name": "Savox servo",
+  "model": "/models/servo/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

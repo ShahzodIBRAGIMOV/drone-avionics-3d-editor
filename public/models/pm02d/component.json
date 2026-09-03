@@ -1,0 +1,9 @@
+{
+  "id": "pm02d",
+  "name": "Holybro PM02 V3 12S",
+  "model": "/models/pm02d/model.glb",
+  "format": "glb",
+  "source_format": "glb",
+  "material_policy": "preserved",
+  "approval": "existing approved repository asset"
+}

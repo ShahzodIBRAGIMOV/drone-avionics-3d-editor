@@ -1,0 +1,9 @@
+{
+  "id": "tattu",
+  "name": "TATTU 22000 mAh battery",
+  "model": "/models/tattu/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

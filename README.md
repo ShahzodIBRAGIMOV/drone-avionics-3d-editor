@@ -13,15 +13,15 @@ avionika va kabel montaji muharriri.
 - Port/pin ustidan boshlanadigan ko‘p nuqtali rangli kabel chizish.
 - Kabel diametri va uzunligini millimetrda hisoblash.
 - localStorage, JSON import/eksport va PNG eksport.
-- Ranglari ichiga joylangan Holybro PM02D GLB modeli.
+- Har bir komponent alohida papkadagi, materiallari ichiga joylangan GLB modelidan yuklanadi.
 
 ## Tarkib
 
-- public/models/* — brauzerga tayyor OBJ va rangli GLB avionika modellari.
+- public/models/<asset-id>/model.glb — brauzerga tayyor, materiallari ichiga joylangan GLB modellari.
+- public/models/<asset-id>/component.json — model identifikatori va kelib chiqish formati.
 - public/data/component_manifest.csv — komponentlar ro‘yxati va miqdorlari.
 - public/data/model-assets.json — barcha 3D assetlar indeksi.
-- public/model-parts/*.b64 — katta modellar gzip/base64 qismlari.
-- src/modelAssetLoader.ts — qismlarni brauzerda asl GLB/STL/OBJ ko‘rinishiga qaytaruvchi loader.
+- src/modelAssetLoader.ts — GLB fayllarini to‘g‘ridan-to‘g‘ri yuklovchi loader.
 - AI_STUDIO_PROMPT_UZ.md — AI Studio uchun asosiy topshiriq.
 
 ## AI Studio
@@ -35,9 +35,10 @@ Komponentlar avtomatik joylashtirilmaydi. Foydalanuvchi ularni TransformControls
 yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi. Kamera erkin aylanmaydi;
 texnik ko‘rinish yuqoridagi o‘q tugmalari bilan tanlanadi.
 
-Holybro PM02D original SolidWorks geometriyasidan GLB formatiga konvertatsiya qilingan
-va uning material ranglari fayl ichida saqlanadi. P3737 detailed assembly foydalanuvchi
-tomonidan loyiha Jetson kompyuteri sifatida qabul qilingan.
+Mavjud GLB geometriya va materiallar o‘zgartirilmagan. Eski OBJ/STL assetlar geometriyasi
+o‘zgartirilmasdan GLB formatiga konvertatsiya qilinib, ilovadagi mavjud material ranglari
+fayl ichiga joylangan. P3737 detailed assembly foydalanuvchi tomonidan loyiha Jetson
+kompyuteri sifatida qabul qilingan.
 
 Manifest inventarning yagona manbasi: 21 turdagi, jami 33 dona fizik komponentdan
 ortiq nusxa yaratilmaydi. Sahnadan chiqarilgan komponent inventarga qaytadi.
@@ -46,5 +47,5 @@ Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pi
 portga elektr ulanish sifatida belgilanadi. Tasdiqlanmagan sirt nuqtasi elektr porti
 deb ko‘rsatilmaydi.
 
-Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun OBJ,
-procedural, primitive yoki fallback model yaratilmaydi.
+Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun procedural,
+primitive yoki fallback model yaratilmaydi.

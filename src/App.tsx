@@ -2,8 +2,6 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
-import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
-import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { loadModelAsset, loadModelIndex, ModelAsset } from "./modelAssetLoader";
 
@@ -77,29 +75,6 @@ const STORAGE_KEY = "uav-avionics-editor-v2";
 const DEG = 180 / Math.PI;
 const RAD = Math.PI / 180;
 
-const COMPONENT_COLORS: Record<string, number> = {
-  "cube-orange": 0xf26a21,
-  here3: 0xd8dce0,
-  hm30: 0x28343d,
-  zr10: 0x25292d,
-  "matek-bec": 0x2f7651,
-  pm07: 0x1d1f22,
-  pm02d: 0x2a2d30,
-  tattu: 0x191919,
-  "avionics-battery": 0x28537c,
-  motor: 0x22262a,
-  esc: 0x1e2429,
-  servo: 0x17191b,
-  pitot: 0xb9c0c4,
-  "airspeed-module": 0x365d45,
-  led: 0xcfd4d7,
-  estop: 0xd92d28,
-  propeller: 0x151719,
-  "hobbywing-ubec": 0x254d74,
-  "jetson-p3737": 0x34383c,
-  "siyi-bec": 0x1b2025,
-};
-
 function parseCsv(text: string): ComponentDefinition[] {
   const rows = text.trim().split(/\r?\n/).filter(Boolean);
   const headers = rows.shift()?.split(",") ?? [];
@@ -163,36 +138,14 @@ function makeCableMesh(points: THREE.Vector3[], color: string, diameter: number)
   return { mesh, length: curve.getLength() };
 }
 
-async function createModelObject(asset: ModelAsset, key: string) {
+async function createModelObject(asset: ModelAsset) {
   const buffer = await loadModelAsset(asset);
-  let source: THREE.Object3D;
-  if (asset.format === "stl") {
-    const geometry = new STLLoader().parse(buffer);
-    geometry.computeVertexNormals();
-    const material = new THREE.MeshStandardMaterial({
-      color: COMPONENT_COLORS[key] ?? 0x7c8b92,
-      roughness: 0.52,
-      metalness: key === "jetson-p3737" ? 0.38 : 0.1,
-    });
-    source = new THREE.Mesh(geometry, material);
-  } else if (asset.format === "glb") {
-    source = (await new GLTFLoader().parseAsync(buffer, "")).scene;
-  } else {
-    source = new OBJLoader().parse(new TextDecoder().decode(buffer));
-  }
+  const source = (await new GLTFLoader().parseAsync(buffer, "")).scene;
 
   source.traverse((child) => {
     if (!(child instanceof THREE.Mesh)) return;
     child.castShadow = true;
     child.receiveShadow = true;
-    if (asset.format !== "glb") {
-      const current = Array.isArray(child.material) ? child.material[0] : child.material;
-      child.material = new THREE.MeshStandardMaterial({
-        color: current?.color ?? new THREE.Color(COMPONENT_COLORS[key] ?? 0x7c8b92),
-        roughness: 0.5,
-        metalness: key.includes("jetson") || key === "pitot" ? 0.34 : 0.08,
-      });
-    }
   });
   return source;
 }
@@ -378,7 +331,7 @@ export default function App() {
     }
     setStatus(`${name} yuklanmoqda…`);
     try {
-      const source = await createModelObject(asset, assetKey);
+      const source = await createModelObject(asset);
       const wrapper = new THREE.Group();
       const sourceCenter = new THREE.Box3().setFromObject(source).getCenter(new THREE.Vector3());
       source.position.sub(sourceCenter);
@@ -780,7 +733,7 @@ export default function App() {
         const parsedDefinitions = parseCsv(manifestText);
         runtime.inventoryLimits = Object.fromEntries(parsedDefinitions.filter((item) => item.id !== "01").map((item) => [assetKeyFor(item), item.quantity]));
         setDefinitions(parsedDefinitions);
-        const droneSource = await createModelObject(index.drone, "drone");
+        const droneSource = await createModelObject(index.drone);
         const sourceSize = new THREE.Box3().setFromObject(droneSource).getSize(new THREE.Vector3());
         droneSource.scale.setScalar(3800 / sourceSize.x);
         droneSource.rotation.set(Math.PI / 2, 0, Math.PI / 2, "XYZ");

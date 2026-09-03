@@ -1,0 +1,9 @@
+{
+  "id": "matek-bec",
+  "name": "Matek BEC12S PRO",
+  "model": "/models/matek-bec/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

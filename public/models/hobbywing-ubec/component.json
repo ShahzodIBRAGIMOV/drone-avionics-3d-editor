@@ -1,0 +1,9 @@
+{
+  "id": "hobbywing-ubec",
+  "name": "Hobbywing UBEC",
+  "model": "/models/hobbywing-ubec/model.glb",
+  "format": "glb",
+  "source_format": "glb",
+  "material_policy": "preserved",
+  "approval": "existing approved repository asset"
+}

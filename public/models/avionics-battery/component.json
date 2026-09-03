@@ -1,0 +1,9 @@
+{
+  "id": "avionics-battery",
+  "name": "4S avionics battery",
+  "model": "/models/avionics-battery/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

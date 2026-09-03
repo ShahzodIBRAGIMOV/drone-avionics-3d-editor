@@ -18,7 +18,7 @@ Ilova 3.8 metr qanot oralig‘i va 2.55 metr fyuzelyaj uzunligiga ega twin-motor
 ## Dron modeli
 
 - Dron modeli `/data/model-assets.json` ichidagi `drone` assetidan yuklanadi.
-- Tasdiqlangan GLB `/model-parts/uav-airframe-3p8m.glb.gz.part-aa.b64` faylidan `src/modelAssetLoader.ts` orqali tiklanadi.
+- Tasdiqlangan GLB `/models/drone/model.glb` faylidan `src/modelAssetLoader.ts` orqali yuklanadi.
 - Dron qanot oralig‘i avtomatik 3800 mm qilinadi.
 - GLB Y-up koordinatalarda: X — qanot oralig‘i, Y — balandlik, Z — fyuzelyaj uzunligi. Ilovada dronni tekis joylashtirish uchun X bo‘yicha +90° va Z bo‘yicha +90° aylantir.
 - Modelning tashqi shaklini o‘zgartirma va yangi taxminiy dron yaratma.
@@ -28,8 +28,9 @@ Ilova 3.8 metr qanot oralig‘i va 2.55 metr fyuzelyaj uzunligiga ega twin-motor
 
 - Model indeksi: `/data/model-assets.json`.
 - Ro‘yxat: `/data/component_manifest.csv`.
-- Rangli Holybro PM02D modeli: `/models/Holybro_PM02D_colored.glb`.
-- Katta assetlar gzip/base64 qismlardan mavjud loader yordamida tiklanadi.
+- Har bir asset faqat `/models/<asset-id>/model.glb` yo‘lidan yuklanadi.
+- Har bir modelning identifikatori va manba formati shu papkadagi `component.json` faylida saqlanadi.
+- Eski OBJ, STL, gzip/base64 bo‘laklar yoki tashqi tekstura fayllarini qayta yaratma.
 - Foydalanuvchi “Sahnaga qo‘shish” tugmasini bosmaguncha komponentni avtomatik joylashtirma.
 - Komponentlar Three.js `TransformControls` orqali ko‘chirilsin, burilsin va masshtablansin.
 - X/Y/Z pozitsiya millimetrda, burilish gradusda tahrirlansin.
@@ -37,8 +38,8 @@ Ilova 3.8 metr qanot oralig‘i va 2.55 metr fyuzelyaj uzunligiga ega twin-motor
 - Har bir fizik obyekt faqat “Joylashtirilmagan” yoki “Sahnada” holatidan birida bo‘lsin. `Duplicate` funksiyasini qo‘shma.
 - “Inventarga qaytarish” obyektni o‘chirmaydi; uni sahnadan chiqarib, kutubxonadagi mavjud miqdorga qaytaradi.
 - JSON import manifestdagi `id`, asset va miqdorga mos kelmagan ortiqcha obyektlarni rad etsin.
-- Jetsonning yagona asset identifikatori `jetson-p3737`. U faqat 35 ta `jetson-p3737.stl.gz.part-XX.b64` qismidan tiklansin.
-- Jetson yuklanmasa OBJ, primitive, procedural, proksi yoki boshqa fallback model yaratma; “P3737 modeli yuklanmadi” xatosini ko‘rsat.
+- Jetsonning yagona asset identifikatori `jetson-p3737`. U faqat `/models/jetson-p3737/model.glb` faylidan yuklansin.
+- Jetson yuklanmasa primitive, procedural, proksi yoki boshqa fallback model yaratma; “P3737 modeli yuklanmadi” xatosini ko‘rsat.
 
 ## Model aniqligi va ulagichlar
 

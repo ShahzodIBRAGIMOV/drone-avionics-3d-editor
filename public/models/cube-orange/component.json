@@ -1,0 +1,9 @@
+{
+  "id": "cube-orange",
+  "name": "CUBE Orange ADS-B",
+  "model": "/models/cube-orange/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

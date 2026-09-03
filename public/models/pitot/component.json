@@ -1,0 +1,9 @@
+{
+  "id": "pitot",
+  "name": "Holybro pitot tube",
+  "model": "/models/pitot/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

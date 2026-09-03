@@ -1,0 +1,9 @@
+{
+  "id": "foldable-omni-antenna",
+  "name": "Foldable omni antenna",
+  "model": "/models/foldable-omni-antenna/model.glb",
+  "format": "glb",
+  "source_format": "glb",
+  "material_policy": "preserved",
+  "approval": "existing approved repository asset"
+}

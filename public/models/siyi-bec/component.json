@@ -1,0 +1,9 @@
+{
+  "id": "siyi-bec",
+  "name": "SIYI 4-18S BEC HM30",
+  "model": "/models/siyi-bec/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

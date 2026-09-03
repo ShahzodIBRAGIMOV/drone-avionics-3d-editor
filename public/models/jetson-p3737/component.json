@@ -1,0 +1,10 @@
+{
+  "id": "jetson-p3737",
+  "name": "Jetson carrier assembly",
+  "model": "/models/jetson-p3737/model.glb",
+  "format": "glb",
+  "source_format": "stl",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset",
+  "geometry_optimization": "web-optimized 500k-face mesh; original bounds preserved"
+}

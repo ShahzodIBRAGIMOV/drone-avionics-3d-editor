@@ -1,0 +1,9 @@
+{
+  "id": "estop",
+  "name": "Emergency Stop",
+  "model": "/models/estop/model.glb",
+  "format": "glb",
+  "source_format": "obj",
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset"
+}

@@ -1,22 +1,22 @@
-id,component,quantity,preferred_web_file,original_source,notes
-01,Drone airframe,1,,,3800 mm wingspan; 2550 mm fuselage length; approved user GLB
-02,CUBE Orange ADS-B,1,cube-orange.obj,,Flight controller
-03,Here3 GPS,1,here3.obj,,Here4 visual alternative accepted
-04,MK32 HM30 Air Unit,1,hm30.obj,,Datalink
-05,SIYI ZR10,1,zr10.obj,,ZR30 visual alternative accepted
-06,Matek BEC12S PRO,1,matek-bec.obj,,Computer regulator
-07,Holybro PM02 V3 12S,1,Holybro_PM02D_colored.glb,,Colored GLB with XT60 connectors and cables
-08,TATTU 22000 mAh battery,1,tattu.obj,,6S geometry used as visual proxy
-09,4S avionics battery,1,avionics-battery.obj,,Scale to target battery envelope
-10,SunnySky motor,2,motor.obj,,Visual motor proxy
-11,AT115A ESC,2,esc.obj,,Engineering model from product drawing
-12,Savox servo,8,servo.obj,,4 wing + steering + fin + 2 tailplane
-13,Holybro pitot tube,1,pitot.obj,,Airspeed probe
-14,Holybro MS5525DSO module,1,airspeed-module.obj,,Engineering visual model
-15,Eagle Eye LED,2,led.obj,,Left and right wingtip
-16,Emergency Stop,1,estop.obj,,E-stop
-17,Two-blade 20x10 propeller,2,propeller.obj,,Generated engineering model
-18,Hobbywing UBEC,2,hobbywing-ubec.glb,,Original STEP geometry
-19,Jetson carrier assembly,1,jetson-p3737.stl,,P3737 detailed assembly accepted by user as the project Jetson computer
-20,SIYI 4-18S BEC HM30,1,siyi-bec.obj,,Generated engineering model
-21,Foldable omni antenna,1,foldable-omni-antenna.glb,,User-approved approximate visual model; 146.5 mm high; SMA-style connector
+id,component,quantity,preferred_web_file,original_source,notes,asset_key
+01,Drone airframe,1,/models/drone/model.glb,,3800 mm wingspan; 2550 mm fuselage length; approved user GLB,drone
+02,CUBE Orange ADS-B,1,/models/cube-orange/model.glb,,Flight controller,cube-orange
+03,Here3 GPS,1,/models/here3/model.glb,,Here4 visual alternative accepted,here3
+04,MK32 HM30 Air Unit,1,/models/hm30/model.glb,,Datalink,hm30
+05,SIYI ZR10,1,/models/zr10/model.glb,,ZR30 visual alternative accepted,zr10
+06,Matek BEC12S PRO,1,/models/matek-bec/model.glb,,Computer regulator,matek-bec
+07,Holybro PM02 V3 12S,1,/models/pm02d/model.glb,,Colored GLB with XT60 connectors and cables,pm02d
+08,TATTU 22000 mAh battery,1,/models/tattu/model.glb,,6S geometry used as visual proxy,tattu
+09,4S avionics battery,1,/models/avionics-battery/model.glb,,Scale to target battery envelope,avionics-battery
+10,SunnySky motor,2,/models/motor/model.glb,,Visual motor proxy,motor
+11,AT115A ESC,2,/models/esc/model.glb,,Engineering model from product drawing,esc
+12,Savox servo,8,/models/servo/model.glb,,4 wing + steering + fin + 2 tailplane,servo
+13,Holybro pitot tube,1,/models/pitot/model.glb,,Airspeed probe,pitot
+14,Holybro MS5525DSO module,1,/models/airspeed-module/model.glb,,Engineering visual model,airspeed-module
+15,Eagle Eye LED,2,/models/led/model.glb,,Left and right wingtip,led
+16,Emergency Stop,1,/models/estop/model.glb,,E-stop,estop
+17,Two-blade 20x10 propeller,2,/models/propeller/model.glb,,Generated engineering model,propeller
+18,Hobbywing UBEC,2,/models/hobbywing-ubec/model.glb,,Original STEP geometry,hobbywing-ubec
+19,Jetson carrier assembly,1,/models/jetson-p3737/model.glb,,P3737 detailed assembly accepted by user as the project Jetson computer,jetson-p3737
+20,SIYI 4-18S BEC HM30,1,/models/siyi-bec/model.glb,,Generated engineering model,siyi-bec
+21,Foldable omni antenna,1,/models/foldable-omni-antenna/model.glb,,User-approved visual model; 146.5 mm high; SMA-style connector,foldable-omni-antenna
