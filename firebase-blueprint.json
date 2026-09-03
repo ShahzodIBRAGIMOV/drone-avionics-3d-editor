@@ -1,0 +1,28 @@
+{
+  "entities": {
+    "DroneProject": {
+      "title": "Drone Avionics Project",
+      "description": "3D drone avionics layout and cable connections",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "cloudCode": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "instances": { "type": "array" },
+        "cables": { "type": "array" },
+        "droneFrame": { "type": "object" },
+        "thumbnailUrl": { "type": "string" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "name", "cloudCode", "instances"]
+    }
+  },
+  "firestore": {
+    "/drone_projects/{projectId}": {
+      "entity": "DroneProject",
+      "description": "Collection of saved drone avionics projects accessible across devices"
+    }
+  }
+}

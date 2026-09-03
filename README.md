@@ -1,27 +1,15 @@
 # Drone Avionics 3D Editor
 
-Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.8 metr qanot oralig‘i va 2.55 metr fyuzelyaj uzunligiga ega twin-motor UAV
-avionika va kabel montaji muharriri.
-
-## Ishlaydigan funksiyalar
-
-- `+X`, `-X`, `+Y`, `-Y`, `+Z`, `-Z` ortografik texnik ko‘rinishlar.
-- Kamera aylanishi qulflangan; zoom va pan ishlaydi.
-- Shaffof, konturli va 3800 mm qanot oralig‘iga masshtablangan tasdiqlangan dron GLB modeli.
-- Komponentlarni kutubxonadan qo‘shish va TransformControls bilan joylashtirish.
-- Millimetrdagi X/Y/Z koordinatalari, gradusdagi burilish va masshtab nazorati.
-- Port/pin ustidan boshlanadigan ko‘p nuqtali rangli kabel chizish.
-- Kabel diametri va uzunligini millimetrda hisoblash.
-- localStorage, JSON import/eksport va PNG eksport.
-- Har bir komponent alohida papkadagi, materiallari ichiga joylangan GLB modelidan yuklanadi.
+Google AI Studio orqali rivojlantirish uchun tayyorlangan 3.5 metrli twin-motor UAV loyihasi.
 
 ## Tarkib
 
-- public/models/<asset-id>/model.glb — brauzerga tayyor, materiallari ichiga joylangan GLB modellari.
-- public/models/<asset-id>/component.json — model identifikatori va kelib chiqish formati.
+- public/models/drone.stl — original dron modeli.
+- public/models/*.obj — brauzerga tayyor avionika modellari.
 - public/data/component_manifest.csv — komponentlar ro‘yxati va miqdorlari.
 - public/data/model-assets.json — barcha 3D assetlar indeksi.
-- src/modelAssetLoader.ts — GLB fayllarini to‘g‘ridan-to‘g‘ri yuklovchi loader.
+- public/model-parts/*.b64 — katta modellar gzip/base64 qismlari.
+- src/modelAssetLoader.ts — qismlarni brauzerda asl STL/OBJ ko‘rinishiga qaytaruvchi loader.
 - AI_STUDIO_PROMPT_UZ.md — AI Studio uchun asosiy topshiriq.
 
 ## AI Studio
@@ -31,21 +19,10 @@ avionika va kabel montaji muharriri.
 3. Shu repository’ni import qiling.
 4. AI_STUDIO_PROMPT_UZ.md ichidagi promptni yuboring.
 
-Komponentlar avtomatik joylashtirilmaydi. Foydalanuvchi ularni TransformControls
-yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi. Kamera erkin aylanmaydi;
-texnik ko‘rinish yuqoridagi o‘q tugmalari bilan tanlanadi.
+Komponentlar avtomatik joylashtirilmasligi va ko‘paytirilmasligi kerak. Manifestda 20 turdagi, miqdorlar bilan jami 32 dona fizik komponent bor. Foydalanuvchi ularni TransformControls yordamida qo‘lda ko‘chiradi, aylantiradi va masshtablaydi.
 
-Mavjud GLB geometriya va materiallar o‘zgartirilmagan. Eski OBJ/STL assetlar geometriyasi
-o‘zgartirilmasdan GLB formatiga konvertatsiya qilinib, ilovadagi mavjud material ranglari
-fayl ichiga joylangan. P3737 detailed assembly foydalanuvchi tomonidan loyiha Jetson
-kompyuteri sifatida qabul qilingan.
+Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va portlarga ulanishi kerak. Tasdiqlanmagan ulanish nuqtasi o‘ylab topilmaydi va model “100% real” deb belgilanmaydi.
 
-Manifest inventarning yagona manbasi: 21 turdagi, jami 33 dona fizik komponentdan
-ortiq nusxa yaratilmaydi. Sahnadan chiqarilgan komponent inventarga qaytadi.
+Jetson uchun foydalanuvchi qabul qilgan `00_top_lvl_p3737_01142022.stp` asosidagi batafsil P3737 modeli ishlatiladi. Model GitHub cheklovlariga mos ravishda gzip/base64 qismlariga bo‘lingan va loader orqali asl STL geometriyasiga tiklanadi.
 
-Kabel faqat datasheet yoki original CAD bilan tasdiqlangan, ko‘rinadigan 3D pin va
-portga elektr ulanish sifatida belgilanadi. Tasdiqlanmagan sirt nuqtasi elektr porti
-deb ko‘rsatilmaydi.
-
-Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun procedural,
-primitive yoki fallback model yaratilmaydi.
+Jetsonning yagona asset identifikatori `jetson-p3737`. Loyihada Jetson uchun OBJ, procedural yoki fallback model saqlanmaydi va yaratilmaydi.

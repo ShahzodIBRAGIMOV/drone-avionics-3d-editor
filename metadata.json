@@ -1,0 +1,8 @@
+{
+  "name": "Dron Avionika 3D Editor",
+  "description": "3.8 M Twin-Motor UAV uchun 3D avionika komponentlarini joylashtirish va tahrirlash muharriri",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
