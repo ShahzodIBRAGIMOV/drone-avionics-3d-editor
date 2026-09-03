@@ -150,5 +150,11 @@
     "parts": [
       "zr10.obj.gz.part-aa.b64"
     ]
+  },
+  "foldable-omni-antenna": {
+    "format": "glb",
+    "parts": [
+      "foldable-omni-antenna-approx.glb.gz.part-aa.b64"
+    ]
   }
 }

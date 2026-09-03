@@ -19,3 +19,4 @@ id,component,quantity,preferred_web_file,original_source,notes
 18,Hobbywing UBEC,2,hobbywing-ubec.glb,,Original STEP geometry
 19,Jetson carrier assembly,1,jetson-p3737.stl,,P3737 detailed assembly accepted by user as the project Jetson computer
 20,SIYI 4-18S BEC HM30,1,siyi-bec.obj,,Generated engineering model
+21,Foldable omni antenna,1,foldable-omni-antenna.glb,,User-approved approximate visual model; 146.5 mm high; SMA-style connector
