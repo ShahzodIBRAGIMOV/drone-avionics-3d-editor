@@ -1,10 +1,11 @@
 {
   "id": "jetson-p3737",
   "name": "Jetson carrier assembly",
-  "model": "/models/jetson-p3737/model.glb",
+  "model": "/models/jetson-p3737/parts/model.glb.gz.part-*.b64",
   "format": "glb",
   "source_format": "stl",
   "material_policy": "existing application material embedded",
   "approval": "existing approved repository asset",
-  "geometry_optimization": "web-optimized 500k-face mesh; original bounds preserved"
+  "geometry_optimization": "none; full 1,275,137-face P3737 geometry restored",
+  "source_sha256": "5b806628b09b1bcb990dac783b9e3940868052214aa0adc36acd69b4e84ec42c"
 }
