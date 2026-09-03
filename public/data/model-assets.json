@@ -1,7 +1,7 @@
 {
   "drone": {
     "format": "glb",
-    "path": "/models/drone/model.glb"
+    "path": "/models/drone/model.glb?v=8334383e79073810"
   },
   "airspeed-module": {
     "format": "glb",
