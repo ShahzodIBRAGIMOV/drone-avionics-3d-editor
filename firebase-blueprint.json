@@ -14,7 +14,11 @@
         "cables": { "type": "array" },
         "droneFrame": { "type": "object" },
         "thumbnailUrl": { "type": "string" },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "lastUpdatedByClientId": { "type": "string" },
+        "customManifest": { "type": "array" },
+        "customModels": { "type": "object" },
+        "sceneTheme": { "type": "string" }
       },
       "required": ["id", "name", "cloudCode", "instances"]
     }

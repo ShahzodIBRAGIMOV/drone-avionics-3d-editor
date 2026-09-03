@@ -187,7 +187,7 @@ const SHORTCUT_LIST: ShortcutItem[] = [
     category: "actions",
     keys: ["Ctrl", "S"],
     title: "Loyihani saqlash (Quick Save)",
-    description: "Hozirgi barcha koordinata va ulanishlarni JSON faylga eksport qilish",
+    description: "Loyihani xotiraga va bulutga darhol saqlash hamda yangilash (Ctrl+S / Cmd+S)",
   },
   {
     id: "help-toggle",

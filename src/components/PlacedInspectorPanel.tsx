@@ -37,6 +37,8 @@ import {
   Ruler,
   Percent,
   Edit3,
+  RefreshCw,
+  Box,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, CableRoutePoint, PinDefinition } from "../types";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
@@ -97,6 +99,9 @@ interface PlacedInspectorPanelProps {
   onDeleteCableRoutePoint?: (cableId: string, pointId: string) => void;
   onStraightenCable?: (cableId: string) => void;
   onCollapse?: () => void;
+  onReloadJetson?: () => void;
+  isReloadingJetson?: boolean;
+  onChangeModel?: (componentId: string) => void;
 }
 
 const PRESET_COMPONENT_COLORS = [
@@ -487,6 +492,9 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   onDeleteCableRoutePoint,
   onStraightenCable,
   onCollapse,
+  onReloadJetson,
+  isReloadingJetson = false,
+  onChangeModel,
 }) => {
   const [activeTab, setActiveTab] = useState<"inspector" | "pins" | "cables">("inspector");
 
@@ -975,6 +983,30 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                       >
                         <ClipboardPaste size={14} />
                         <span>Joylash (Ctrl+V)</span>
+                      </button>
+                    )}
+
+                    {selectedInstance.componentId === "19" && onReloadJetson && (
+                      <button
+                        id={`btn-reload-jetson-${selectedInstance.instanceId}`}
+                        className="inst-tool-btn"
+                        onClick={onReloadJetson}
+                        title="Jetson P3737 3D modelini xotiradan tozalab, yangidan yuklash"
+                      >
+                        <RefreshCw size={14} className={isReloadingJetson ? "animate-spin text-cyan-400" : "text-cyan-400"} />
+                        <span className="text-cyan-300">Jetsonni yangilash</span>
+                      </button>
+                    )}
+
+                    {onChangeModel && (
+                      <button
+                        id={`btn-change-model-${selectedInstance.instanceId}`}
+                        className="inst-tool-btn"
+                        onClick={() => onChangeModel(selectedInstance.componentId)}
+                        title="Ushbu komponent uchun 3D modelni o‘zgartirish yoki yangi model yuklash"
+                      >
+                        <Box size={14} className="text-cyan-400" />
+                        <span className="text-cyan-300">Modelni almashtirish</span>
                       </button>
                     )}
 

@@ -526,7 +526,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     dirLight1.shadow.camera.right = 2200;
     dirLight1.shadow.camera.top = 2200;
     dirLight1.shadow.camera.bottom = -2200;
-    dirLight1.shadow.bias = -0.0002;
+    dirLight1.shadow.bias = -0.00005;
+    dirLight1.shadow.normalBias = 0.05;
     scene.add(dirLight1);
     dirLight1Ref.current = dirLight1;
 
@@ -1000,11 +1001,19 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     placedInstances.forEach(async (inst) => {
       let mesh = currentMeshes.get(inst.instanceId);
 
+      // If model version changed or component changed, remove old 3D mesh and re-instantiate
+      if (mesh && (mesh.userData.modelVersion !== inst.modelVersion || mesh.userData.componentId !== inst.componentId)) {
+        scene.remove(mesh);
+        currentMeshes.delete(inst.instanceId);
+        mesh = undefined;
+      }
+
       if (!mesh) {
         try {
           // Ensure template is loaded
           await modelManager.loadModelTemplate(inst.componentId);
           mesh = modelManager.createInstanceMesh(inst.componentId, inst.instanceId);
+          mesh.userData.modelVersion = inst.modelVersion;
           scene.add(mesh);
           currentMeshes.set(inst.instanceId, mesh);
         } catch (err) {
@@ -1038,15 +1047,26 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             if (!mat) return;
             const stdMat = mat as THREE.MeshStandardMaterial;
             if (stdMat.color) {
-              const effectiveColor = isAirframeInst
-                ? (inst.customColor || droneColor || "#cbd5e1")
-                : (inst.customColor || null);
-              if (effectiveColor) {
-                stdMat.color.set(effectiveColor);
-              } else if (stdMat.userData?.origColor !== undefined) {
-                stdMat.color.setHex(stdMat.userData.origColor);
-              } else if (inst.colorHint) {
-                stdMat.color.set(inst.colorHint);
+              if (isAirframeInst) {
+                if (inst.customColor) {
+                  stdMat.color.set(inst.customColor);
+                } else if (droneColor && droneColor !== "original" && droneColor !== "#cbd5e1") {
+                  stdMat.color.set(droneColor);
+                } else {
+                  // Authentic original drone colors (fuselage navy, wings blue, tail accents)
+                  if (stdMat.vertexColors || stdMat.userData?.hasVertexColors || meshObj.geometry?.attributes?.color) {
+                    stdMat.vertexColors = true;
+                    stdMat.color.setHex(0xffffff);
+                  } else if (stdMat.userData?.origColor !== undefined) {
+                    stdMat.color.setHex(stdMat.userData.origColor);
+                  }
+                }
+              } else {
+                if (inst.customColor) {
+                  stdMat.color.set(inst.customColor);
+                } else if (stdMat.userData?.origColor !== undefined) {
+                  stdMat.color.setHex(stdMat.userData.origColor);
+                }
               }
             }
 

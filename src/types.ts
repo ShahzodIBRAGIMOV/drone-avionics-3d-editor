@@ -53,6 +53,8 @@ export type PhysicalInstance = {
   attachedToDrone?: boolean; // Whether mechanically attached / mounted to drone airframe
   droneRelativePos?: [number, number, number]; // Local offset [X, Y, Z] relative to drone center in mm
   droneRelativeRot?: [number, number, number]; // Local rotation [Pitch, Yaw, Roll] relative to drone in degrees
+  modelVersion?: number; // Monotonically increasing or timestamp version for 3D model hot-reload
+  customModelName?: string; // Display name of custom loaded 3D model
 };
 
 export type CableConstruction =
@@ -269,6 +271,9 @@ export interface CloudProjectData {
   cloudCode: string; // e.g. "DRN-8392"
   createdAt: string;
   updatedAt: string;
+  lastUpdatedByClientId?: string;
+  isManualSave?: boolean;
+  manualSaveTimestamp?: number;
   instances: PhysicalInstance[];
   cables: CableConnection[];
   droneFrame?: {
@@ -279,6 +284,10 @@ export interface CloudProjectData {
   };
   thumbnailUrl?: string;
   notes?: string;
+  customManifest?: ComponentManifestItem[];
+  customModels?: Record<string, any>;
+  sceneTheme?: string;
+  cameraViewMode?: string;
 }
 
 export interface CloudProjectSummary {

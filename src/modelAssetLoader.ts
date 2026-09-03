@@ -8,12 +8,57 @@ export type ModelAsset = {
 const memoryCache = new Map<string, ArrayBuffer>();
 let indexMemoryCache: Record<string, ModelAsset> | null = null;
 
-const CACHE_NAME = "drone-models-persistent-cache-v7";
+const CACHE_NAME = "drone-models-persistent-cache-v8";
 const CACHE_PREFIX = "https://drone-storage.internal/models/";
-const DB_NAME = "DroneAvionicsModelsCache_v7";
+const DB_NAME = "DroneAvionicsModelsCache_v8";
 const STORE_NAME = "model_buffers";
-const INDEX_CACHE_KEY = "drone_model_index_cache_v7";
-const INDEX_URL = "/data/model-assets.json?v=p3737-user-b5f93448";
+
+// Purge any legacy drone model cache entries (old STL or unversioned GLB)
+export async function purgeLegacyDroneCaches(): Promise<void> {
+  try {
+    localStorage.removeItem("drone_model_index_cache");
+    localStorage.removeItem("drone_model_index_cache_v5");
+    localStorage.removeItem("drone_model_index_cache_v6");
+    localStorage.removeItem("drone_model_index_cache_v7");
+    if (typeof caches !== "undefined") {
+      const keys = await caches.keys();
+      for (const k of keys) {
+        if (k.startsWith("drone-models-persistent-cache-v") && k !== CACHE_NAME) {
+          await caches.delete(k);
+        }
+      }
+      const currentCache = await caches.open(CACHE_NAME);
+      const matchedKeys = await currentCache.keys();
+      for (const req of matchedKeys) {
+        if (req.url.includes("drone") && !req.url.includes("v=8334383e79073810")) {
+          await currentCache.delete(req);
+        }
+        if (req.url.includes("uav-airframe") || req.url.includes("drone.stl")) {
+          await currentCache.delete(req);
+        }
+        if (req.url.includes("jetson-p3737") && req.url.includes(".glb")) {
+          await currentCache.delete(req);
+        }
+      }
+    }
+    if (typeof indexedDB !== "undefined") {
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v7"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v6"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v5"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v4"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v3"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v2"); } catch {}
+      try { indexedDB.deleteDatabase("DroneAvionicsModelsCache_v1"); } catch {}
+    }
+  } catch (err) {
+    console.warn("Legacy drone cache purge error:", err);
+  }
+}
+
+// Automatically trigger legacy cache purge
+if (typeof window !== "undefined") {
+  purgeLegacyDroneCaches().catch(() => {});
+}
 
 // 1. IndexedDB Persistent Storage
 function openCacheDB(): Promise<IDBDatabase | null> {
@@ -155,7 +200,52 @@ export async function clearAllModelCache(): Promise<void> {
 
   try {
     localStorage.removeItem("drone_model_index_cache");
-    localStorage.removeItem(INDEX_CACHE_KEY);
+  } catch {}
+}
+
+export async function clearSingleModelCache(assetKey: string): Promise<void> {
+  // Clear memory cache keys matching assetKey
+  for (const k of Array.from(memoryCache.keys())) {
+    if (k.includes(assetKey)) {
+      memoryCache.delete(k);
+    }
+  }
+
+  // Clear from CacheStorage
+  if (typeof caches !== "undefined") {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      const keys = await cache.keys();
+      for (const req of keys) {
+        if (req.url.includes(assetKey)) {
+          await cache.delete(req);
+        }
+      }
+    } catch {}
+  }
+
+  // Clear from IndexedDB
+  try {
+    const db = await openCacheDB();
+    if (db) {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readwrite");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.openCursor();
+        req.onsuccess = (e) => {
+          const cursor = (e.target as any).result;
+          if (cursor) {
+            if (String(cursor.key).includes(assetKey)) {
+              cursor.delete();
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => resolve();
+      });
+    }
   } catch {}
 }
 
@@ -180,7 +270,7 @@ function getAssetCacheKey(asset: ModelAsset): string {
 }
 
 async function fetchPartWithCache(name: string, cacheBuster?: number): Promise<Uint8Array> {
-  const partUrl = name.startsWith("/") ? name : `/model-parts/${name}`;
+  const partUrl = `/model-parts/${name}`;
 
   // Check CacheStorage for this specific part
   if (!cacheBuster && typeof caches !== "undefined") {
@@ -194,9 +284,8 @@ async function fetchPartWithCache(name: string, cacheBuster?: number): Promise<U
     } catch {}
   }
 
-  const separator = partUrl.includes("?") ? "&" : "?";
-  const requestUrl = cacheBuster ? `${partUrl}${separator}t=${cacheBuster}` : partUrl;
-  const response = await fetch(requestUrl, { cache: "no-store" });
+  const query = cacheBuster ? `?t=${cacheBuster}` : "";
+  const response = await fetch(`${partUrl}${query}`);
   if (!response.ok) throw new Error(`Model qismi yuklanmadi: ${name}`);
 
   // Store in CacheStorage
@@ -240,9 +329,9 @@ export async function loadModelAsset(asset: ModelAsset, cacheBuster?: number): P
       } catch {}
     }
 
-    const separator = pathUrl.includes("?") ? "&" : "?";
-    const requestUrl = cacheBuster ? `${pathUrl}${separator}t=${cacheBuster}` : pathUrl;
-    const response = await fetch(requestUrl, { cache: "no-store" });
+    const sep = pathUrl.includes("?") ? "&" : "?";
+    const query = cacheBuster ? `${sep}t=${cacheBuster}` : "";
+    const response = await fetch(`${pathUrl}${query}`);
     if (!response.ok) throw new Error(`Model yuklanmadi: ${asset.path}`);
 
     if (!cacheBuster && typeof caches !== "undefined") {
@@ -278,11 +367,16 @@ export async function loadModelAsset(asset: ModelAsset, cacheBuster?: number): P
 }
 
 export async function loadModelIndex(cacheBuster?: number): Promise<Record<string, ModelAsset>> {
-  if (!cacheBuster && indexMemoryCache) {
+  if (
+    !cacheBuster &&
+    indexMemoryCache &&
+    indexMemoryCache.drone?.path?.includes("v=8334383e79073810") &&
+    indexMemoryCache["jetson-p3737"]?.format === "stl"
+  ) {
     return indexMemoryCache;
   }
 
-  const indexUrl = INDEX_URL;
+  const indexUrl = `/data/model-assets.json`;
 
   // Try reading from browser cache
   if (!cacheBuster && typeof caches !== "undefined") {
@@ -291,8 +385,13 @@ export async function loadModelIndex(cacheBuster?: number): Promise<Record<strin
       const matched = await cache.match(indexUrl);
       if (matched && matched.ok) {
         const data = await matched.json();
-        indexMemoryCache = data;
-        return data;
+        if (
+          data.drone?.path?.includes("v=8334383e79073810") &&
+          data["jetson-p3737"]?.format === "stl"
+        ) {
+          indexMemoryCache = data;
+          return data;
+        }
       }
     } catch {}
   }
@@ -300,18 +399,23 @@ export async function loadModelIndex(cacheBuster?: number): Promise<Record<strin
   // Try reading from localStorage
   if (!cacheBuster) {
     try {
-      const stored = localStorage.getItem(INDEX_CACHE_KEY);
+      const stored = localStorage.getItem("drone_model_index_cache_v8");
       if (stored) {
         const data = JSON.parse(stored);
-        indexMemoryCache = data;
-        return data;
+        if (
+          data.drone?.path?.includes("v=8334383e79073810") &&
+          data["jetson-p3737"]?.format === "stl"
+        ) {
+          indexMemoryCache = data;
+          return data;
+        }
       }
     } catch {}
   }
 
-  const separator = indexUrl.includes("?") ? "&" : "?";
-  const requestUrl = cacheBuster ? `${indexUrl}${separator}t=${cacheBuster}` : indexUrl;
-  const response = await fetch(requestUrl, { cache: "no-store" });
+  const sep = indexUrl.includes("?") ? "&" : "?";
+  const query = cacheBuster ? `${sep}t=${cacheBuster}` : `${sep}t=${Date.now()}`;
+  const response = await fetch(`${indexUrl}${query}`);
   if (!response.ok) throw new Error("Model indeksini yuklab bo‘lmadi");
 
   if (!cacheBuster && typeof caches !== "undefined") {
@@ -325,7 +429,9 @@ export async function loadModelIndex(cacheBuster?: number): Promise<Record<strin
   indexMemoryCache = data;
 
   try {
-    localStorage.setItem(INDEX_CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem("drone_model_index_cache_v8", JSON.stringify(data));
+    localStorage.removeItem("drone_model_index_cache_v5");
+    localStorage.removeItem("drone_model_index_cache");
   } catch {}
 
   return data;

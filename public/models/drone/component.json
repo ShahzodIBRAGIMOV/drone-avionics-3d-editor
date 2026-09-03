@@ -1,7 +1,7 @@
 {
   "id": "drone",
   "name": "Drone airframe",
-  "model": "/models/drone/model.glb",
+  "model": "/models/drone/model.glb?v=8334383e79073810",
   "format": "glb",
   "source_format": "glb",
   "material_policy": "preserved",

@@ -1,12 +1,10 @@
 {
   "id": "jetson-p3737",
-  "name": "Jetson AGX Orin P3737",
-  "model": "/model-parts/jetson-p3737-user-b5f93448.stl.gz.part-*.b64",
-  "format": "stl",
+  "name": "Jetson carrier assembly",
+  "model": "/models/jetson-p3737/model.glb",
+  "format": "glb",
   "source_format": "stl",
-  "source_file": "Jetson_AGX_Orin_P3737_Blender(1).stl",
-  "material_policy": "application aviation material",
-  "approval": "exact STL uploaded by the user",
-  "geometry_optimization": "none; exact uploaded STL geometry",
-  "source_sha256": "b5f93448cc2d12fae39fc11cf0e56924195590ea18f86c578dc90339a5093998"
+  "material_policy": "existing application material embedded",
+  "approval": "existing approved repository asset",
+  "geometry_optimization": "web-optimized 500k-face mesh; original bounds preserved"
 }

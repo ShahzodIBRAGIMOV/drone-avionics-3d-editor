@@ -230,6 +230,13 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           {/* TAB 1: SAVE */}
           {activeTab === "save" && (
             <div className="space-y-4">
+              <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-3 flex items-start gap-2.5">
+                <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
+                <div className="text-xs text-emerald-200/90 leading-relaxed">
+                  <strong>Avtomatik saqlash faol:</strong> Sahnadagi har bir o‘zgartirish (harakatlantirish, aylantirish, kabel ulash va amallar tarixi) avtomatik tarzda saqlanadi. Dasturni qayta ochganingizda barcha amallaringiz tiklanadi.
+                </div>
+              </div>
+
               <div className="bg-sky-950/30 border border-sky-800/40 rounded-xl p-3.5 flex items-start gap-3">
                 <Laptop className="text-sky-400 shrink-0 mt-0.5" size={18} />
                 <div className="text-xs text-sky-200/90 leading-relaxed">

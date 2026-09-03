@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   Sparkles,
   Globe,
+  RefreshCw,
+  Box,
 } from "lucide-react";
 import { ComponentManifestItem, PhysicalInstance } from "../types";
 
@@ -24,7 +26,9 @@ interface UnplacedInventoryPanelProps {
   loadingAssetErrors: Map<string, string>;
   onAutoPlaceAll?: () => void;
   onCollapse?: () => void;
-  onOpenModelImport?: () => void;
+  onOpenModelImport?: (defaultComponentId?: string) => void;
+  onReloadJetson?: () => void;
+  isReloadingJetson?: boolean;
 }
 
 export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
@@ -38,6 +42,8 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
   onAutoPlaceAll,
   onCollapse,
   onOpenModelImport,
+  onReloadJetson,
+  isReloadingJetson,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "unplaced" | "placed">("all");
@@ -93,17 +99,17 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
           Tasdiqlangan {manifest.length} turdagi komponent va {instances.length} dona fizik obyekt.
         </p>
 
-        {/* GitHub / Custom 3D Model import button */}
+        {/* 3D Model Picker & Import Button */}
         {onOpenModelImport && (
           <button
             type="button"
             id="btn-open-github-model-import"
-            onClick={onOpenModelImport}
-            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 mb-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/70 text-cyan-300 hover:text-cyan-200 text-xs font-medium transition-all shadow-sm cursor-pointer"
-            title="GitHub omboridan yoki fayldan to‘g‘ridan-to‘g‘ri 3D model (.obj, .stl, .glb) yuklash"
+            onClick={() => onOpenModelImport()}
+            className="w-full flex items-center justify-center gap-2 py-2 px-3 mb-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700/60 text-cyan-300 hover:text-white text-xs font-semibold transition-all shadow-sm cursor-pointer"
+            title="Istalgan 3D modelni (.glb, .stl, .obj) tanlash, kompyuterdan yuklash yoki kutubxonadan biriktirish"
           >
-            <Globe size={13} className="text-cyan-400" />
-            <span>GitHub / 3D model yuklash</span>
+            <Box size={14} className="text-cyan-400" />
+            <span>3D Model tanlash va yuklash</span>
           </button>
         )}
 
@@ -200,7 +206,35 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
                   {item.notes && <span className="component-notes">{item.notes}</span>}
                 </div>
 
-                <div className="group-status-tag">
+                <div className="group-status-tag flex items-center gap-1.5">
+                  {onOpenModelImport && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenModelImport(item.id);
+                      }}
+                      className="px-2 py-0.5 text-[10px] font-medium rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-slate-700/70 flex items-center gap-1 transition-all cursor-pointer"
+                      title={`#${item.id} uchun 3D modelni almashtirish yoki yuklash`}
+                    >
+                      <Box size={11} className="text-cyan-400" />
+                      <span>Model</span>
+                    </button>
+                  )}
+                  {item.id === "19" && onReloadJetson && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onReloadJetson();
+                      }}
+                      className="px-2 py-0.5 text-[11px] font-medium rounded bg-cyan-950/70 hover:bg-cyan-900/90 text-cyan-300 hover:text-cyan-100 border border-cyan-700/60 flex items-center gap-1 transition-all shadow-sm"
+                      title="Jetson 3D modelini xotiradan tozalab, yangidan yuklash"
+                    >
+                      <RefreshCw size={11} className={isReloadingJetson ? "animate-spin" : ""} />
+                      <span>Yangidan yukla</span>
+                    </button>
+                  )}
                   {hasError ? (
                     <span className="status-badge error" title="Model yuklanmadi">
                       <AlertCircle size={11} /> Xato

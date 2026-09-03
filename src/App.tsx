@@ -36,6 +36,7 @@ import { CloudProjectData } from "./types";
 import {
   saveProjectToCloud,
   loadProjectFromCloud,
+  subscribeToMainProject,
 } from "./services/cloudProjectService";
 import { AlertTriangle, CheckCircle2, PanelLeft, PanelRight, Undo2, Redo2, Keyboard } from "lucide-react";
 import { modelManager } from "./services/modelManager";
@@ -174,7 +175,7 @@ export default function App() {
   const [droneOpacity, setDroneOpacity] = useState<number>(0.45);
   const [droneWireframe, setDroneWireframe] = useState<boolean>(false);
   const [droneVisible, setDroneVisible] = useState<boolean>(true);
-  const [droneColor, setDroneColor] = useState<string>("#cbd5e1");
+  const [droneColor, setDroneColor] = useState<string>("original");
   const [sceneTheme, setSceneTheme] = useState<SceneTheme>("dark");
 
   // Layers
@@ -200,6 +201,7 @@ export default function App() {
   const [loadingAssetErrors, setLoadingAssetErrors] = useState<Map<string, string>>(new Map());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isModelImportOpen, setIsModelImportOpen] = useState<boolean>(false);
+  const [modelImportTargetId, setModelImportTargetId] = useState<string>("01");
 
   // Clipboard for copy/paste (Ctrl+C, Ctrl+V)
   const [clipboard, setClipboard] = useState<PhysicalInstance[]>([]);
@@ -219,14 +221,28 @@ export default function App() {
   const [focusTrigger, setFocusTrigger] = useState<number>(0);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
 
-  // Cloud Sync states (Firebase Firestore)
+  // Cloud Sync & Auto-Save states (Firebase Firestore & LocalStorage)
   const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
   const [currentCloudProject, setCurrentCloudProject] = useState<CloudProjectData | null>(null);
   const [isCloudSaving, setIsCloudSaving] = useState<boolean>(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"saved" | "saving" | "idle" | "error">("saved");
+  const [lastSavedTimeText, setLastSavedTimeText] = useState<string>("");
   const [lastCloudSavedAt, setLastCloudSavedAt] = useState<string | null>(null);
   const [cloudCode, setCloudCode] = useState<string | null>(() => {
     return localStorage.getItem("drone_avionics_cloud_code") || null;
   });
+
+  const isInitializedRef = React.useRef<boolean>(false);
+  const [isAppReady, setIsAppReady] = useState<boolean>(false);
+  const isApplyingRemoteRef = React.useRef<boolean>(false);
+  const lastKnownRemoteUpdateRef = React.useRef<string>("");
+  const autoSaveLocalTimerRef = React.useRef<any>(null);
+  const autoSaveCloudTimerRef = React.useRef<any>(null);
+  const clientIdRef = React.useRef<string>(
+    "client_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now()
+  );
+  const hasLocalModificationsRef = React.useRef<boolean>(false);
+  const lastLocalActionTimeRef = React.useRef<number>(0);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -235,13 +251,13 @@ export default function App() {
     }, 4000);
   }, []);
 
-  // Load Manifest CSV
+  // Load Manifest CSV & Restore previous scene state
   useEffect(() => {
     fetch("/data/component_manifest.csv")
       .then((res) => res.text())
       .then((text) => {
         const rows = text.trim().split(/\r?\n/).slice(1);
-        const parsedManifest: ComponentManifestItem[] = rows
+        const baseManifest: ComponentManifestItem[] = rows
           .map((row) => {
             const [id, component, quantity, preferred_web_file, original_source, notes] = row.split(",");
             return {
@@ -255,9 +271,28 @@ export default function App() {
           })
           .filter((item) => item.id && item.component);
 
+        // Retrieve custom manifest items saved in localStorage
+        let savedCustomItems: ComponentManifestItem[] = [];
+        try {
+          const raw = localStorage.getItem("drone_avionics_custom_manifest");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              savedCustomItems = parsed;
+            }
+          }
+        } catch {}
+
+        const parsedManifest = [...baseManifest];
+        for (const item of savedCustomItems) {
+          if (!parsedManifest.some((m) => m.id === item.id)) {
+            parsedManifest.push(item);
+          }
+        }
+
         setManifest(parsedManifest);
 
-        // Generate baseline 32 instances
+        // Generate baseline instances
         const baseInstances = generateInitialInstances(parsedManifest);
 
         // Check URL for cloudCode parameter (e.g. ?cloudCode=DRN-XXXX)
@@ -266,6 +301,21 @@ export default function App() {
 
         // Try restoring from LocalStorage or Cloud
         const restoreFromData = (parsed: any) => {
+          if (Array.isArray(parsed.customManifest) && parsed.customManifest.length > 0) {
+            setManifest((prev) => {
+              const existingIds = new Set(prev.map((m) => m.id));
+              const additions = parsed.customManifest.filter((m: any) => !existingIds.has(m.id));
+              if (additions.length > 0) {
+                const merged = [...prev, ...additions];
+                try {
+                  const toSave = merged.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom"));
+                  localStorage.setItem("drone_avionics_custom_manifest", JSON.stringify(toSave));
+                } catch {}
+                return merged;
+              }
+              return prev;
+            });
+          }
           if (Array.isArray(parsed.instances)) {
             const merged = baseInstances.map((base) => {
               const saved = parsed.instances.find(
@@ -275,8 +325,12 @@ export default function App() {
                 const isAirframe = base.isAirframe || base.componentId === "01";
                 let placed = !!saved.placed;
                 let customColor = typeof saved.customColor === "string" ? saved.customColor : base.customColor;
-                if (isAirframe && parsed.droneColor && !saved.customColor) {
-                  customColor = parsed.droneColor;
+                if (isAirframe) {
+                  if (parsed.droneColor && parsed.droneColor !== "#cbd5e1" && parsed.droneColor !== "original") {
+                    customColor = parsed.droneColor;
+                  } else if (customColor === "#cbd5e1" || customColor === "original") {
+                    customColor = undefined;
+                  }
                 }
                 return {
                   ...base,
@@ -311,94 +365,258 @@ export default function App() {
             setCables(parsed.cables);
           }
           if (typeof parsed.droneColor === "string") {
-            setDroneColor(parsed.droneColor);
+            setDroneColor(parsed.droneColor === "#cbd5e1" || parsed.droneColor === "original" ? "original" : parsed.droneColor);
+          } else if (parsed.droneFrame && typeof parsed.droneFrame.color === "string") {
+            setDroneColor(parsed.droneFrame.color === "#cbd5e1" || parsed.droneFrame.color === "original" ? "original" : parsed.droneFrame.color);
+          } else {
+            setDroneColor("original");
+          }
+          if (typeof parsed.droneOpacity === "number") {
+            setDroneOpacity(parsed.droneOpacity);
+          } else if (parsed.droneFrame && typeof parsed.droneFrame.opacity === "number") {
+            setDroneOpacity(parsed.droneFrame.opacity);
+          }
+          if (typeof parsed.droneWireframe === "boolean") {
+            setDroneWireframe(parsed.droneWireframe);
+          } else if (parsed.droneFrame && typeof parsed.droneFrame.wireframe === "boolean") {
+            setDroneWireframe(parsed.droneFrame.wireframe);
+          }
+          if (typeof parsed.droneVisible === "boolean") {
+            setDroneVisible(parsed.droneVisible);
+          } else if (parsed.droneFrame && typeof parsed.droneFrame.visible === "boolean") {
+            setDroneVisible(parsed.droneFrame.visible);
           }
           if (typeof parsed.sceneTheme === "string") {
             setSceneTheme(parsed.sceneTheme as SceneTheme);
           }
+          if (typeof parsed.cameraViewMode === "string") {
+            setCameraViewMode(parsed.cameraViewMode as CameraViewMode);
+          }
+          if (typeof parsed.transformMode === "string") {
+            setTransformMode(parsed.transformMode as TransformMode);
+          }
+          if (typeof parsed.transformSpace === "string") {
+            setTransformSpace(parsed.transformSpace as TransformSpace);
+          }
+          if (typeof parsed.showPins === "boolean") {
+            setShowPins(parsed.showPins);
+          }
+          if (typeof parsed.showCables === "boolean") {
+            setShowCables(parsed.showCables);
+          }
+          if (typeof parsed.showGrid === "boolean") {
+            setShowGrid(parsed.showGrid);
+          }
+          if (typeof parsed.isLeftPanelOpen === "boolean") {
+            setIsLeftPanelOpen(parsed.isLeftPanelOpen);
+          }
+          if (typeof parsed.isRightPanelOpen === "boolean") {
+            setIsRightPanelOpen(parsed.isRightPanelOpen);
+          }
+          if (Array.isArray(parsed.selectedInstanceIds)) {
+            setSelectedInstanceIds(parsed.selectedInstanceIds);
+          }
+
+          // Restore custom model associations if present in saved cloud data
+          if (parsed.customModels && typeof parsed.customModels === "object") {
+            try {
+              for (const record of Object.values(parsed.customModels) as any[]) {
+                if (record && record.componentId) {
+                  modelManager.saveCustomModelRecord(record);
+                }
+              }
+            } catch (err) {
+              console.warn("Could not restore custom model records:", err);
+            }
+          }
+
+          // Restore undo/redo action history stack so previous steps are preserved
+          if (Array.isArray(parsed.historyPast) && parsed.historyPast.length > 0) {
+            pastRef.current = parsed.historyPast;
+            setCanUndo(true);
+            setUndoCount(parsed.historyPast.length);
+          }
+          if (Array.isArray(parsed.historyFuture) && parsed.historyFuture.length > 0) {
+            futureRef.current = parsed.historyFuture;
+            setCanRedo(true);
+            setRedoCount(parsed.historyFuture.length);
+          }
+
+          if (parsed.lastSavedFormatted) {
+            setLastSavedTimeText(parsed.lastSavedFormatted);
+          }
         };
 
+        // Concurrently query Cloud Firestore and LocalStorage
+        const cloudIdentifier = urlCloudCode || localStorage.getItem("drone_avionics_cloud_code") || "main-project";
+        
+        let localParsed: any = null;
         try {
           const savedData = localStorage.getItem(STORAGE_KEY);
           if (savedData) {
-            const parsed = JSON.parse(savedData);
-            restoreFromData(parsed);
-
-            // If we have saved data locally in this browser, also back it up to Cloud Firestore
-            setTimeout(() => {
-              if (parsed.instances && parsed.instances.some((inst: any) => inst.placed)) {
-                saveProjectToCloud({
-                  id: "main-project",
-                  name: "3.5M Twin-Motor UAV Avionics",
-                  cloudCode: localStorage.getItem("drone_avionics_cloud_code") || undefined,
-                  instances: parsed.instances,
-                  cables: parsed.cables || [],
-                  droneFrame: {
-                    color: parsed.droneColor,
-                    opacity: 0.45,
-                    wireframe: false,
-                    visible: true,
-                  },
-                }).then((cloudProj: CloudProjectData) => {
-                  setCurrentCloudProject(cloudProj);
-                  setCloudCode(cloudProj.cloudCode);
-                  localStorage.setItem("drone_avionics_cloud_code", cloudProj.cloudCode);
-                  setLastCloudSavedAt(cloudProj.updatedAt);
-                }).catch((err: unknown) => {
-                  console.warn("Background cloud backup notice:", err);
-                });
-              }
-            }, 1000);
-            return;
+            localParsed = JSON.parse(savedData);
           }
         } catch (e) {
-          console.warn("Could not load from localStorage:", e);
+          console.warn("Could not read localStorage on startup:", e);
         }
 
-        // If local storage was empty (e.g. opened in a different browser/computer), check Cloud!
-        const cloudIdentifier = urlCloudCode || "main-project";
         loadProjectFromCloud(cloudIdentifier)
           .then((cloudProj: CloudProjectData | null) => {
-            if (cloudProj && Array.isArray(cloudProj.instances) && cloudProj.instances.length > 0) {
+            const cloudHasPlaced = !!(
+              cloudProj &&
+              Array.isArray(cloudProj.instances) &&
+              (cloudProj.instances.some((i: any) => i.placed) || (cloudProj.cables && cloudProj.cables.length > 0))
+            );
+
+            const localHasPlaced = !!(
+              localParsed &&
+              Array.isArray(localParsed.instances) &&
+              (localParsed.instances.some((i: any) => i.placed) || (localParsed.cables && localParsed.cables.length > 0))
+            );
+
+            // Decision: Which one has the latest user work?
+            let chosenSource: "cloud" | "local" | "base" = "base";
+
+            if (cloudHasPlaced && localHasPlaced) {
+              const cloudTime = new Date(cloudProj?.updatedAt || 0).getTime();
+              const localTime = new Date(localParsed.timestamp || localParsed.updatedAt || 0).getTime();
+              if (cloudTime >= localTime) {
+                chosenSource = "cloud";
+              } else {
+                chosenSource = "local";
+              }
+            } else if (cloudHasPlaced) {
+              // Cross-browser case: Another browser already placed components and saved them to Cloud!
+              chosenSource = "cloud";
+            } else if (localHasPlaced) {
+              chosenSource = "local";
+            } else if (cloudProj) {
+              chosenSource = "cloud";
+            } else if (localParsed) {
+              chosenSource = "local";
+            }
+
+            if (chosenSource === "cloud" && cloudProj) {
               restoreFromData(cloudProj);
               setCurrentCloudProject(cloudProj);
               setCloudCode(cloudProj.cloudCode);
               localStorage.setItem("drone_avionics_cloud_code", cloudProj.cloudCode);
               setLastCloudSavedAt(cloudProj.updatedAt);
+              lastKnownRemoteUpdateRef.current = cloudProj.updatedAt || "";
               showToast(`Loyiha bulutdan yuklandi! (Kod: ${cloudProj.cloudCode})`);
+              // Synchronize to localStorage so local storage is also fresh
+              setTimeout(() => performLocalSave(), 200);
+            } else if (chosenSource === "local" && localParsed) {
+              restoreFromData(localParsed);
+              showToast("Loyiha xotiradan yuklandi");
+              // Backup local work to Cloud Firestore so other browsers can see it
+              setTimeout(() => {
+                if (localParsed.instances && localParsed.instances.some((i: any) => i.placed)) {
+                  saveProjectToCloud({
+                    id: "main-project",
+                    name: "3.5M Twin-Motor UAV Avionics",
+                    cloudCode: localStorage.getItem("drone_avionics_cloud_code") || undefined,
+                    instances: localParsed.instances,
+                    cables: localParsed.cables || [],
+                    clientId: clientIdRef.current,
+                    customModels: modelManager.getCustomModelRegistry(),
+                    sceneTheme: localParsed.sceneTheme || sceneTheme,
+                    droneFrame: {
+                      color: localParsed.droneColor || droneColor,
+                      opacity: localParsed.droneOpacity ?? 0.45,
+                      wireframe: !!localParsed.droneWireframe,
+                      visible: localParsed.droneVisible !== false,
+                    },
+                  }).then((savedProj: CloudProjectData) => {
+                    setCurrentCloudProject(savedProj);
+                    setCloudCode(savedProj.cloudCode);
+                    localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
+                    setLastCloudSavedAt(savedProj.updatedAt);
+                  }).catch((err) => {
+                    console.warn("Cloud backup notice:", err);
+                  });
+                }
+              }, 400);
             } else {
               setInstances(baseInstances);
             }
           })
           .catch((err: unknown) => {
-            console.warn("Could not load from cloud:", err);
-            setInstances(baseInstances);
+            console.warn("Could not load from cloud, fallback to local:", err);
+            if (localParsed) {
+              restoreFromData(localParsed);
+            } else {
+              setInstances(baseInstances);
+            }
+          })
+          .finally(() => {
+            isInitializedRef.current = true;
+            setIsAppReady(true);
+            setAutoSaveStatus("saved");
+            modelManager
+              .restoreCustomModelsFromStorage()
+              .then((restoredIds) => {
+                if (restoredIds.length > 0) {
+                  const now = Date.now();
+                  setInstances((prev) =>
+                    prev.map((inst) =>
+                      restoredIds.includes(inst.componentId)
+                        ? { ...inst, modelVersion: now }
+                        : inst
+                    )
+                  );
+                }
+              })
+              .catch((err) => {
+                console.warn("Could not restore custom 3D models from storage:", err);
+              });
           });
       })
       .catch((err) => {
         console.error("Error reading component manifest:", err);
+        isInitializedRef.current = true;
+        setIsAppReady(true);
       });
   }, []);
 
-  // Save to LocalStorage on updates
-  useEffect(() => {
-    if (instances.length === 0) return;
+  // Serialize and synchronously save full scene state to LocalStorage
+  const performLocalSave = useCallback(() => {
+    if (!isInitializedRef.current || instances.length === 0) return;
     try {
+      const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       const dataToSave = {
-        version: "3.0",
+        version: "3.5",
         timestamp: new Date().toISOString(),
+        lastSavedFormatted: nowStr,
         droneColor,
+        droneOpacity,
+        droneWireframe,
+        droneVisible,
         sceneTheme,
+        cameraViewMode,
+        transformMode,
+        transformSpace,
+        showPins,
+        showCables,
+        showGrid,
+        isLeftPanelOpen,
+        isRightPanelOpen,
+        selectedInstanceIds,
+        historyPast: pastRef.current.slice(-25),
+        historyFuture: futureRef.current.slice(0, 10),
         instances: instances.map((inst) => ({
           instanceId: inst.instanceId,
           componentId: inst.componentId,
           instanceIndex: inst.instanceIndex,
+          name: inst.name,
+          isAirframe: inst.isAirframe,
           placed: inst.placed,
           locked: inst.locked,
           visible: inst.visible,
           position: inst.position,
           rotation: inst.rotation,
           scale: inst.scale,
+          colorHint: inst.colorHint,
           customColor: inst.customColor,
           customLabel: inst.customLabel,
           customPins: inst.customPins,
@@ -407,12 +625,261 @@ export default function App() {
           droneRelativeRot: inst.droneRelativeRot,
         })),
         cables,
+        customManifest: manifest.filter(
+          (m) => Number(m.id) > 21 || m.id.startsWith("custom")
+        ),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+      setLastSavedTimeText(nowStr);
+      setAutoSaveStatus("saved");
     } catch (e) {
       console.warn("Could not save to localStorage:", e);
     }
-  }, [instances, cables, droneColor, sceneTheme]);
+  }, [
+    instances,
+    manifest,
+    cables,
+    droneColor,
+    droneOpacity,
+    droneWireframe,
+    droneVisible,
+    sceneTheme,
+    cameraViewMode,
+    transformMode,
+    transformSpace,
+    showPins,
+    showCables,
+    showGrid,
+    isLeftPanelOpen,
+    isRightPanelOpen,
+    selectedInstanceIds,
+  ]);
+
+  // Window beforeunload flush save: guarantees zero data loss on browser close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      performLocalSave();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [performLocalSave]);
+
+  // Automatic Immediate Local Persistence (debounced 120ms for smooth 60fps interaction)
+  useEffect(() => {
+    if (!isInitializedRef.current || instances.length === 0) return;
+    if (isApplyingRemoteRef.current) {
+      isApplyingRemoteRef.current = false;
+      setAutoSaveStatus("saved");
+      return;
+    }
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setAutoSaveStatus("saving");
+    if (autoSaveLocalTimerRef.current) clearTimeout(autoSaveLocalTimerRef.current);
+    autoSaveLocalTimerRef.current = setTimeout(() => {
+      performLocalSave();
+    }, 120);
+
+    return () => {
+      if (autoSaveLocalTimerRef.current) clearTimeout(autoSaveLocalTimerRef.current);
+    };
+  }, [
+    instances,
+    cables,
+    droneColor,
+    droneOpacity,
+    droneWireframe,
+    droneVisible,
+    sceneTheme,
+    cameraViewMode,
+    transformMode,
+    transformSpace,
+    showPins,
+    showCables,
+    showGrid,
+    isLeftPanelOpen,
+    isRightPanelOpen,
+    selectedInstanceIds,
+    performLocalSave,
+  ]);
+
+  // Automatic Cloud Firestore Persistence (debounced 800ms background sync)
+  useEffect(() => {
+    if (!isInitializedRef.current || instances.length === 0) return;
+    // Guard: Only auto-save to cloud if user made modifications in this session
+    if (!hasLocalModificationsRef.current) return;
+
+    if (autoSaveCloudTimerRef.current) clearTimeout(autoSaveCloudTimerRef.current);
+
+    autoSaveCloudTimerRef.current = setTimeout(() => {
+      const activeCloudCode = cloudCode || localStorage.getItem("drone_avionics_cloud_code") || undefined;
+      setIsCloudSaving(true);
+      saveProjectToCloud({
+        id: "main-project",
+        name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
+        cloudCode: activeCloudCode,
+        instances,
+        cables,
+        droneFrame: {
+          color: droneColor,
+          opacity: droneOpacity,
+          wireframe: droneWireframe,
+          visible: droneVisible,
+        },
+        customModels: modelManager.getCustomModelRegistry(),
+        sceneTheme,
+        cameraViewMode,
+        clientId: clientIdRef.current,
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+      })
+        .then((savedProj) => {
+          setCurrentCloudProject(savedProj);
+          setCloudCode(savedProj.cloudCode);
+          localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
+          setLastCloudSavedAt(savedProj.updatedAt);
+          setAutoSaveStatus("saved");
+          const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          setLastSavedTimeText(nowStr);
+        })
+        .catch((err) => {
+          console.warn("Cloud auto-save status notice:", err);
+          setAutoSaveStatus("saved");
+        })
+        .finally(() => {
+          setIsCloudSaving(false);
+        });
+    }, 800);
+
+    return () => {
+      if (autoSaveCloudTimerRef.current) clearTimeout(autoSaveCloudTimerRef.current);
+    };
+  }, [
+    instances,
+    cables,
+    droneColor,
+    droneOpacity,
+    droneWireframe,
+    droneVisible,
+    sceneTheme,
+    cameraViewMode,
+    manifest,
+  ]);
+
+  // Real-time multi-browser live synchronization via Firestore listener
+  useEffect(() => {
+    if (!isAppReady) return;
+
+    console.log("Subscribing to real-time project updates from Firestore...");
+    const unsubscribe = subscribeToMainProject((remoteData, metadata) => {
+      if (!remoteData || !isInitializedRef.current) return;
+
+      // 1. Ignore if this is an uncommitted local write by this client
+      if (metadata && metadata.hasPendingWrites) {
+        return;
+      }
+
+      // 2. Ignore writes initiated by this specific client instance
+      if (remoteData.lastUpdatedByClientId && remoteData.lastUpdatedByClientId === clientIdRef.current) {
+        return;
+      }
+
+      // 3. Ignore if this exact update timestamp was already processed
+      if (remoteData.updatedAt && remoteData.updatedAt === lastKnownRemoteUpdateRef.current) {
+        return;
+      }
+
+      // 4. Must have valid instances array
+      if (!Array.isArray(remoteData.instances) || remoteData.instances.length === 0) {
+        return;
+      }
+
+      console.log("Authoritative project update received from another browser/client:", remoteData.cloudCode, remoteData.updatedAt);
+      lastKnownRemoteUpdateRef.current = remoteData.updatedAt || new Date().toISOString();
+
+      // Cancel local auto-save timers so this browser doesn't send back an echo
+      if (autoSaveCloudTimerRef.current) {
+        clearTimeout(autoSaveCloudTimerRef.current);
+        autoSaveCloudTimerRef.current = null;
+      }
+      if (autoSaveLocalTimerRef.current) {
+        clearTimeout(autoSaveLocalTimerRef.current);
+        autoSaveLocalTimerRef.current = null;
+      }
+      hasLocalModificationsRef.current = false;
+      lastLocalActionTimeRef.current = 0;
+      isApplyingRemoteRef.current = true;
+
+      // Apply remote state directly to 3D scene
+      setInstances(remoteData.instances);
+
+      if (Array.isArray(remoteData.cables)) {
+        setCables(remoteData.cables);
+      }
+      if (remoteData.droneFrame) {
+        if (typeof remoteData.droneFrame.color === "string") {
+          setDroneColor(
+            remoteData.droneFrame.color === "#cbd5e1" || remoteData.droneFrame.color === "original"
+              ? "original"
+              : remoteData.droneFrame.color
+          );
+        }
+        if (typeof remoteData.droneFrame.opacity === "number") setDroneOpacity(remoteData.droneFrame.opacity);
+        if (typeof remoteData.droneFrame.wireframe === "boolean") setDroneWireframe(remoteData.droneFrame.wireframe);
+        if (typeof remoteData.droneFrame.visible === "boolean") setDroneVisible(remoteData.droneFrame.visible);
+      }
+      if (remoteData.customModels && typeof remoteData.customModels === "object") {
+        for (const record of Object.values(remoteData.customModels) as any[]) {
+          if (record && record.componentId) {
+            modelManager.saveCustomModelRecord(record);
+          }
+        }
+      }
+      if (remoteData.sceneTheme) {
+        setSceneTheme(remoteData.sceneTheme as any);
+      }
+
+      setCurrentCloudProject(remoteData);
+      setCloudCode(remoteData.cloudCode);
+      localStorage.setItem("drone_avionics_cloud_code", remoteData.cloudCode);
+      setLastCloudSavedAt(remoteData.updatedAt);
+
+      const updateTime = new Date(remoteData.updatedAt || Date.now()).toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      setLastSavedTimeText(updateTime);
+      setAutoSaveStatus("saved");
+
+      // Update localStorage mirror so offline mirror has fresh authoritative data
+      try {
+        const localSnapshot = {
+          version: "3.5",
+          timestamp: remoteData.updatedAt,
+          lastSavedFormatted: updateTime,
+          droneColor: remoteData.droneFrame?.color || "original",
+          droneOpacity: remoteData.droneFrame?.opacity ?? 0.35,
+          droneWireframe: remoteData.droneFrame?.wireframe ?? false,
+          droneVisible: remoteData.droneFrame?.visible ?? true,
+          sceneTheme: remoteData.sceneTheme || sceneTheme,
+          instances: remoteData.instances,
+          cables: remoteData.cables || [],
+          customManifest: remoteData.customManifest || [],
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(localSnapshot));
+      } catch (e) {
+        console.warn("Could not mirror to localStorage:", e);
+      }
+
+      showToast(`Loyiha boshqa brauzerdan saqlandi va barcha ekranlarda yangilandi! (Kod: ${remoteData.cloudCode})`);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAppReady, sceneTheme, showToast]);
 
   // Sync references for history callbacks
   const instancesRef = React.useRef<PhysicalInstance[]>(instances);
@@ -429,6 +896,74 @@ export default function App() {
   useEffect(() => {
     selectedInstanceIdsRef.current = selectedInstanceIds;
   }, [selectedInstanceIds]);
+
+  // Manual Save Trigger: Saves immediately to LocalStorage and Firestore Cloud, updating timestamp and synchronizing
+  const handleManualSave = useCallback(async () => {
+    setIsCloudSaving(true);
+    setAutoSaveStatus("saving");
+
+    // 1. Immediately persist full project snapshot to LocalStorage
+    performLocalSave();
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+
+    // 2. Immediately persist and broadcast to Firebase Cloud Firestore
+    try {
+      const savedProj = await saveProjectToCloud({
+        id: "main-project",
+        name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
+        cloudCode: cloudCode || undefined,
+        instances,
+        cables,
+        droneFrame: {
+          color: droneColor,
+          opacity: droneOpacity,
+          wireframe: droneWireframe,
+          visible: droneVisible,
+        },
+        customModels: modelManager.getCustomModelRegistry(),
+        sceneTheme,
+        cameraViewMode,
+        clientId: clientIdRef.current,
+        isManualSave: true,
+        manualSaveTimestamp: Date.now(),
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+      });
+
+      lastKnownRemoteUpdateRef.current = savedProj.updatedAt;
+      setCurrentCloudProject(savedProj);
+      setCloudCode(savedProj.cloudCode);
+      localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
+      setLastCloudSavedAt(savedProj.updatedAt);
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      setLastSavedTimeText(timeStr);
+      setAutoSaveStatus("saved");
+
+      showToast(`Loyiha barcha brauzerlar uchun saqlandi va yangilandi! (Kod: ${savedProj.cloudCode})`);
+    } catch (err) {
+      console.warn("Manual save cloud notice:", err);
+      setAutoSaveStatus("saved");
+      showToast("Loyiha xotirada saqlandi va yangilandi!");
+    } finally {
+      setIsCloudSaving(false);
+    }
+  }, [
+    performLocalSave,
+    currentCloudProject,
+    cloudCode,
+    instances,
+    cables,
+    droneColor,
+    droneOpacity,
+    droneWireframe,
+    droneVisible,
+    sceneTheme,
+    cameraViewMode,
+    manifest,
+    showToast,
+  ]);
 
   // Record a history snapshot before state mutation
   const recordSnapshot = useCallback((description: string) => {
@@ -1234,6 +1769,13 @@ export default function App() {
         return;
       }
 
+      // 2.5. Ctrl + S / Cmd + S (Manual Save & Cloud Update)
+      if (isCtrlOrCmd && (e.key === "s" || e.key === "S")) {
+        e.preventDefault();
+        handleManualSave();
+        return;
+      }
+
       // 3. Delete or Backspace
       if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedInstanceIds.length > 0) {
@@ -1397,6 +1939,7 @@ export default function App() {
     handleFlipSelected,
     handleToggleLockSelected,
     handleToggleVisibilitySelected,
+    handleManualSave,
     showToast,
   ]);
 
@@ -1413,7 +1956,7 @@ export default function App() {
     setInstances((prev) =>
       prev.map((inst) =>
         inst.isAirframe || inst.componentId === "01"
-          ? { ...inst, customColor: color }
+          ? { ...inst, customColor: color === "original" ? undefined : color }
           : inst
       )
     );
@@ -1909,33 +2452,81 @@ export default function App() {
       setSelectedInstanceId(null);
       setSelectedPinFullName(null);
       localStorage.removeItem(STORAGE_KEY);
+      hasLocalModificationsRef.current = true;
+      lastLocalActionTimeRef.current = Date.now();
+      saveProjectToCloud({
+        id: "main-project",
+        name: "3.5M Twin-Motor UAV Avionics",
+        cloudCode: cloudCode || undefined,
+        instances: fresh,
+        cables: [],
+        clientId: clientIdRef.current,
+        isExplicitReset: true,
+      }).catch((e) => console.warn("Cloud reset notice:", e));
       showToast("Barcha avionika qayta o‘rnatildi");
     }
   };
 
   const [reloadTrigger, setReloadTrigger] = useState<number>(0);
   const [isReloadingModels, setIsReloadingModels] = useState<boolean>(false);
+  const [isReloadingJetson, setIsReloadingJetson] = useState<boolean>(false);
 
   const handleReloadModels = useCallback(async () => {
     setIsReloadingModels(true);
     setLoadingAssetErrors(new Map());
-    showToast("3D modellar xotiradan tozalab, qayta yuklanmoqda...");
+    showToast("Barcha 3D modellar asl ranglari bilan qayta tekshirilmoqda va yuklanmoqda...");
     try {
-      await modelManager.clearCache(true);
+      // 1. Reset drone color to original
+      setDroneColor("original");
+
+      // 2. Clear any custom color overrides on all instances so original CAD colors take effect
+      setInstances((prev) =>
+        prev.map((inst) => ({
+          ...inst,
+          customColor: undefined,
+        }))
+      );
+
+      // 3. Clear cache and reload all 21 models with fresh original materials
+      await modelManager.reloadAllModelsWithOriginalColors();
+
       setReloadTrigger(Date.now());
-      showToast("Barcha 3D modellar qayta yuklandi va saqlandi");
-    } catch (err) {
+      showToast("Barcha 21 ta 3D modellar asl ranglari va materiallari bilan muvaffaqiyatli yuklandi!");
+    } catch (err: any) {
       console.error(err);
-      showToast("Modellarni yangilashda xatolik yuz berdi");
+      showToast("Modellarni yangilashda xatolik yuz berdi: " + (err?.message || ""));
     } finally {
       setIsReloadingModels(false);
+    }
+  }, []);
+
+  const handleReloadJetson = useCallback(async () => {
+    setIsReloadingJetson(true);
+    showToast("Jetson P3737 modeli yangidan yuklanmoqda...");
+    try {
+      setLoadingAssetErrors((prev) => {
+        const next = new Map(prev);
+        next.delete("jetson-p3737");
+        return next;
+      });
+
+      await modelManager.reloadSingleModel("19");
+
+      setReloadTrigger(Date.now());
+      showToast("Jetson P3737 modeli muvaffaqiyatli yangidan yuklandi! ✓");
+    } catch (err: any) {
+      console.error(err);
+      setLoadingAssetErrors((prev) => new Map(prev).set("jetson-p3737", err?.message || "Yuklanmadi"));
+      showToast("Jetson modelini yuklashda xatolik: " + (err?.message || ""));
+    } finally {
+      setIsReloadingJetson(false);
     }
   }, []);
 
   const handleAssetLoadError = useCallback((assetKey: string, message: string) => {
     setLoadingAssetErrors((prev) => new Map(prev).set(assetKey, message));
     if (assetKey === "jetson-p3737") {
-      showToast("P3737 modeli yuklanmadi");
+      showToast("Jetson P3737 modeli yuklanmadi: " + message);
     }
   }, []);
 
@@ -1948,6 +2539,10 @@ export default function App() {
         cloudCode: customCode || cloudCode || undefined,
         instances,
         cables,
+        clientId: clientIdRef.current,
+        isManualSave: true,
+        manualSaveTimestamp: Date.now(),
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
         droneFrame: {
           color: droneColor,
           opacity: droneOpacity,
@@ -1955,6 +2550,7 @@ export default function App() {
           visible: droneVisible,
         },
       });
+      lastKnownRemoteUpdateRef.current = saved.updatedAt;
       setCurrentCloudProject(saved);
       setCloudCode(saved.cloudCode);
       localStorage.setItem("drone_avionics_cloud_code", saved.cloudCode);
@@ -1970,6 +2566,21 @@ export default function App() {
   };
 
   const handleApplyCloudProject = (project: CloudProjectData) => {
+    if (Array.isArray(project.customManifest) && project.customManifest.length > 0) {
+      setManifest((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const additions = project.customManifest!.filter((m) => !existingIds.has(m.id));
+        if (additions.length > 0) {
+          const merged = [...prev, ...additions];
+          try {
+            const toSave = merged.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom"));
+            localStorage.setItem("drone_avionics_custom_manifest", JSON.stringify(toSave));
+          } catch {}
+          return merged;
+        }
+        return prev;
+      });
+    }
     if (Array.isArray(project.instances)) {
       setInstances(project.instances);
     }
@@ -1995,6 +2606,67 @@ export default function App() {
   );
 
   const placedCount = useMemo(() => instances.filter((i) => i.placed).length, [instances]);
+
+  // Open 3D Model Picker & Importer
+  const handleOpenModelImport = useCallback(
+    (componentId?: string) => {
+      if (componentId) {
+        setModelImportTargetId(componentId);
+      } else if (selectedInstance) {
+        setModelImportTargetId(selectedInstance.componentId);
+      } else {
+        setModelImportTargetId("01");
+      }
+      setIsModelImportOpen(true);
+    },
+    [selectedInstance]
+  );
+
+  // Create new custom component on-the-fly and place instance on stage
+  const handleCreateCustomComponent = useCallback(
+    async (name: string, quantity: number, notes?: string): Promise<string> => {
+      const newId = String(manifest.length + 1).padStart(2, "0");
+      const newManifestItem: ComponentManifestItem = {
+        id: newId,
+        component: name,
+        quantity,
+        notes: notes || "Foydalanuvchi maxsus 3D modeli",
+      };
+      setManifest((prev) => {
+        const next = [...prev, newManifestItem];
+        try {
+          const customOnly = next.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom"));
+          localStorage.setItem("drone_avionics_custom_manifest", JSON.stringify(customOnly));
+        } catch {}
+        return next;
+      });
+
+      const now = Date.now();
+      const newInstances: PhysicalInstance[] = [];
+      for (let i = 1; i <= quantity; i++) {
+        newInstances.push({
+          instanceId: `${newId}-${i}`,
+          componentId: newId,
+          instanceIndex: i,
+          name: `${name} ${i}`,
+          placed: i === 1, // Immediately place on stage so user sees it in 3D scene!
+          locked: false,
+          visible: true,
+          position: [0, 80 + (i - 1) * 30, 0],
+          rotation: [0, 0, 0],
+          scale: [1, 1, 1],
+          modelVersion: now,
+        });
+      }
+
+      setInstances((prev) => [...prev, ...newInstances]);
+      if (newInstances.length > 0 && newInstances[0].placed) {
+        setSelectedInstanceIds([newInstances[0].instanceId]);
+      }
+      return newId;
+    },
+    [manifest]
+  );
 
   return (
     <div className="app-container" id="dron-avionics-app">
@@ -2029,6 +2701,9 @@ export default function App() {
         onResetAll={handleResetAll}
         onReloadModels={handleReloadModels}
         isReloadingModels={isReloadingModels}
+        onReloadJetson={handleReloadJetson}
+        isReloadingJetson={isReloadingJetson}
+        onOpenModelImport={handleOpenModelImport}
         isDronePlaced={isDronePlaced}
         onToggleDronePresence={handleToggleDronePresence}
         onAutoPlaceAll={handleAutoPlaceAll}
@@ -2046,6 +2721,9 @@ export default function App() {
         onOpenCloudModal={() => setIsCloudModalOpen(true)}
         cloudCode={cloudCode}
         isCloudSaving={isCloudSaving}
+        autoSaveStatus={autoSaveStatus}
+        lastSavedAtText={lastSavedTimeText}
+        onForceSave={handleManualSave}
       />
 
       {/* Main Workspace Body */}
@@ -2070,7 +2748,9 @@ export default function App() {
             loadingAssetErrors={loadingAssetErrors}
             onAutoPlaceAll={handleAutoPlaceAll}
             onCollapse={() => setIsLeftPanelOpen(false)}
-            onOpenModelImport={() => setIsModelImportOpen(true)}
+            onOpenModelImport={handleOpenModelImport}
+            onReloadJetson={handleReloadJetson}
+            isReloadingJetson={isReloadingJetson}
           />
         )}
 
@@ -2371,6 +3051,9 @@ export default function App() {
             onDeleteCableRoutePoint={handleDeleteCableRoutePoint}
             onStraightenCable={handleStraightenCable}
             onCollapse={() => setIsRightPanelOpen(false)}
+            onReloadJetson={handleReloadJetson}
+            isReloadingJetson={isReloadingJetson}
+            onChangeModel={handleOpenModelImport}
           />
         )}
       </div>
@@ -2392,16 +3075,23 @@ export default function App() {
         onClose={() => setIsShortcutsModalOpen(false)}
       />
 
-      {/* GitHub / Custom 3D Model Import Modal */}
+      {/* 3D Model Picker & Importer Modal */}
       <ModelImportModal
         isOpen={isModelImportOpen}
         onClose={() => setIsModelImportOpen(false)}
         manifest={manifest}
-        defaultComponentId="21"
+        defaultComponentId={modelImportTargetId}
+        onCreateCustomComponent={handleCreateCustomComponent}
         onSuccess={(componentId, message) => {
-          setToastMessage(message);
-          setTimeout(() => setToastMessage(null), 4500);
-          setInstances((prev) => [...prev]);
+          showToast(`✅ ${message}`);
+          const now = Date.now();
+          setInstances((prev) =>
+            prev.map((inst) =>
+              inst.componentId === componentId
+                ? { ...inst, modelVersion: now }
+                : inst
+            )
+          );
         }}
       />
 

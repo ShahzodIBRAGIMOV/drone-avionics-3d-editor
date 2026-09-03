@@ -2,7 +2,19 @@ import * as THREE from "three";
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader.js";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { loadModelIndex, loadModelAsset, clearAllModelCache, ModelAsset } from "../modelAssetLoader";
+import { loadModelIndex, loadModelAsset, clearAllModelCache, clearSingleModelCache, getCachedBuffer, setCachedBuffer, ModelAsset } from "../modelAssetLoader";
+
+export interface CustomModelRecord {
+  componentId: string;
+  assetKey: string;
+  sourceType: "file" | "preset" | "url";
+  format?: "obj" | "stl" | "glb" | "gltf";
+  scaleMultiplier?: number;
+  fileName?: string;
+  sourceUrl?: string;
+  presetKey?: string;
+  updatedAt: number;
+}
 
 export const COMPONENT_ID_TO_ASSET_KEY: Record<string, string> = {
   "01": "drone",
@@ -29,6 +41,186 @@ export const COMPONENT_ID_TO_ASSET_KEY: Record<string, string> = {
 };
 
 export type LoadingProgressCallback = (loaded: number, total: number, currentItem: string) => void;
+
+export interface Preset3DModel {
+  assetKey: string;
+  name: string;
+  category: "airframe" | "computing" | "power" | "sensors" | "propulsion" | "actuation" | "rf";
+  description: string;
+  format: "glb" | "stl" | "obj" | "gltf";
+  dimensionsMm?: [number, number, number];
+}
+
+export const PRESET_3D_MODELS: Preset3DModel[] = [
+  {
+    assetKey: "drone",
+    name: "3800mm VTOL Dron Korpusi",
+    category: "airframe",
+    description: "3800 mm qanot kengligi, 2550 mm fyuzelyaj, kompozit korpus",
+    format: "glb",
+    dimensionsMm: [3800, 2550, 480],
+  },
+  {
+    assetKey: "jetson-p3737",
+    name: "NVIDIA Jetson P3737 Carrier",
+    category: "computing",
+    description: "Sun'iy intellekt va kompyuter ko'rishi hisoblash moduli",
+    format: "stl",
+    dimensionsMm: [105, 105, 35],
+  },
+  {
+    assetKey: "cube-orange",
+    name: "Cube Orange ADS-B Avtopilot",
+    category: "computing",
+    description: "Uch karra zaxiralangan IMU avtopilot tizimi",
+    format: "glb",
+    dimensionsMm: [38, 38, 22],
+  },
+  {
+    assetKey: "here3",
+    name: "Here3 / Here4 Precision GNSS",
+    category: "sensors",
+    description: "RTK qo'llab-quvvatlovchi yuqori aniqlikdagi GPS moduli",
+    format: "glb",
+    dimensionsMm: [76, 76, 16],
+  },
+  {
+    assetKey: "hm30",
+    name: "MK32 HM30 Air Unit Datalink",
+    category: "rf",
+    description: "30 km gacha telemetriya va Full HD video uzatuvchi radio",
+    format: "glb",
+    dimensionsMm: [70, 55, 24],
+  },
+  {
+    assetKey: "zr10",
+    name: "SIYI ZR10 Gimbal Zoom Kamera",
+    category: "sensors",
+    description: "30x gibrid zum, optik stabillashgan 2K/4K kamera",
+    format: "glb",
+    dimensionsMm: [121, 101, 142],
+  },
+  {
+    assetKey: "pm02d",
+    name: "Holybro PM02D / PM07 12S",
+    category: "power",
+    description: "CAN/I2C quvvat telemetriya moduli va XT60 kabeli",
+    format: "glb",
+    dimensionsMm: [45, 28, 14],
+  },
+  {
+    assetKey: "matek-bec",
+    name: "Matek BEC12S Pro",
+    category: "power",
+    description: "9-55V kirishli, bort kompyuteri regulyatori",
+    format: "glb",
+    dimensionsMm: [48, 30, 16],
+  },
+  {
+    assetKey: "tattu",
+    name: "TATTU 22000 mAh 6S LiPo",
+    category: "power",
+    description: "Asosiy tortish tizimi uchun 25C yuqori sig'imli akkumulyator",
+    format: "glb",
+    dimensionsMm: [206, 91, 68],
+  },
+  {
+    assetKey: "avionics-battery",
+    name: "4S Avionika LiPo Akkumulyatori",
+    category: "power",
+    description: "Bort hisoblash va zaxira ta'minot batareyasi",
+    format: "glb",
+    dimensionsMm: [140, 45, 35],
+  },
+  {
+    assetKey: "motor",
+    name: "SunnySky Cho'tkasiz Dvigatel",
+    category: "propulsion",
+    description: "Yuqori samaradorlikka ega VTOL/tortuvchi elektrodvigatel",
+    format: "glb",
+    dimensionsMm: [80, 80, 60],
+  },
+  {
+    assetKey: "esc",
+    name: "AT115A Tezlik Regulyatori (ESC)",
+    category: "propulsion",
+    description: "115A uzluksiz tokka mo'ljallangan telemetriyali ESC",
+    format: "glb",
+    dimensionsMm: [78, 34, 18],
+  },
+  {
+    assetKey: "servo",
+    name: "Savox Raqamli Metall Servoprivod",
+    category: "actuation",
+    description: "Eleronlar, rullar va flaplar uchun yuqori aniqlikdagi servo",
+    format: "glb",
+    dimensionsMm: [40, 20, 37],
+  },
+  {
+    assetKey: "pitot",
+    name: "Holybro Pito Naychasi (Pitot Tube)",
+    category: "sensors",
+    description: "Dinamik havo tezligini o'lchovchi aerodinamik pito naychasi",
+    format: "glb",
+    dimensionsMm: [180, 20, 15],
+  },
+  {
+    assetKey: "airspeed-module",
+    name: "MS5525DSO Havo Tezligi Datchigi",
+    category: "sensors",
+    description: "I2C differensial bosim o'lchovchi yuqori sezgir sensor",
+    format: "glb",
+    dimensionsMm: [22, 18, 12],
+  },
+  {
+    assetKey: "foldable-omni-antenna",
+    name: "Yig'iluvchi Omni Antenna (SMA)",
+    category: "rf",
+    description: "146.5 mm SMA ulagichli ko'p yo'nalishli radiochastota antennasi",
+    format: "glb",
+    dimensionsMm: [14, 14, 146],
+  },
+  {
+    assetKey: "propeller",
+    name: "20x10 Ikki Parrakli Propeller",
+    category: "propulsion",
+    description: "Uglerod tolali yuqori tortish quvvatiga ega parrak",
+    format: "glb",
+    dimensionsMm: [508, 42, 28],
+  },
+  {
+    assetKey: "hobbywing-ubec",
+    name: "Hobbywing Yuqori Voltajli UBEC",
+    category: "power",
+    description: "Servolar va avionika uchun past shovqinli impulsli regulyator",
+    format: "glb",
+    dimensionsMm: [55, 25, 12],
+  },
+  {
+    assetKey: "siyi-bec",
+    name: "SIYI 4-18S BEC HM30",
+    category: "power",
+    description: "Datalink va havo moduli uchun maxsus kuchlanish regulyatori",
+    format: "glb",
+    dimensionsMm: [38, 26, 12],
+  },
+  {
+    assetKey: "led",
+    name: "Eagle Eye Qanot Navigatsiya Chirog'i",
+    category: "actuation",
+    description: "Chap va o'ng qanot uchlari uchun yuqori yorug'likli LED",
+    format: "glb",
+    dimensionsMm: [22, 22, 12],
+  },
+  {
+    assetKey: "estop",
+    name: "Avariyaviy To'xtatish Tugmasi (E-Stop)",
+    category: "power",
+    description: "Yuqori xavfsizlikli mexanik elektr uzgich",
+    format: "glb",
+    dimensionsMm: [36, 36, 42],
+  },
+];
 
 class ModelManager {
   private indexCache: Record<string, ModelAsset> | null = null;
@@ -64,13 +256,14 @@ class ModelManager {
     switch (componentId) {
       case "01": // Drone airframe (Clean aviation composite)
         return new THREE.MeshStandardMaterial({
-          color: 0x94a3b8,
+          color: 0xffffff,
           roughness: 0.35,
           metalness: 0.08,
           transparent: false,
           opacity: 1.0,
           depthWrite: true,
           side: THREE.DoubleSide,
+          vertexColors: true,
         });
 
       case "02": // CUBE Orange (Anodized vibrant orange CNC aluminum + black base)
@@ -259,7 +452,10 @@ class ModelManager {
           const geometry = this.stlLoader.parse(arrayBuffer);
           geometry.computeVertexNormals();
           const material = this.getAviationMaterial(componentId, assetKey);
-          object = new THREE.Mesh(geometry, material);
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          object = mesh;
         } else if (asset.format === "glb" || asset.format === "gltf") {
           const gltf = await new Promise<THREE.Group>((resolve, reject) => {
             this.gltfLoader.parse(
@@ -275,12 +471,29 @@ class ModelManager {
               const mesh = child as THREE.Mesh;
               mesh.castShadow = true;
               mesh.receiveShadow = true;
-              if (mesh.geometry) {
+              if (mesh.geometry && (!mesh.geometry.attributes.normal || mesh.geometry.attributes.normal.count === 0)) {
                 mesh.geometry.computeVertexNormals();
               }
-              if (componentId === "01") {
-                mesh.material = this.getAviationMaterial("01", assetKey);
-              }
+              const hasVertexColor = !!mesh.geometry?.attributes?.color;
+              const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+              mats.forEach((m) => {
+                if (!m) return;
+                const stdMat = m as THREE.MeshStandardMaterial;
+                if (hasVertexColor) {
+                  stdMat.vertexColors = true;
+                  if (stdMat.color) stdMat.color.setHex(0xffffff);
+                  stdMat.side = THREE.DoubleSide;
+                }
+                if (stdMat.color) {
+                  stdMat.userData = {
+                    ...stdMat.userData,
+                    origColor: stdMat.color.getHex(),
+                    origRoughness: stdMat.roughness,
+                    origMetalness: stdMat.metalness,
+                    hasVertexColors: hasVertexColor,
+                  };
+                }
+              });
             }
           });
           object = gltf;
@@ -385,12 +598,10 @@ class ModelManager {
         wrapper.name = `template_${assetKey}`;
 
         this.templateCache.set(assetKey, wrapper);
+        this.loadErrors.delete(assetKey);
         return wrapper;
       } catch (err: any) {
-        const errorMsg =
-          componentId === "19" || assetKey === "jetson-p3737"
-            ? "P3737 modeli yuklanmadi"
-            : err?.message || `${assetKey} yuklanmadi`;
+        const errorMsg = err?.message || `${assetKey} yuklanmadi`;
         this.loadErrors.set(assetKey, errorMsg);
         throw new Error(errorMsg);
       } finally {
@@ -451,16 +662,15 @@ class ModelManager {
         if (Array.isArray(mesh.material)) {
           mesh.material = mesh.material.map((m) => {
             const cloned = m.clone();
-            if ((cloned as any).color) {
-              (cloned as any).userData = { ...cloned.userData, origColor: (cloned as any).color.getHex() };
-            }
+            const origColor = (m as any).userData?.origColor !== undefined ? (m as any).userData.origColor : ((cloned as any).color ? (cloned as any).color.getHex() : undefined);
+            (cloned as any).userData = { ...cloned.userData, ...(m as any).userData, origColor };
             return cloned;
           });
         } else if (mesh.material) {
-          const cloned = mesh.material.clone();
-          if ((cloned as any).color) {
-            (cloned as any).userData = { ...cloned.userData, origColor: (cloned as any).color.getHex() };
-          }
+          const m = mesh.material;
+          const cloned = m.clone();
+          const origColor = (m as any).userData?.origColor !== undefined ? (m as any).userData.origColor : ((cloned as any).color ? (cloned as any).color.getHex() : undefined);
+          (cloned as any).userData = { ...cloned.userData, ...(m as any).userData, origColor };
           mesh.material = cloned;
         }
       }
@@ -475,6 +685,30 @@ class ModelManager {
     }
 
     return clone;
+  }
+
+  // Force-reload all 21 models with authentic original colors, bypassing any caches
+  async reloadAllModelsWithOriginalColors(
+    onProgress?: (current: number, total: number, name: string) => void
+  ): Promise<{ loaded: number; failed: number }> {
+    await this.clearCache(true);
+    return await this.preloadAllModels(onProgress);
+  }
+
+  // Reload a single specific model (e.g. Jetson '19'), bypassing any cached buffers
+  async reloadSingleModel(componentId: string): Promise<THREE.Object3D> {
+    const assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
+    this.cacheBuster = Date.now();
+    this.loadErrors.delete(assetKey);
+    this.templateCache.delete(assetKey);
+    this.loadingPromises.delete(assetKey);
+
+    await clearSingleModelCache(assetKey);
+
+    // Invalidate index cache so latest metadata is fetched
+    this.indexCache = null;
+
+    return await this.loadModelTemplate(componentId, true);
   }
 
   getTemplateDimensions(componentId: string): [number, number, number] | null {
@@ -498,13 +732,133 @@ class ModelManager {
     return null;
   }
 
-  // Load custom 3D model from raw bytes (OBJ, STL, GLB) from GitHub or local file upload
+  // Persistent registry storage for custom model associations
+  private customRegistryKey = "drone_custom_models_registry";
+
+  getCustomModelRegistry(): Record<string, CustomModelRecord> {
+    if (typeof localStorage === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(this.customRegistryKey);
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveCustomModelRecord(record: CustomModelRecord) {
+    if (typeof localStorage === "undefined") return;
+    try {
+      const current = this.getCustomModelRegistry();
+      current[record.componentId] = record;
+      localStorage.setItem(this.customRegistryKey, JSON.stringify(current));
+    } catch (e) {
+      console.warn("Could not save custom model record:", e);
+    }
+  }
+
+  removeCustomModelRecord(componentId: string) {
+    if (typeof localStorage === "undefined") return;
+    try {
+      const current = this.getCustomModelRegistry();
+      delete current[componentId];
+      localStorage.setItem(this.customRegistryKey, JSON.stringify(current));
+    } catch (e) {
+      console.warn("Could not remove custom model record:", e);
+    }
+  }
+
+  // Register custom component mapping
+  registerCustomComponent(componentId: string, assetKey: string) {
+    COMPONENT_ID_TO_ASSET_KEY[componentId] = assetKey;
+  }
+
+  // Assign an existing preset model to any target component
+  async assignPresetModel(
+    componentId: string,
+    sourceAssetKey: string,
+    persist = true
+  ): Promise<THREE.Object3D> {
+    const targetAssetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
+    this.registerCustomComponent(componentId, targetAssetKey);
+
+    // Ensure source model template is loaded
+    await this.loadModelAssetByKey(sourceAssetKey);
+    const sourceTemplate = this.templateCache.get(sourceAssetKey);
+    if (!sourceTemplate) {
+      throw new Error(`Kutubxonada model topilmadi: ${sourceAssetKey}`);
+    }
+
+    const cloned = sourceTemplate.clone(true) as THREE.Group;
+    cloned.name = `template_${targetAssetKey}`;
+    this.templateCache.set(targetAssetKey, cloned);
+    this.loadErrors.delete(targetAssetKey);
+
+    if (persist) {
+      this.saveCustomModelRecord({
+        componentId,
+        assetKey: targetAssetKey,
+        sourceType: "preset",
+        presetKey: sourceAssetKey,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return cloned;
+  }
+
+  // Load a preset asset by its key directly
+  async loadModelAssetByKey(assetKey: string): Promise<THREE.Object3D> {
+    if (this.templateCache.has(assetKey)) {
+      return this.templateCache.get(assetKey)!;
+    }
+    // Find componentId that maps to this assetKey or synthesize
+    let foundCompId = Object.keys(COMPONENT_ID_TO_ASSET_KEY).find(
+      (id) => COMPONENT_ID_TO_ASSET_KEY[id] === assetKey
+    );
+    if (foundCompId) {
+      return await this.loadModelTemplate(foundCompId);
+    }
+
+    const index = await this.getIndex();
+    const asset = index[assetKey];
+    if (!asset) {
+      throw new Error(`Model topilmadi: ${assetKey}`);
+    }
+
+    const buffer = await loadModelAsset(asset, this.cacheBuster);
+    let object: THREE.Object3D;
+    if (asset.format === "stl") {
+      const geometry = this.stlLoader.parse(buffer);
+      geometry.computeVertexNormals();
+      const material = this.getAviationMaterial("00", assetKey);
+      object = new THREE.Mesh(geometry, material);
+    } else if (asset.format === "glb" || asset.format === "gltf") {
+      object = await new Promise<THREE.Group>((resolve, reject) => {
+        this.gltfLoader.parse(buffer, "", (res) => resolve(res.scene), reject);
+      });
+    } else {
+      const text = new TextDecoder().decode(buffer);
+      object = this.objLoader.parse(text);
+    }
+
+    const wrapper = new THREE.Group();
+    wrapper.add(object);
+    wrapper.name = `template_${assetKey}`;
+    this.templateCache.set(assetKey, wrapper);
+    return wrapper;
+  }
+
+  // Load custom 3D model from raw bytes (OBJ, STL, GLB, GLTF) from file upload or URL
   async loadCustomModel(
     componentId: string,
     arrayBuffer: ArrayBuffer,
-    format: "obj" | "stl" | "glb" | "gltf"
+    format: "obj" | "stl" | "glb" | "gltf",
+    scaleMultiplier = 1.0,
+    fileName?: string,
+    persist = true
   ): Promise<THREE.Object3D> {
     let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
+    this.registerCustomComponent(componentId, assetKey);
     let object: THREE.Object3D;
 
     if (format === "stl") {
@@ -546,13 +900,19 @@ class ModelManager {
       object = group;
     }
 
-    // Auto-scale to mm if in meters
+    // Auto-scale to mm if in meters (maxDim < 1.0)
     const preBox = new THREE.Box3().setFromObject(object);
     const preSize = new THREE.Vector3();
     preBox.getSize(preSize);
     const maxDim = Math.max(preSize.x, preSize.y, preSize.z);
     if (maxDim > 0 && maxDim < 1.0) {
       object.scale.multiplyScalar(1000);
+      object.updateMatrixWorld(true);
+    }
+
+    // Apply user-defined scale multiplier if specified
+    if (scaleMultiplier && scaleMultiplier !== 1.0) {
+      object.scale.multiplyScalar(scaleMultiplier);
       object.updateMatrixWorld(true);
     }
 
@@ -567,13 +927,35 @@ class ModelManager {
     wrapper.name = `template_${assetKey}`;
 
     this.templateCache.set(assetKey, wrapper);
+    this.loadErrors.delete(assetKey);
+
+    if (persist) {
+      try {
+        const bufferCacheKey = `custom_model_buffer_${componentId}`;
+        await setCachedBuffer(bufferCacheKey, arrayBuffer);
+        this.saveCustomModelRecord({
+          componentId,
+          assetKey,
+          sourceType: "file",
+          format,
+          scaleMultiplier,
+          fileName,
+          updatedAt: Date.now(),
+        });
+      } catch (err) {
+        console.warn("Could not cache custom model buffer persistently:", err);
+      }
+    }
+
     return wrapper;
   }
 
   // Load model directly from GitHub or arbitrary URL
   async loadCustomModelFromUrl(
     componentId: string,
-    rawUrl: string
+    rawUrl: string,
+    scaleMultiplier = 1.0,
+    persist = true
   ): Promise<THREE.Object3D> {
     // Transform standard GitHub blob URLs into raw URLs
     let fetchUrl = rawUrl.trim();
@@ -595,7 +977,92 @@ class ModelManager {
     else if (lower.endsWith(".glb")) format = "glb";
     else if (lower.endsWith(".gltf")) format = "gltf";
 
-    return this.loadCustomModel(componentId, arrayBuffer, format);
+    const wrapper = await this.loadCustomModel(
+      componentId,
+      arrayBuffer,
+      format,
+      scaleMultiplier,
+      fetchUrl.split("/").pop(),
+      false
+    );
+
+    if (persist) {
+      try {
+        const bufferCacheKey = `custom_model_buffer_${componentId}`;
+        await setCachedBuffer(bufferCacheKey, arrayBuffer);
+        this.saveCustomModelRecord({
+          componentId,
+          assetKey: COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId,
+          sourceType: "url",
+          format,
+          scaleMultiplier,
+          sourceUrl: rawUrl,
+          fileName: fetchUrl.split("/").pop(),
+          updatedAt: Date.now(),
+        });
+      } catch (err) {
+        console.warn("Could not cache custom model buffer persistently:", err);
+      }
+    }
+
+    return wrapper;
+  }
+
+  // Automatically restore all custom models, assigned presets, and uploaded files from storage
+  async restoreCustomModelsFromStorage(): Promise<string[]> {
+    const registry = this.getCustomModelRegistry();
+    const restoredComponentIds: string[] = [];
+    const keys = Object.keys(registry);
+    if (keys.length === 0) return restoredComponentIds;
+
+    for (const compId of keys) {
+      const record = registry[compId];
+      try {
+        if (record.sourceType === "preset" && record.presetKey) {
+          await this.assignPresetModel(compId, record.presetKey, false);
+          restoredComponentIds.push(compId);
+        } else if (record.sourceType === "file" && record.format) {
+          const bufferKey = `custom_model_buffer_${compId}`;
+          const buffer = await getCachedBuffer(bufferKey);
+          if (buffer && buffer.byteLength > 0) {
+            await this.loadCustomModel(
+              compId,
+              buffer,
+              record.format,
+              record.scaleMultiplier || 1.0,
+              record.fileName,
+              false
+            );
+            restoredComponentIds.push(compId);
+          }
+        } else if (record.sourceType === "url") {
+          const bufferKey = `custom_model_buffer_${compId}`;
+          const buffer = await getCachedBuffer(bufferKey);
+          if (buffer && buffer.byteLength > 0 && record.format) {
+            await this.loadCustomModel(
+              compId,
+              buffer,
+              record.format,
+              record.scaleMultiplier || 1.0,
+              record.fileName,
+              false
+            );
+            restoredComponentIds.push(compId);
+          } else if (record.sourceUrl) {
+            await this.loadCustomModelFromUrl(
+              compId,
+              record.sourceUrl,
+              record.scaleMultiplier || 1.0,
+              false
+            );
+            restoredComponentIds.push(compId);
+          }
+        }
+      } catch (err) {
+        console.warn(`Failed to restore custom model for component ${compId}:`, err);
+      }
+    }
+    return restoredComponentIds;
   }
 }
 

@@ -37,6 +37,8 @@ import {
   Keyboard,
   Cloud,
   CloudUpload,
+  Box,
+  Save,
 } from "lucide-react";
 import { TransformMode, TransformSpace, SceneTheme } from "../types";
 import { prefetchAndCacheAllModels, getModelCacheInfo } from "../modelAssetLoader";
@@ -71,6 +73,9 @@ interface HeaderBarProps {
   onResetAll: () => void;
   onReloadModels?: () => void;
   isReloadingModels?: boolean;
+  onReloadJetson?: () => void;
+  isReloadingJetson?: boolean;
+  onOpenModelImport?: (defaultComponentId?: string) => void;
   isDronePlaced?: boolean;
   onToggleDronePresence?: () => void;
   onAutoPlaceAll?: () => void;
@@ -88,6 +93,9 @@ interface HeaderBarProps {
   onOpenCloudModal?: () => void;
   cloudCode?: string | null;
   isCloudSaving?: boolean;
+  autoSaveStatus?: "saved" | "saving" | "idle" | "error";
+  lastSavedAtText?: string;
+  onForceSave?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -120,6 +128,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onResetAll,
   onReloadModels,
   isReloadingModels,
+  onReloadJetson,
+  isReloadingJetson = false,
+  onOpenModelImport,
   isDronePlaced = true,
   onToggleDronePresence,
   onAutoPlaceAll,
@@ -137,6 +148,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenCloudModal,
   cloudCode,
   isCloudSaving = false,
+  autoSaveStatus = "saved",
+  lastSavedAtText,
+  onForceSave,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -150,6 +164,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [cacheCount, setCacheCount] = useState<number>(0);
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [prefetchStatus, setPrefetchStatus] = useState<string>("");
+  const [isJustSaved, setIsJustSaved] = useState(false);
+
+  const handleManualSaveClick = useCallback(() => {
+    if (onForceSave) {
+      onForceSave();
+      setIsJustSaved(true);
+      setTimeout(() => {
+        setIsJustSaved(false);
+      }, 2500);
+    }
+  }, [onForceSave]);
 
   const updateScrollState = useCallback(() => {
     const el = headerRef.current;
@@ -506,25 +531,87 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </button>
 
               {/* Drone color selector */}
-              <div className="drone-color-picker-wrapper" title={`Dron korpusi rangi: ${droneColor}`}>
+              <div className="drone-color-picker-wrapper flex items-center gap-1" title={`Dron korpusi rangi: ${droneColor === "original" ? "Asl ranglar (Fuselage/Wings)" : droneColor}`}>
                 <label
                   htmlFor="input-drone-color"
                   className="color-picker-label-btn"
                   title="Dron korpusi rangini o‘zgartirish"
                 >
-                  <span className="color-indicator-circle" style={{ backgroundColor: droneColor }} />
-                  <span className="color-btn-text hidden 2xl:inline">Dron</span>
+                  <span
+                    className="color-indicator-circle"
+                    style={{
+                      background:
+                        droneColor === "original"
+                          ? "linear-gradient(135deg, #1e293b 0%, #0284c7 50%, #38bdf8 100%)"
+                          : droneColor,
+                    }}
+                  />
+                  <span className="color-btn-text hidden 2xl:inline">
+                    {droneColor === "original" ? "Asl rang" : "Dron"}
+                  </span>
                   <Palette size={12} className="color-swatch-icon" />
                   <input
                     id="input-drone-color"
                     type="color"
-                    value={droneColor}
+                    value={droneColor === "original" ? "#0284c7" : droneColor}
                     onChange={(e) => setDroneColor(e.target.value)}
                     className="hidden-color-input"
                   />
                 </label>
+                {droneColor !== "original" && (
+                  <button
+                    type="button"
+                    onClick={() => setDroneColor("original")}
+                    className="text-[10px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-slate-700 hover:border-cyan-500 transition-colors"
+                    title="Dron asl ranglariga qaytarish"
+                  >
+                    Asl rang
+                  </button>
+                )}
               </div>
             </div>
+          )}
+
+          {/* Quick Reload Models with Original Colors Button */}
+          {onReloadModels && (
+            <button
+              id="btn-quick-reload-models"
+              type="button"
+              className={`toolbar-btn text-xs gap-1.5 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 rounded-lg transition-all shrink-0 ${isReloadingModels ? "opacity-50 pointer-events-none" : ""}`}
+              onClick={onReloadModels}
+              title="Barcha 3D modellarni asl ranglari va materiallari bilan qayta tekshirib yuklash"
+            >
+              <RefreshCw size={13} className={`text-cyan-400 ${isReloadingModels ? "animate-spin" : ""}`} />
+              <span className="hidden xl:inline font-medium">Asl ranglar</span>
+            </button>
+          )}
+
+          {/* Quick Reload Jetson Model Button */}
+          {onReloadJetson && (
+            <button
+              id="btn-quick-reload-jetson"
+              type="button"
+              className={`toolbar-btn text-xs gap-1.5 px-2.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 rounded-lg transition-all shrink-0 ${isReloadingJetson ? "opacity-50 pointer-events-none" : ""}`}
+              onClick={onReloadJetson}
+              title="Jetson P3737 3D modelini keshni tozalab yangidan yuklash"
+            >
+              <RefreshCw size={13} className={`text-emerald-400 ${isReloadingJetson ? "animate-spin" : ""}`} />
+              <span className="hidden xl:inline font-medium text-emerald-300">Jetson yuklash</span>
+            </button>
+          )}
+
+          {/* 3D Model Picker & Import Button */}
+          {onOpenModelImport && (
+            <button
+              id="btn-header-open-model-import"
+              type="button"
+              className="toolbar-btn text-xs gap-1.5 px-3 py-1.5 bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 hover:text-white border border-cyan-700/70 rounded-lg transition-all shadow-sm shrink-0 flex items-center font-medium cursor-pointer"
+              onClick={() => onOpenModelImport()}
+              title="Istalgan 3D modelni (.glb, .stl, .obj) tanlash, fayldan yuklash yoki almashtirish"
+            >
+              <Box size={14} className="text-cyan-400" />
+              <span className="font-semibold text-cyan-200">Model tanlash</span>
+            </button>
           )}
 
           {/* Scene Theme Selector */}
@@ -625,16 +712,85 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
           )}
 
-          {/* Cloud Sync Button */}
+          {/* Dedicated Explicit "Saqlash" (Save) Button */}
+          {onForceSave && (
+            <button
+              id="btn-manual-save"
+              className={`action-btn flex items-center gap-1.5 px-3 py-1 font-semibold text-xs rounded transition-all shadow-sm shrink-0 ${
+                autoSaveStatus === "saving" || isCloudSaving
+                  ? "bg-amber-600/90 hover:bg-amber-600 text-white border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)] cursor-wait"
+                  : isJustSaved
+                  ? "bg-emerald-600 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.35)]"
+                  : "bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.25)] active:scale-95"
+              }`}
+              onClick={handleManualSaveClick}
+              title="Loyihani saqlash va bulutda yangilash (Tezkor tugma: Ctrl+S yoki Cmd+S)"
+            >
+              {autoSaveStatus === "saving" || isCloudSaving ? (
+                <RefreshCw size={13} className="animate-spin text-white" />
+              ) : isJustSaved ? (
+                <Check size={13} className="text-white" />
+              ) : (
+                <Save size={13} className="text-white" />
+              )}
+              <span className="font-semibold tracking-wide">
+                {autoSaveStatus === "saving" || isCloudSaving
+                  ? "Saqlanmoqda..."
+                  : isJustSaved
+                  ? "Saqlandi!"
+                  : "Saqlash"}
+              </span>
+              <kbd className="hidden md:inline-block text-[9px] bg-emerald-950/80 text-emerald-200 px-1 py-0.2 rounded border border-emerald-400/40 font-mono ml-0.5">
+                Ctrl+S
+              </kbd>
+            </button>
+          )}
+
+          {/* Auto-Save & Cloud Sync Badge */}
           {onOpenCloudModal && (
             <button
               id="btn-cloud-sync"
-              className="action-btn flex items-center gap-1.5 text-sky-400 hover:text-sky-300 border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50"
+              className={`action-btn flex items-center gap-1.5 transition-all ${
+                autoSaveStatus === "saving" || isCloudSaving
+                  ? "text-amber-300 border-amber-500/50 bg-amber-950/40 shadow-[0_0_8px_rgba(245,158,11,0.2)]"
+                  : autoSaveStatus === "saved"
+                  ? "text-emerald-300 hover:text-emerald-200 border-emerald-500/40 bg-emerald-950/30 hover:bg-emerald-900/40"
+                  : "text-sky-400 hover:text-sky-300 border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50"
+              }`}
               onClick={onOpenCloudModal}
-              title="Bulutli sinxronizatsiya (Firebase) - Boshqa brauzer yoki kompyuterda davom ettirish"
+              title={`Avtomatik saqlash: ${
+                autoSaveStatus === "saving" || isCloudSaving ? "Saqlanmoqda..." : "Faol (barcha amallar saqlangan)"
+              }. Oxirgi saqlash: ${lastSavedAtText || "hozirgina"}. Bulut kodi: ${cloudCode || "main-project"}`}
             >
-              <Cloud size={13} className={isCloudSaving ? "animate-pulse text-amber-400" : "text-sky-400"} />
-              <span className="font-medium">{isCloudSaving ? "Saqlanmoqda..." : cloudCode ? `Bulut: ${cloudCode}` : "Bulut"}</span>
+              {autoSaveStatus === "saving" || isCloudSaving ? (
+                <RefreshCw size={13} className="animate-spin text-amber-400" />
+              ) : autoSaveStatus === "saved" ? (
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                  <Check size={12} className="text-emerald-400" />
+                </span>
+              ) : (
+                <Cloud size={13} className="text-sky-400" />
+              )}
+              <span className="font-medium text-xs">
+                {autoSaveStatus === "saving" || isCloudSaving ? (
+                  "Saqlanmoqda..."
+                ) : (
+                  <>
+                    <span>Avto-saqlandi</span>
+                    {lastSavedAtText && (
+                      <span className="hidden xl:inline text-[10px] text-emerald-400/80 font-mono ml-1">
+                        {lastSavedAtText}
+                      </span>
+                    )}
+                  </>
+                )}
+              </span>
+              {cloudCode && (
+                <span className="hidden 2xl:inline bg-sky-900/60 text-sky-300 px-1 py-0.2 rounded text-[10px] font-mono border border-sky-700/50">
+                  {cloudCode}
+                </span>
+              )}
             </button>
           )}
 
@@ -664,6 +820,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 right: `${menuCoords.right}px`,
               }}
             >
+              {onForceSave && (
+                <button
+                  id="btn-menu-save-project"
+                  className="file-menu-item font-semibold text-emerald-300 hover:bg-emerald-950/50 flex items-center justify-between"
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    handleManualSaveClick();
+                  }}
+                  title="Loyihani to‘liq saqlash va yangilash (Ctrl+S / Cmd+S)"
+                >
+                  <span className="flex items-center gap-2">
+                    <Save size={14} className="text-emerald-400" />
+                    <span>Loyihani saqlash</span>
+                  </span>
+                  <kbd className="text-[10px] bg-emerald-950/90 border border-emerald-600/50 px-1 py-0.5 rounded font-mono text-emerald-300">
+                    Ctrl+S
+                  </kbd>
+                </button>
+              )}
+
               {onOpenCloudModal && (
                 <button
                   id="btn-menu-cloud-sync"
