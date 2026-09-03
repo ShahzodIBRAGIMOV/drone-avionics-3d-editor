@@ -298,7 +298,7 @@ export default function App() {
       version: 2,
       units: "millimeter",
       view: runtime.view,
-      airframe: { wingspan: 3500, opacity: droneOpacity, wireframe: droneWireframe, visible: droneVisible },
+      airframe: { wingspan: 3800, opacity: droneOpacity, wireframe: droneWireframe, visible: droneVisible },
       components: Array.from(runtime.objects.values()).map((object) => ({
         id: object.userData.instanceId,
         assetKey: object.userData.assetKey,
@@ -782,12 +782,12 @@ export default function App() {
         setDefinitions(parsedDefinitions);
         const droneSource = await createModelObject(index.drone, "drone");
         const sourceSize = new THREE.Box3().setFromObject(droneSource).getSize(new THREE.Vector3());
-        droneSource.scale.setScalar(3500 / sourceSize.x);
-        droneSource.rotation.z = Math.PI / 2;
+        droneSource.scale.setScalar(3800 / sourceSize.x);
+        droneSource.rotation.set(Math.PI / 2, 0, Math.PI / 2, "XYZ");
         droneSource.updateMatrixWorld(true);
         droneSource.position.sub(new THREE.Box3().setFromObject(droneSource).getCenter(new THREE.Vector3()));
         const drone = new THREE.Group();
-        drone.name = "3.5 m UAV korpusi";
+        drone.name = "3.8 m UAV korpusi";
         drone.add(droneSource);
         drone.traverse((child) => {
           if (!(child instanceof THREE.Mesh)) return;
@@ -824,7 +824,7 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="brand"><span className="brand-mark">UAV</span><div><strong>Avionika 3D montaj muharriri</strong><small>3.5 m twin-motor platforma · millimetr</small></div></div>
+        <div className="brand"><span className="brand-mark">UAV</span><div><strong>Avionika 3D montaj muharriri</strong><small>3.8 m twin-motor platforma · millimetr</small></div></div>
         <nav className="view-switcher" aria-label="Ortografik ko‘rinishlar">{AXIS_VIEWS.map((view) => <button key={view} className={activeView === view ? "active" : ""} onClick={() => fitView(view)}>{view}</button>)}</nav>
         <div className="export-actions"><button onClick={exportPng}>PNG</button><button onClick={exportJson}>JSON</button><button onClick={() => importRef.current?.click()}>Import</button><input ref={importRef} type="file" accept="application/json" hidden onChange={importJson} /></div>
       </header>

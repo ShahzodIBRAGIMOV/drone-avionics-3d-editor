@@ -2,7 +2,7 @@
   "drone": {
     "format": "glb",
     "parts": [
-      "uav-airframe-3p5m.glb.gz.part-aa.b64"
+      "uav-airframe-3p8m.glb.gz.part-aa.b64"
     ]
   },
   "airspeed-module": {

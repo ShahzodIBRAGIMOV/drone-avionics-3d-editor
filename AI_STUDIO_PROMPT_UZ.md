@@ -4,7 +4,7 @@ Ushbu GitHub repository ichida React, TypeScript va Three.js asosidagi ishlaydig
 
 ## Asosiy maqsad
 
-Ilova 3.5 metr qanot oralig‘iga ega twin-motor UAV ichida avionika komponentlari va kabellarni aniq joylashtirish uchun ishlatiladi. Ko‘rinish CAD dasturidagi texnik chizmaga o‘xshasin: dron korpusi och kulrang, yarim shaffof va kontur chiziqlari ko‘rinadigan bo‘lsin.
+Ilova 3.8 metr qanot oralig‘i va 2.55 metr fyuzelyaj uzunligiga ega twin-motor UAV ichida avionika komponentlari va kabellarni aniq joylashtirish uchun ishlatiladi. Ko‘rinish CAD dasturidagi texnik chizmaga o‘xshasin: dron korpusi och kulrang, yarim shaffof va kontur chiziqlari ko‘rinadigan bo‘lsin.
 
 ## Kamera — qat’iy talab
 
@@ -18,8 +18,9 @@ Ilova 3.5 metr qanot oralig‘iga ega twin-motor UAV ichida avionika komponentla
 ## Dron modeli
 
 - Dron modeli `/data/model-assets.json` ichidagi `drone` assetidan yuklanadi.
-- Tasdiqlangan GLB `/model-parts/uav-airframe-3p5m.glb.gz.part-aa.b64` faylidan `src/modelAssetLoader.ts` orqali tiklanadi.
-- Dron qanot oralig‘i avtomatik 3500 mm qilinadi.
+- Tasdiqlangan GLB `/model-parts/uav-airframe-3p8m.glb.gz.part-aa.b64` faylidan `src/modelAssetLoader.ts` orqali tiklanadi.
+- Dron qanot oralig‘i avtomatik 3800 mm qilinadi.
+- GLB Y-up koordinatalarda: X — qanot oralig‘i, Y — balandlik, Z — fyuzelyaj uzunligi. Ilovada dronni tekis joylashtirish uchun X bo‘yicha +90° va Z bo‘yicha +90° aylantir.
 - Modelning tashqi shaklini o‘zgartirma va yangi taxminiy dron yaratma.
 - Shaffoflik, wireframe va ko‘rsatish/yashirish boshqaruvlari saqlansin.
 
@@ -32,7 +33,7 @@ Ilova 3.5 metr qanot oralig‘iga ega twin-motor UAV ichida avionika komponentla
 - Foydalanuvchi “Sahnaga qo‘shish” tugmasini bosmaguncha komponentni avtomatik joylashtirma.
 - Komponentlar Three.js `TransformControls` orqali ko‘chirilsin, burilsin va masshtablansin.
 - X/Y/Z pozitsiya millimetrda, burilish gradusda tahrirlansin.
-- Manifestda 20 turdagi, miqdorlar bilan jami 32 dona fizik komponent bor. Sahnada bundan ortiq komponent yaratma.
+- Manifestda 21 turdagi, miqdorlar bilan jami 33 dona fizik komponent bor. Sahnada bundan ortiq komponent yaratma.
 - Har bir fizik obyekt faqat “Joylashtirilmagan” yoki “Sahnada” holatidan birida bo‘lsin. `Duplicate` funksiyasini qo‘shma.
 - “Inventarga qaytarish” obyektni o‘chirmaydi; uni sahnadan chiqarib, kutubxonadagi mavjud miqdorga qaytaradi.
 - JSON import manifestdagi `id`, asset va miqdorga mos kelmagan ortiqcha obyektlarni rad etsin.

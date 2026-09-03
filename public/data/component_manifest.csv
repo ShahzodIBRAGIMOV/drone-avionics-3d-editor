@@ -1,5 +1,5 @@
 id,component,quantity,preferred_web_file,original_source,notes
-01,Drone airframe,1,,,3500 mm wingspan
+01,Drone airframe,1,,,3800 mm wingspan; 2550 mm fuselage length; approved user GLB
 02,CUBE Orange ADS-B,1,cube-orange.obj,,Flight controller
 03,Here3 GPS,1,here3.obj,,Here4 visual alternative accepted
 04,MK32 HM30 Air Unit,1,hm30.obj,,Datalink
