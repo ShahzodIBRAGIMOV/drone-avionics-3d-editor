@@ -17,6 +17,6 @@ id,component,quantity,preferred_web_file,original_source,notes,asset_key
 16,Emergency Stop,1,/models/estop/model.glb,,E-stop,estop
 17,Two-blade 20x10 propeller,2,/models/propeller/model.glb,,Generated engineering model,propeller
 18,Hobbywing UBEC,2,/models/hobbywing-ubec/model.glb,,Original STEP geometry,hobbywing-ubec
-19,Jetson carrier assembly,1,/models/jetson-p3737/model.glb,,P3737 detailed assembly accepted by user as the project Jetson computer,jetson-p3737
+19,Jetson carrier assembly,1,/model-parts/jetson-p3737.stl.gz.part-XX.b64,,P3737 detailed STL assembly accepted by user as the project Jetson computer,jetson-p3737
 20,SIYI 4-18S BEC HM30,1,/models/siyi-bec/model.glb,,Generated engineering model,siyi-bec
 21,Foldable omni antenna,1,/models/foldable-omni-antenna/model.glb,,User-approved visual model; 146.5 mm high; SMA-style connector,foldable-omni-antenna

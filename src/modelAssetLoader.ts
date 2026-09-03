@@ -8,12 +8,12 @@ export type ModelAsset = {
 const memoryCache = new Map<string, ArrayBuffer>();
 let indexMemoryCache: Record<string, ModelAsset> | null = null;
 
-const CACHE_NAME = "drone-models-persistent-cache-v5";
+const CACHE_NAME = "drone-models-persistent-cache-v6";
 const CACHE_PREFIX = "https://drone-storage.internal/models/";
-const DB_NAME = "DroneAvionicsModelsCache_v5";
+const DB_NAME = "DroneAvionicsModelsCache_v6";
 const STORE_NAME = "model_buffers";
-const INDEX_CACHE_KEY = "drone_model_index_cache_v5";
-const INDEX_URL = "/data/model-assets.json?v=p3737-full-5b806628";
+const INDEX_CACHE_KEY = "drone_model_index_cache_v6";
+const INDEX_URL = "/data/model-assets.json?v=p3737-approved-stl-5b806628";
 
 // 1. IndexedDB Persistent Storage
 function openCacheDB(): Promise<IDBDatabase | null> {
