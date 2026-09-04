@@ -39,6 +39,8 @@ import {
   Edit3,
   RefreshCw,
   Box,
+  Tag,
+  Layers,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, CableRoutePoint, PinDefinition } from "../types";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
@@ -52,9 +54,12 @@ import {
 import {
   CABLE_TYPES_CONFIG,
   QUICK_STRAND_COLORS,
+  STICKER_BG_COLORS,
+  STICKER_STYLES,
   getPresetForCableType,
   getDefaultStrandColors,
   getDefaultStrandLabels,
+  generateDefaultStickerLabels,
 } from "../data/cablePresets";
 
 interface PlacedInspectorPanelProps {
@@ -109,6 +114,8 @@ interface PlacedInspectorPanelProps {
   onReloadJetson?: () => void;
   isReloadingJetson?: boolean;
   onChangeModel?: (componentId: string) => void;
+  isIsolatedView?: boolean;
+  onToggleIsolatedView?: () => void;
 }
 
 const PRESET_COMPONENT_COLORS = [
@@ -187,6 +194,20 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
           {cable.isRibbon && (
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
               Lentali ({cable.strandCount || 3} ta tomir)
+            </span>
+          )}
+          {cable.endStickers?.enabled && (
+            <span
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded border flex items-center gap-0.5"
+              style={{
+                backgroundColor: cable.endStickers.bgColor || "#facc15",
+                color: cable.endStickers.textColor || "#000000",
+                borderColor: "rgba(0,0,0,0.3)",
+              }}
+              title={`Shtikerlar: ${cable.endStickers.sourceText || "P1"} ↔ ${cable.endStickers.targetText || "P2"}`}
+            >
+              <Tag size={9} />
+              Shtikerli
             </span>
           )}
         </div>
@@ -522,6 +543,233 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
             );
           })()}
 
+          {/* Cable End Identification Stickers (Uchki Shtikerlar / Markirovka) */}
+          {(() => {
+            const hasStickers = !!cable.endStickers?.enabled;
+            const stickers = cable.endStickers || {
+              enabled: false,
+              sourceText: `${cable.sourcePinName || "SRC"}`,
+              targetText: `${cable.targetPinName || "TGT"}`,
+              bgColor: "#facc15",
+              textColor: "#000000",
+              style: "heatshrink" as const,
+              offsetFromEndMm: 20,
+            };
+
+            const updateSticker = (partial: Partial<NonNullable<CableConnection["endStickers"]>>) => {
+              if (!onUpdateCable) return;
+              onUpdateCable(cable.id, {
+                endStickers: {
+                  ...stickers,
+                  ...partial,
+                },
+              });
+            };
+
+            return (
+              <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-700/60 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-200 flex items-center gap-1.5">
+                    <Tag size={13} className="text-amber-400" />
+                    <span>Uchki Shtikerlar (Markirovka / Tags):</span>
+                  </span>
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px]">
+                    <input
+                      type="checkbox"
+                      checked={hasStickers}
+                      onChange={(e) => {
+                        updateSticker({
+                          enabled: e.target.checked,
+                          sourceText: stickers.sourceText || cable.sourcePinName || "SRC",
+                          targetText: stickers.targetText || cable.targetPinName || "TGT",
+                        });
+                      }}
+                      className="w-3.5 h-3.5 rounded accent-amber-500 cursor-pointer"
+                    />
+                    <span className={hasStickers ? "text-amber-300 font-medium" : "text-slate-400"}>
+                      {hasStickers ? "Yoqilgan" : "O‘chirilgan"}
+                    </span>
+                  </label>
+                </div>
+
+                {hasStickers && (
+                  <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                    {/* Source & Target Inputs */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] text-slate-400">Manba (P1) shtikeri:</span>
+                          <span
+                            className="text-[9px] font-mono font-bold px-1 rounded shadow-xs"
+                            style={{
+                              backgroundColor: stickers.bgColor || "#facc15",
+                              color: stickers.textColor || "#000000",
+                            }}
+                          >
+                            {stickers.sourceText || "SRC"}
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={stickers.sourceText || ""}
+                          onChange={(e) => updateSticker({ sourceText: e.target.value })}
+                          placeholder="masalan: J1:GPS"
+                          className="w-full text-[10px] font-mono bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-slate-200 focus:border-amber-400 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[9px] text-slate-400">Qabul (P2) shtikeri:</span>
+                          <span
+                            className="text-[9px] font-mono font-bold px-1 rounded shadow-xs"
+                            style={{
+                              backgroundColor: stickers.bgColor || "#facc15",
+                              color: stickers.textColor || "#000000",
+                            }}
+                          >
+                            {stickers.targetText || "TGT"}
+                          </span>
+                        </div>
+                        <input
+                          type="text"
+                          value={stickers.targetText || ""}
+                          onChange={(e) => updateSticker({ targetText: e.target.value })}
+                          placeholder="masalan: P1:FC"
+                          className="w-full text-[10px] font-mono bg-slate-950 border border-slate-700 rounded px-1.5 py-1 text-slate-200 focus:border-amber-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Style & Colors */}
+                    <div className="grid grid-cols-2 gap-2 items-center">
+                      <div>
+                        <span className="text-[9px] text-slate-400 block mb-1">Uslub:</span>
+                        <div className="flex gap-1">
+                          {STICKER_STYLES.map((st) => (
+                            <button
+                              key={st.id}
+                              type="button"
+                              onClick={() => updateSticker({ style: st.id as any })}
+                              className={`flex-1 py-0.5 px-1 text-[9px] rounded border transition-colors ${
+                                (stickers.style || "heatshrink") === st.id
+                                  ? "bg-amber-600 text-white border-amber-400 font-semibold"
+                                  : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
+                              }`}
+                              title={st.desc}
+                            >
+                              {st.label.split(" ")[0]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <span className="text-[9px] text-slate-400 block mb-1">Fon & Shrift:</span>
+                        <div className="flex items-center gap-1">
+                          {STICKER_BG_COLORS.slice(0, 4).map((c) => (
+                            <button
+                              key={c.hex}
+                              type="button"
+                              onClick={() => updateSticker({ bgColor: c.hex })}
+                              className="w-3.5 h-3.5 rounded-full border transition-transform hover:scale-110"
+                              style={{
+                                backgroundColor: c.hex,
+                                borderColor: stickers.bgColor === c.hex ? "#ffffff" : "rgba(0,0,0,0.4)",
+                              }}
+                              title={c.name}
+                            />
+                          ))}
+                          <input
+                            type="color"
+                            value={stickers.bgColor || "#facc15"}
+                            onChange={(e) => updateSticker({ bgColor: e.target.value })}
+                            className="w-4 h-4 rounded cursor-pointer border-none bg-transparent"
+                            title="Boshqa fon rangi"
+                          />
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateSticker({
+                                textColor: stickers.textColor === "#000000" ? "#ffffff" : "#000000",
+                              })
+                            }
+                            className="text-[9px] px-1 py-0.5 bg-slate-950 border border-slate-700 rounded text-slate-300 hover:text-white"
+                            title="Yozuv rangini almashtirish (Qora/Oq)"
+                          >
+                            {stickers.textColor === "#000000" ? "Qora" : "Oq"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Offset, 3D Rotation & Size */}
+                    <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>Ulagichdan masofa:</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="range"
+                            min={10}
+                            max={50}
+                            step={2}
+                            value={stickers.offsetFromEndMm || 20}
+                            onChange={(e) =>
+                              updateSticker({ offsetFromEndMm: parseInt(e.target.value) || 20 })
+                            }
+                            className="w-16 accent-amber-500 cursor-pointer"
+                          />
+                          <span className="font-mono text-amber-300 font-semibold w-10 text-right">
+                            {stickers.offsetFromEndMm || 20} mm
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>3D Aylanish (Burchak):</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="range"
+                            min={0}
+                            max={360}
+                            step={15}
+                            value={stickers.rotationDeg || 0}
+                            onChange={(e) =>
+                              updateSticker({ rotationDeg: parseInt(e.target.value) || 0 })
+                            }
+                            className="w-16 accent-amber-500 cursor-pointer"
+                          />
+                          <span className="font-mono text-amber-300 font-semibold w-10 text-right">
+                            {stickers.rotationDeg || 0}°
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-400">
+                        <span>3D O‘lcham (Uzunlik):</span>
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="range"
+                            min={16}
+                            max={36}
+                            step={2}
+                            value={stickers.sizeMm || 24}
+                            onChange={(e) =>
+                              updateSticker({ sizeMm: parseInt(e.target.value) || 24 })
+                            }
+                            className="w-16 accent-amber-500 cursor-pointer"
+                          />
+                          <span className="font-mono text-amber-300 font-semibold w-10 text-right">
+                            {stickers.sizeMm || 24} mm
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* 3D Bend Waypoints Management */}
           <div className="p-2 bg-slate-900/80 rounded-lg border border-slate-700/60 space-y-2">
             <div className="flex items-center justify-between">
@@ -725,6 +973,8 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   onReloadJetson,
   isReloadingJetson = false,
   onChangeModel,
+  isIsolatedView = false,
+  onToggleIsolatedView,
 }) => {
   const [activeTab, setActiveTab] = useState<"inspector" | "pins" | "cables">("inspector");
 
@@ -1191,6 +1441,22 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                       {selectedInstance.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                       <span>{selectedInstance.visible ? "Ko‘rsatilgan" : "Yashirilgan"}</span>
                     </button>
+
+                    {onToggleIsolatedView && (
+                      <button
+                        id={`btn-isolate-${selectedInstance.instanceId}`}
+                        className={`inst-tool-btn ${isIsolatedView ? "active-warn text-amber-300 border-amber-500/50 bg-amber-500/10" : ""}`}
+                        onClick={onToggleIsolatedView}
+                        title={
+                          isIsolatedView
+                            ? "Barcha modellarni qayta ko‘rsatish"
+                            : "Ushbu modelni alohida ko‘rsatish (xalaqit beruvchi to‘siqlarni yashirish)"
+                        }
+                      >
+                        <Layers size={14} className={isIsolatedView ? "text-amber-400 animate-pulse" : ""} />
+                        <span>{isIsolatedView ? "Alohida (Faol)" : "Alohida ko‘rsatish"}</span>
+                      </button>
+                    )}
 
                     {!selectedInstance.isAirframe && selectedInstance.componentId !== "01" && onCopySelected && (
                       <button

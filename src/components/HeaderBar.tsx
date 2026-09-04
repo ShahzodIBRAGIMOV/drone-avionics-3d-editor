@@ -39,6 +39,10 @@ import {
   CloudUpload,
   Box,
   Save,
+  Play,
+  Pause,
+  Video,
+  Square,
 } from "lucide-react";
 import { TransformMode, TransformSpace, SceneTheme } from "../types";
 import { prefetchAndCacheAllModels, getModelCacheInfo } from "../modelAssetLoader";
@@ -96,6 +100,10 @@ interface HeaderBarProps {
   autoSaveStatus?: "saved" | "saving" | "idle" | "error";
   lastSavedAtText?: string;
   onForceSave?: () => void;
+  isFlowAnimating?: boolean;
+  onToggleFlowAnimation?: () => void;
+  isVideoRecording?: boolean;
+  onToggleVideo?: () => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -151,6 +159,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   autoSaveStatus = "saved",
   lastSavedAtText,
   onForceSave,
+  isFlowAnimating = false,
+  onToggleFlowAnimation,
+  isVideoRecording = false,
+  onToggleVideo,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileMenuButtonRef = useRef<HTMLButtonElement>(null);
@@ -688,13 +700,62 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {/* Snapshot PNG */}
           <button
             id="btn-capture-png"
-            className="action-btn primary flex items-center gap-1.5 shrink-0"
+            className="action-btn flex items-center gap-1.5 shrink-0"
             onClick={onCapturePNG}
             title="Sahnadan yuqori sifatli PNG rasm olish"
           >
-            <Camera size={13} />
+            <Camera size={13} className="text-cyan-400" />
             <span className="hidden sm:inline">Rasm</span>
           </button>
+
+          {/* 3D Video Recording Button */}
+          {onToggleVideo && (
+            <button
+              id="btn-header-toggle-video"
+              className={`action-btn flex items-center gap-1.5 shrink-0 font-medium transition-all ${
+                isVideoRecording
+                  ? "bg-rose-500/25 border-rose-500 text-rose-200 animate-pulse"
+                  : "text-slate-300 hover:text-rose-300 hover:border-rose-500/50"
+              }`}
+              onClick={onToggleVideo}
+              title={isVideoRecording ? "Videoni to‘xtatish va saqlash" : "3D Video yozishni boshlash"}
+            >
+              {isVideoRecording ? (
+                <>
+                  <Square size={13} className="text-rose-400 fill-rose-400" />
+                  <span className="text-rose-200 font-semibold">REC</span>
+                </>
+              ) : (
+                <>
+                  <Video size={13} className="text-rose-400" />
+                  <span className="hidden sm:inline">Video</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Cable Flow Animation Toggle */}
+          {onToggleFlowAnimation && (
+            <button
+              id="btn-header-toggle-flow"
+              className={`action-btn flex items-center gap-1.5 shrink-0 font-medium transition-all ${
+                isFlowAnimating
+                  ? "bg-cyan-500/20 border-cyan-400 text-cyan-300 shadow-sm shadow-cyan-500/20"
+                  : "text-slate-300 hover:text-cyan-300 hover:border-cyan-500/50"
+              }`}
+              onClick={onToggleFlowAnimation}
+              title={isFlowAnimating ? "Animatsiyani to‘xtatish" : "Kabellarda signal/power oqimi animatsiyasini yoqish"}
+            >
+              {isFlowAnimating ? (
+                <Pause size={13} className="text-cyan-400 fill-cyan-400" />
+              ) : (
+                <Play size={13} className="text-slate-300 fill-slate-300" />
+              )}
+              <span className="hidden md:inline">
+                {isFlowAnimating ? "Oqim faol" : "Animatsiya"}
+              </span>
+            </button>
+          )}
 
           {/* Keyboard Shortcuts Button */}
           {onOpenShortcutsModal && (
@@ -893,6 +954,53 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 <FileSpreadsheet size={14} className="text-amber-400" />
                 <span>CSV inventar jadvali</span>
               </button>
+
+              <button
+                id="btn-menu-capture-png"
+                className="file-menu-item"
+                onClick={() => {
+                  setIsFileMenuOpen(false);
+                  onCapturePNG();
+                }}
+                title="3D Sahnadan yuqori aniqlikdagi PNG rasm olish"
+              >
+                <Camera size={14} className="text-cyan-400" />
+                <span>PNG Rasm saqlash</span>
+              </button>
+
+              {onToggleVideo && (
+                <button
+                  id="btn-menu-toggle-video"
+                  className="file-menu-item font-medium text-rose-300"
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    onToggleVideo();
+                  }}
+                  title="3D ko‘rinishdan harakatli video yozish (WebM/MP4)"
+                >
+                  <Video size={14} className="text-rose-400" />
+                  <span>{isVideoRecording ? "Videoni to‘xtatish va saqlash" : "3D Video yozish (WebM/MP4)"}</span>
+                </button>
+              )}
+
+              {onToggleFlowAnimation && (
+                <button
+                  id="btn-menu-toggle-flow"
+                  className="file-menu-item text-cyan-300"
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    onToggleFlowAnimation();
+                  }}
+                  title="Kabellarda quvvat va signal oqimini vizual ko‘rsatish"
+                >
+                  {isFlowAnimating ? (
+                    <Pause size={14} className="text-cyan-400" />
+                  ) : (
+                    <Play size={14} className="text-cyan-400" />
+                  )}
+                  <span>{isFlowAnimating ? "Kabel oqimini to‘xtatish" : "Kabel oqimi animatsiyasi"}</span>
+                </button>
+              )}
 
               {onReloadModels && (
                 <button

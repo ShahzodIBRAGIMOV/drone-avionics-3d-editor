@@ -201,6 +201,18 @@ export type CableConnection = {
   strandPitchMm?: number; // Distance between adjacent strand centers in mm (e.g. 1.8 - 3.0 mm)
   strandColors?: string[]; // Array of hex colors for each strand
   strandLabels?: string[]; // Array of custom names/signals for each strand
+  // Cable End Identification Stickers / Labels (Uchki shtikerlar / markirovkalar):
+  endStickers?: {
+    enabled: boolean;
+    sourceText?: string; // e.g. "J1: GPS-1" or "CUBE:TELEM"
+    targetText?: string; // e.g. "P1: FC-RX" or "AIRSPEED:P1"
+    bgColor?: string; // e.g. "#facc15" (Yellow), "#ffffff" (White), "#f97316" (Orange)
+    textColor?: string; // e.g. "#000000" or "#ffffff"
+    style?: "flag" | "heatshrink" | "clip" | "wrap"; // 3D Flag plate vs 3D Sleeve vs 3D Clip vs 3D Wrap
+    offsetFromEndMm?: number; // Distance from connector in mm (e.g. 10-50mm)
+    rotationDeg?: number; // 3D tag rotation angle around cable axis (0° - 360°)
+    sizeMm?: number; // 3D tag dimensions in mm (e.g. 16 - 36mm)
+  };
   // Advanced Avionics Cable Fields:
   cableProfileId?: string; // References CableProfile.id
   designation?: string; // e.g. "W001", "W002"
@@ -233,7 +245,16 @@ export type CableConnection = {
 export type TransformMode = "translate" | "rotate" | "scale";
 export type TransformSpace = "world" | "local";
 
-export type CameraViewMode = "perspective" | "top" | "front" | "back" | "left" | "right";
+export type CameraViewMode = "perspective" | "top" | "bottom" | "front" | "back" | "left" | "right";
+
+export type CableFlowType = "all" | "power" | "signal";
+
+export type FlowAnimationConfig = {
+  active: boolean;
+  flowType: CableFlowType;
+  speed: number;
+  autoRotate: boolean;
+};
 
 export type SceneTheme = "dark" | "light" | "blueprint" | "tactical" | "hangar";
 

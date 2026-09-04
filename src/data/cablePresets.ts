@@ -200,3 +200,34 @@ export function getDefaultStrandLabels(cableType: string, count: number): string
   }
   return result;
 }
+
+export const STICKER_BG_COLORS = [
+  { name: "Aviatsiya Sariq", hex: "#facc15" },
+  { name: "Standart Oq", hex: "#ffffff" },
+  { name: "Signal To'q sariq", hex: "#f97316" },
+  { name: "Sian Moviy", hex: "#38bdf8" },
+  { name: "Yashil", hex: "#10b981" },
+  { name: "Qizil Xavfsizlik", hex: "#ef4444" },
+  { name: "Kulrang / Kumush", hex: "#cbd5e1" },
+];
+
+export const STICKER_STYLES = [
+  { id: "flag", label: "3D Bayroqcha (Flag Tag)", desc: "Kabeldan chiqib turuvchi 3D yassi shtiker plastinkasi" },
+  { id: "heatshrink", label: "3D Termousadka (Sleeve)", desc: "Kabelga o‘ralgan silindrsimon 3D termousadka" },
+  { id: "clip", label: "3D Plastik Klipsa (Clip-On)", desc: "Kabelga mahkamlanuvchi 3D klipsali yorliq" },
+  { id: "wrap", label: "3D O‘ralgan Lenta (Wrap)", desc: "Kabel atrofiga qatlamli o‘ralgan 3D yorliq" },
+] as const;
+
+export function generateDefaultStickerLabels(
+  sourceInstanceLabel: string,
+  sourcePinId: string,
+  targetInstanceLabel?: string,
+  targetPinId?: string
+) {
+  const cleanSrc = (sourceInstanceLabel || "SRC").replace(/\s+/g, "_").toUpperCase();
+  const cleanTgt = (targetInstanceLabel || "TGT").replace(/\s+/g, "_").toUpperCase();
+  return {
+    sourceText: `${cleanSrc}:${sourcePinId || "P1"}`,
+    targetText: `${cleanTgt}:${targetPinId || "P2"}`,
+  };
+}

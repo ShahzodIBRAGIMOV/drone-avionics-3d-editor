@@ -169,6 +169,20 @@ const SHORTCUT_LIST: ShortcutItem[] = [
 
   // Actions
   {
+    id: "isolate-toggle",
+    category: "actions",
+    keys: ["I"],
+    title: "Alohida ko‘rsatish (Isolate)",
+    description: "Tanlangan modelni alohida ko‘rsatish, atrofidagi to‘siq modellarni vaqtincha yashirish",
+  },
+  {
+    id: "flow-animation-toggle",
+    category: "actions",
+    keys: ["Space"],
+    title: "Kabel oqimi animatsiyasi (Play/Pause)",
+    description: "Kabellarda signal va quvvat (power) harakatini vizual animatsiyasini yoqish yoki to‘xtatish",
+  },
+  {
     id: "lock-toggle",
     category: "actions",
     keys: ["L"],

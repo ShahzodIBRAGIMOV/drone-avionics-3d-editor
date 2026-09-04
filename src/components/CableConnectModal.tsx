@@ -9,15 +9,19 @@ import {
   Check,
   Plus,
   Minus,
+  Tag,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, PinDefinition } from "../types";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
 import {
   CABLE_TYPES_CONFIG,
   QUICK_STRAND_COLORS,
+  STICKER_BG_COLORS,
+  STICKER_STYLES,
   getPresetForCableType,
   getDefaultStrandColors,
   getDefaultStrandLabels,
+  generateDefaultStickerLabels,
 } from "../data/cablePresets";
 
 interface CableConnectModalProps {
@@ -76,6 +80,22 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
   );
   const [strandPitchMm, setStrandPitchMm] = useState<number>(2.0);
 
+  // End Stickers / Identification labels states
+  const [enableEndStickers, setEnableEndStickers] = useState<boolean>(true);
+  const [sourceStickerText, setSourceStickerText] = useState<string>(() => {
+    const cleanSrc = (sourceInstance.customLabel || sourceInstance.componentId)
+      .replace(/\s+/g, "_")
+      .toUpperCase();
+    return `${cleanSrc}:${sourcePin.pinId}`;
+  });
+  const [targetStickerText, setTargetStickerText] = useState<string>("");
+  const [stickerBgColor, setStickerBgColor] = useState<string>("#facc15");
+  const [stickerTextColor, setStickerTextColor] = useState<string>("#000000");
+  const [stickerStyle, setStickerStyle] = useState<"flag" | "heatshrink" | "clip" | "wrap">("flag");
+  const [stickerOffsetMm, setStickerOffsetMm] = useState<number>(20);
+  const [stickerRotationDeg, setStickerRotationDeg] = useState<number>(0);
+  const [stickerSizeMm, setStickerSizeMm] = useState<number>(24);
+
   const targetInstance = placedInstances.find((i) => i.instanceId === targetInstanceId);
   const targetPins: PinDefinition[] = targetInstance
     ? targetInstance.customPins && targetInstance.customPins.length > 0
@@ -84,6 +104,16 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
     : [];
 
   const targetPin = targetPins.find((p) => p.fullName === targetPinFullName);
+
+  // Auto-update target sticker when target pin selected
+  React.useEffect(() => {
+    if (targetInstance && targetPin) {
+      const cleanTgt = (targetInstance.customLabel || targetInstance.componentId)
+        .replace(/\s+/g, "_")
+        .toUpperCase();
+      setTargetStickerText(`${cleanTgt}:${targetPin.pinId}`);
+    }
+  }, [targetInstanceId, targetPinFullName]);
 
   const currentPreset = getPresetForCableType(cableType);
 
@@ -151,6 +181,25 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
       strandPitchMm: isRibbon ? strandPitchMm : 2.0,
       strandColors: isRibbon ? strandColors.slice(0, strandCount) : [cableColor],
       strandLabels: isRibbon ? strandLabels.slice(0, strandCount) : [sourcePin.label],
+      endStickers: enableEndStickers
+        ? {
+            enabled: true,
+            sourceText:
+              sourceStickerText.trim() ||
+              `${(sourceInstance.customLabel || "SRC").toUpperCase()}:${sourcePin.pinId}`,
+            targetText:
+              targetStickerText.trim() ||
+              `${(targetInstance?.customLabel || "TGT").toUpperCase()}:${targetPin?.pinId || "PORT"}`,
+            bgColor: stickerBgColor,
+            textColor: stickerTextColor,
+            style: stickerStyle,
+            offsetFromEndMm: stickerOffsetMm,
+            rotationDeg: stickerRotationDeg,
+            sizeMm: stickerSizeMm,
+          }
+        : {
+            enabled: false,
+          },
     });
 
     onClose();
@@ -694,6 +743,298 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
               </div>
             </div>
           )}
+
+          {/* Cable End Identification Stickers (Uchki Shtikerlar / Yorliqlar) */}
+          <div
+            style={{
+              padding: "12px",
+              backgroundColor: "rgba(15, 23, 42, 0.7)",
+              border: "1px solid rgba(56, 189, 248, 0.3)",
+              borderRadius: "8px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Tag size={16} style={{ color: "#38bdf8" }} />
+                <span style={{ fontSize: "12px", fontWeight: 600, color: "#f8fafc" }}>
+                  Kabel uchlariga shtikerlar (Markirovka / Heatshrink Tags)
+                </span>
+              </div>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  cursor: "pointer",
+                  fontSize: "11px",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={enableEndStickers}
+                  onChange={(e) => setEnableEndStickers(e.target.checked)}
+                  style={{ width: "16px", height: "16px", accentColor: "#06b6d4", cursor: "pointer" }}
+                />
+                <span style={{ color: enableEndStickers ? "#38bdf8" : "#94a3b8", fontWeight: 500 }}>
+                  {enableEndStickers ? "Shtikerlar yoqilgan" : "Shtikersiz"}
+                </span>
+              </label>
+            </div>
+
+            {enableEndStickers && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  borderTop: "1px solid #1e293b",
+                  paddingTop: "8px",
+                }}
+              >
+                {/* Source & Target Labels Inputs with Live Previews */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+                  {/* Source End Sticker */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <label style={{ fontSize: "10px", color: "#94a3b8" }}>
+                        Manba uchi shtikeri (P1):
+                      </label>
+                      <span
+                        style={{
+                          backgroundColor: stickerBgColor,
+                          color: stickerTextColor,
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: stickerStyle === "flag" ? "2px 8px 8px 2px" : "3px",
+                          border: "1px solid rgba(0,0,0,0.3)",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {sourceStickerText || "SRC"}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={sourceStickerText}
+                      onChange={(e) => setSourceStickerText(e.target.value)}
+                      placeholder="masalan: J1:GPS-MAIN"
+                      style={{
+                        padding: "5px 8px",
+                        backgroundColor: "#1e293b",
+                        color: "#f8fafc",
+                        border: "1px solid #334155",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontFamily: "monospace",
+                      }}
+                    />
+                  </div>
+
+                  {/* Target End Sticker */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <label style={{ fontSize: "10px", color: "#94a3b8" }}>
+                        Qabul uchi shtikeri (P2):
+                      </label>
+                      <span
+                        style={{
+                          backgroundColor: stickerBgColor,
+                          color: stickerTextColor,
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          padding: "1px 6px",
+                          borderRadius: stickerStyle === "flag" ? "2px 8px 8px 2px" : "3px",
+                          border: "1px solid rgba(0,0,0,0.3)",
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {targetStickerText ||
+                          (targetPin
+                            ? `${(targetInstance?.customLabel || "TGT").toUpperCase()}:${targetPin.pinId}`
+                            : "TGT")}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={targetStickerText}
+                      onChange={(e) => setTargetStickerText(e.target.value)}
+                      placeholder="masalan: P1:FC-UART"
+                      style={{
+                        padding: "5px 8px",
+                        backgroundColor: "#1e293b",
+                        color: "#f8fafc",
+                        border: "1px solid #334155",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontFamily: "monospace",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Sticker Style & Color Selectors */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.2fr 1fr",
+                    gap: "10px",
+                    alignItems: "center",
+                  }}
+                >
+                  {/* Style selector */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "10px", color: "#94a3b8", marginBottom: "4px" }}>
+                      Shtiker formati (Uslubi):
+                    </label>
+                    <div style={{ display: "flex", gap: "4px" }}>
+                      {STICKER_STYLES.map((st) => (
+                        <button
+                          key={st.id}
+                          type="button"
+                          onClick={() => setStickerStyle(st.id as any)}
+                          style={{
+                            flex: 1,
+                            padding: "4px 6px",
+                            backgroundColor: stickerStyle === st.id ? "#0284c7" : "#1e293b",
+                            color: stickerStyle === st.id ? "#ffffff" : "#94a3b8",
+                            border: stickerStyle === st.id ? "1px solid #38bdf8" : "1px solid #334155",
+                            borderRadius: "4px",
+                            fontSize: "10px",
+                            cursor: "pointer",
+                            fontWeight: stickerStyle === st.id ? 600 : 400,
+                          }}
+                          title={st.desc}
+                        >
+                          {st.label.split(" ")[0]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Background Color & Text color */}
+                  <div>
+                    <label style={{ display: "block", fontSize: "10px", color: "#94a3b8", marginBottom: "4px" }}>
+                      Shtiker foni va matn rangi:
+                    </label>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      {STICKER_BG_COLORS.slice(0, 5).map((col) => (
+                        <button
+                          key={col.hex}
+                          type="button"
+                          onClick={() => setStickerBgColor(col.hex)}
+                          style={{
+                            width: "16px",
+                            height: "16px",
+                            borderRadius: "50%",
+                            backgroundColor: col.hex,
+                            border:
+                              stickerBgColor === col.hex ? "2px solid #ffffff" : "1px solid rgba(0,0,0,0.5)",
+                            cursor: "pointer",
+                          }}
+                          title={col.name}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={stickerBgColor}
+                        onChange={(e) => setStickerBgColor(e.target.value)}
+                        style={{ width: "20px", height: "20px", border: "none", cursor: "pointer", background: "none" }}
+                        title="Boshqa fon rangi"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStickerTextColor((prev) => (prev === "#000000" ? "#ffffff" : "#000000"))
+                        }
+                        style={{
+                          fontSize: "9px",
+                          padding: "2px 5px",
+                          backgroundColor: "#1e293b",
+                          border: "1px solid #334155",
+                          borderRadius: "3px",
+                          color: stickerTextColor === "#000000" ? "#facc15" : "#ffffff",
+                          cursor: "pointer",
+                        }}
+                        title="Matn rangini qora yoki oq qilish"
+                      >
+                        {stickerTextColor === "#000000" ? "Qora" : "Oq"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Distance offset slider */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    fontSize: "10px",
+                    color: "#94a3b8",
+                  }}
+                >
+                  <span>Ulagich (pin)dan shtikergacha masofa:</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <input
+                      type="range"
+                      min={10}
+                      max={50}
+                      step={2}
+                      value={stickerOffsetMm}
+                      onChange={(e) => setStickerOffsetMm(parseInt(e.target.value) || 20)}
+                      style={{ width: "90px", accentColor: "#06b6d4" }}
+                    />
+                    <span style={{ fontFamily: "monospace", color: "#38bdf8", fontWeight: 600 }}>
+                      {stickerOffsetMm} mm
+                    </span>
+                  </div>
+                </div>
+
+                {/* 3D Rotation and 3D Size */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", paddingTop: "4px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10px", color: "#94a3b8" }}>
+                    <span>3D Burchak:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <input
+                        type="range"
+                        min={0}
+                        max={360}
+                        step={15}
+                        value={stickerRotationDeg}
+                        onChange={(e) => setStickerRotationDeg(parseInt(e.target.value) || 0)}
+                        style={{ width: "65px", accentColor: "#06b6d4" }}
+                      />
+                      <span style={{ fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, width: "32px", textAlign: "right" }}>
+                        {stickerRotationDeg}°
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: "10px", color: "#94a3b8" }}>
+                    <span>3D O‘lcham:</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <input
+                        type="range"
+                        min={16}
+                        max={36}
+                        step={2}
+                        value={stickerSizeMm}
+                        onChange={(e) => setStickerSizeMm(parseInt(e.target.value) || 24)}
+                        style={{ width: "65px", accentColor: "#06b6d4" }}
+                      />
+                      <span style={{ fontFamily: "monospace", color: "#38bdf8", fontWeight: 600, width: "32px", textAlign: "right" }}>
+                        {stickerSizeMm}mm
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Custom Name */}
           <div>

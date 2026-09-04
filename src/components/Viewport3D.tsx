@@ -11,10 +11,84 @@ import {
   CameraViewMode,
   PinDefinition,
   SceneTheme,
+  CableFlowType,
 } from "../types";
+import {
+  Activity,
+  Zap,
+  Radio,
+  RotateCw,
+  Camera,
+  Video,
+  Square,
+  Play,
+  Pause,
+} from "lucide-react";
 import { modelManager, COMPONENT_ID_TO_ASSET_KEY } from "../services/modelManager";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
 import { getDefaultStrandColors } from "../data/cablePresets";
+import { build3DStickerMesh } from "../utils/cable3DStickers";
+
+export function isCablePower(cable: CableConnection): boolean {
+  const type = (cable.cableType || "").toLowerCase();
+  if (
+    type.includes("power") ||
+    type.includes("bat") ||
+    type.includes("esc") ||
+    type.includes("vbat") ||
+    type.includes("bec") ||
+    type.includes("current")
+  ) {
+    return true;
+  }
+  const sPin = (cable.sourcePinName || "").toLowerCase();
+  const tPin = (cable.targetPinName || "").toLowerCase();
+  const pwrKeywords = [
+    "vcc",
+    "pwr",
+    "bat",
+    "pos",
+    "neg",
+    "12v",
+    "5v",
+    "24v",
+    "gnd",
+    "vin",
+    "vout",
+    "in_pos",
+    "in_neg",
+    "plus",
+    "minus",
+    "ground",
+  ];
+  if (pwrKeywords.some((k) => sPin.includes(k) || tPin.includes(k))) {
+    return true;
+  }
+  if (cable.cores && cable.cores.some((c) => c.signalType === "power" || c.signalType === "gnd")) {
+    return true;
+  }
+  if (cable.color) {
+    const col = cable.color.toLowerCase();
+    if (
+      [
+        "#ef4444",
+        "#dc2626",
+        "#b91c1c",
+        "#f97316",
+        "#ea580c",
+        "#c2410c",
+        "#eab308",
+        "#ca8a04",
+        "#facc15",
+        "#ff0000",
+        "#ff5500",
+      ].includes(col)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export const SCENE_THEMES: Record<
   SceneTheme,
@@ -184,6 +258,27 @@ interface Viewport3DProps {
   onCancelPlacingPinMode?: () => void;
   focusOnSelectionTrigger?: number;
   onTransformStart?: () => void;
+  cameraViewTrigger?: number;
+  isIsolatedView?: boolean;
+  onToggleIsolatedView?: () => void;
+  hideObstacles?: boolean;
+  onToggleHideObstacles?: () => void;
+  onHiddenObstaclesCountChange?: (count: number) => void;
+  isFlowAnimating?: boolean;
+  onToggleFlowAnimation?: (active?: boolean) => void;
+  flowType?: CableFlowType;
+  onFlowTypeChange?: (type: CableFlowType) => void;
+  flowSpeed?: number;
+  onFlowSpeedChange?: (speed: number) => void;
+  isAutoRotateActive?: boolean;
+  onToggleAutoRotate?: (active?: boolean) => void;
+  onCapturePNG?: () => void;
+  onShowToast?: (msg: string) => void;
+  onRegisterVideoRecorder?: (recorder: {
+    start: () => boolean;
+    stop: () => void;
+    isRecording: () => boolean;
+  }) => void;
 }
 
 export const Viewport3D: React.FC<Viewport3DProps> = ({
@@ -223,7 +318,26 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   onCancelPlacingPinMode,
   focusOnSelectionTrigger,
   onTransformStart,
+  cameraViewTrigger = 0,
+  isIsolatedView = false,
+  onToggleIsolatedView,
+  hideObstacles,
+  onToggleHideObstacles,
+  onHiddenObstaclesCountChange,
+  isFlowAnimating = false,
+  onToggleFlowAnimation,
+  flowType = "all",
+  onFlowTypeChange,
+  flowSpeed = 1,
+  onFlowSpeedChange,
+  isAutoRotateActive = false,
+  onToggleAutoRotate,
+  onCapturePNG,
+  onShowToast,
+  onRegisterVideoRecorder,
 }) => {
+  const effectiveIsolate = isIsolatedView || (hideObstacles === true);
+  const handleToggleIsolate = onToggleIsolatedView || onToggleHideObstacles;
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -233,16 +347,69 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   // Mesh registries
   const instanceMeshesRef = useRef<Map<string, THREE.Group>>(new Map());
+  const hiddenObstructionIdsRef = useRef<Set<string>>(new Set());
+  const [hiddenObstaclesCount, setHiddenObstaclesCount] = useState<number>(0);
   const pinMarkersGroupRef = useRef<THREE.Group>(new THREE.Group());
   const cablesGroupRef = useRef<THREE.Group>(new THREE.Group());
   const cableWaypointsGroupRef = useRef<THREE.Group>(new THREE.Group());
   const multiPivotGroupRef = useRef<THREE.Group>(new THREE.Group());
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
 
+  // Flow animation group & particles registry
+  const cableFlowGroupRef = useRef<THREE.Group>(new THREE.Group());
+  const flowParticlesRef = useRef<
+    Array<{
+      mesh: THREE.Mesh;
+      curve: THREE.CatmullRomCurve3;
+      baseOffset: number;
+      speed: number;
+      isPower: boolean;
+      material: THREE.MeshStandardMaterial;
+    }>
+  >([]);
+  const cableFlowItemsRef = useRef<
+    Array<{
+      cableId: string;
+      curve: THREE.CatmullRomCurve3;
+      totalLength: number;
+      isPower: boolean;
+      color: string;
+      strandCurves?: THREE.CatmullRomCurve3[];
+    }>
+  >([]);
+
+  // Video recording state & refs
+  const [isVideoRecording, setIsVideoRecording] = useState<boolean>(false);
+  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<any>(null);
+
+  // Animation sync refs
+  const isFlowAnimatingRef = useRef<boolean>(isFlowAnimating);
+  isFlowAnimatingRef.current = isFlowAnimating;
+
+  const flowTypeRef = useRef<CableFlowType>(flowType);
+  flowTypeRef.current = flowType;
+
+  const flowSpeedRef = useRef<number>(flowSpeed);
+  flowSpeedRef.current = flowSpeed;
+
+  const isAutoRotateActiveRef = useRef<boolean>(isAutoRotateActive);
+  isAutoRotateActiveRef.current = isAutoRotateActive;
+
+  const showCablesRef = useRef<boolean>(showCables);
+  showCablesRef.current = showCables;
+
+  const clockRef = useRef<THREE.Clock>(new THREE.Clock());
+
   // Active waypoint selection for 3D Gizmo manipulation
   const [selectedWaypointId, setSelectedWaypointId] = useState<string | null>(null);
   const selectedWaypointIdRef = useRef<string | null>(null);
   selectedWaypointIdRef.current = selectedWaypointId;
+
+  const selectedInstanceIdRef = useRef<string | null>(selectedInstanceId);
+  selectedInstanceIdRef.current = selectedInstanceId;
 
   // Selected cable lookup
   const selectedCable = useMemo(() => {
@@ -331,7 +498,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     sceneRef.current = scene;
 
     // Camera (Isometric perspective setup)
-    const camera = new THREE.PerspectiveCamera(45, width / height, 5, 50000);
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.5, 60000);
     camera.position.set(2200, 1600, 2400);
     cameraRef.current = camera;
 
@@ -350,11 +517,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Orbit Controls (enableDamping disabled for immediate stop on mouse release)
+    // Orbit Controls (Unrestricted scroll zoom, smooth navigation)
     const orbitControls = new OrbitControls(camera, renderer.domElement);
     orbitControls.enableDamping = false;
-    orbitControls.maxDistance = 15000;
-    orbitControls.minDistance = 30;
+    orbitControls.maxDistance = 60000;
+    orbitControls.minDistance = 0.1; // Allows zooming as close as desired!
+    orbitControls.zoomSpeed = 1.2;
     orbitControls.target.set(0, 0, 0);
     orbitControlsRef.current = orbitControls;
 
@@ -548,6 +716,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     scene.add(pinMarkersGroupRef.current);
     scene.add(cablesGroupRef.current);
     scene.add(cableWaypointsGroupRef.current);
+    scene.add(cableFlowGroupRef.current);
 
     // Register PNG snapshot generator
     registerCaptureFn(() => {
@@ -556,14 +725,27 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       return rendererRef.current.domElement.toDataURL("image/png");
     });
 
-    // Raycaster for mouse click selection
+    // Raycaster for mouse click selection (only triggers on true click, NEVER during orbit/rotation drag)
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    let pointerDownStart = { x: 0, y: 0, time: 0 };
 
     const handlePointerDown = (event: MouseEvent) => {
+      if (event.button !== 0) return;
+      pointerDownStart = { x: event.clientX, y: event.clientY, time: Date.now() };
+    };
+
+    const handlePointerUp = (event: MouseEvent) => {
       // Only handle left click on canvas
       if (event.button !== 0 || !container || !cameraRef.current || !sceneRef.current) return;
       if (transformControls.dragging) return;
+
+      // If user moved mouse by more than 5px or held down longer than 500ms, they were orbiting/panning the camera!
+      // Do NOT trigger selection or deselect - maintain the camera's zoom and orientation completely undisturbed!
+      const dragDist = Math.hypot(event.clientX - pointerDownStart.x, event.clientY - pointerDownStart.y);
+      if (dragDist > 5 || Date.now() - pointerDownStart.time > 500) {
+        return;
+      }
 
       const isShift = event.shiftKey;
 
@@ -630,10 +812,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           current = current.parent;
         }
         const cableId = current?.userData?.cableId || hit.object.userData?.cableId;
+        const isSticker = Boolean(current?.userData?.isCableSticker || hit.object.userData?.isCableSticker);
         if (cableId) {
           onSelectCableRef.current?.(cableId);
           // If already selected, clicking on the cable tube creates a new bend waypoint at the hit location!
-          if (selectedCableIdRef.current === cableId) {
+          // (Stickers only select the cable without creating unwanted waypoints)
+          if (!isSticker && selectedCableIdRef.current === cableId) {
             onAddCableRoutePointRef.current?.(cableId, {
               x: Math.round(hit.point.x * 10) / 10,
               y: Math.round((hit.point.y + 15) * 10) / 10,
@@ -735,6 +919,34 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     };
 
     container.addEventListener("pointerdown", handlePointerDown);
+    container.addEventListener("pointerup", handlePointerUp);
+
+    // Double-click to center camera orbit pivot onto clicked surface/point for precision zooming,
+    // preserving the exact camera zoom distance so it never jumps away!
+    const handleDblClick = (event: MouseEvent) => {
+      if (!container || !cameraRef.current || !orbitControlsRef.current) return;
+      const rect = container.getBoundingClientRect();
+      const clickMouse = new THREE.Vector2(
+        ((event.clientX - rect.left) / rect.width) * 2 - 1,
+        -((event.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      const clickRay = new THREE.Raycaster();
+      clickRay.setFromCamera(clickMouse, cameraRef.current);
+      const meshes: THREE.Object3D[] = [];
+      instanceMeshesRef.current.forEach((m) => {
+        if (m.visible) meshes.push(m);
+      });
+      const hits = clickRay.intersectObjects(meshes, true);
+      if (hits.length > 0) {
+        const hitPt = hits[0].point;
+        const currentDist = cameraRef.current.position.distanceTo(orbitControlsRef.current.target);
+        const dir = cameraRef.current.position.clone().sub(orbitControlsRef.current.target).normalize();
+        orbitControlsRef.current.target.copy(hitPt);
+        cameraRef.current.position.copy(hitPt).addScaledVector(dir, currentDist);
+        orbitControlsRef.current.update();
+      }
+    };
+    container.addEventListener("dblclick", handleDblClick);
 
     // Resize Observer
     const resizeObserver = new ResizeObserver(() => {
@@ -749,9 +961,61 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
     // Animation Loop
     let animationFrameId: number;
+    const vUp = new THREE.Vector3(0, 0, 1);
+
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      orbitControls.update();
+
+      if (orbitControls) {
+        orbitControls.autoRotate = isAutoRotateActiveRef.current;
+        orbitControls.autoRotateSpeed = 1.0;
+        orbitControls.update();
+      }
+
+      // Dynamically scale down near plane when zooming in very close, preventing near-clipping
+      if (camera && orbitControls) {
+        const dist = camera.position.distanceTo(orbitControls.target);
+        if (dist < 25) {
+          const adaptiveNear = Math.max(0.01, dist * 0.04);
+          if (Math.abs(camera.near - adaptiveNear) > 0.005) {
+            camera.near = adaptiveNear;
+            camera.updateProjectionMatrix();
+          }
+        }
+      }
+
+      // Dynamic Cable Flow Animation (Energy & Signal Pulses)
+      if (
+        isFlowAnimatingRef.current &&
+        showCablesRef.current &&
+        flowParticlesRef.current.length > 0
+      ) {
+        cableFlowGroupRef.current.visible = true;
+        const time = clockRef.current.getElapsedTime();
+        const speedMult = flowSpeedRef.current;
+        const particles = flowParticlesRef.current;
+        const pLen = particles.length;
+
+        for (let i = 0; i < pLen; i++) {
+          const p = particles[i];
+          const u = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+          const pt = p.curve.getPointAt(u);
+          p.mesh.position.copy(pt);
+
+          // Align pulse along the curve direction
+          const tangent = p.curve.getTangentAt(u);
+          p.mesh.quaternion.setFromUnitVectors(vUp, tangent);
+
+          // Pulsing glow intensity
+          const pulse = p.isPower
+            ? 1.8 + 0.6 * Math.sin(time * 8 + p.baseOffset * 10)
+            : 2.0 + 0.5 * Math.sin(time * 12 + p.baseOffset * 15);
+          p.material.emissiveIntensity = pulse;
+        }
+      } else {
+        cableFlowGroupRef.current.visible = false;
+      }
+
       renderer.render(scene, camera);
     };
     animate();
@@ -760,6 +1024,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       container.removeEventListener("pointerdown", handlePointerDown);
+      container.removeEventListener("pointerup", handlePointerUp);
+      container.removeEventListener("dblclick", handleDblClick);
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
       if (renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
       }
@@ -782,39 +1052,220 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     }
   }, [showGrid]);
 
-  // Handle Camera View Switching
+  // Handle Explicit Camera View Switching (Top, Bottom, Front, Back, Left, Right, 3D)
+  // This effect ONLY runs when cameraViewMode or cameraViewTrigger changes.
+  // It NEVER runs upon selecting, clicking, or dragging an instance!
   useEffect(() => {
     const camera = cameraRef.current;
     const orbit = orbitControlsRef.current;
     if (!camera || !orbit) return;
 
-    const targetDist = 2800;
-    const target = orbit.target.clone();
+    // Check if an explicit target is selected at the moment a camera button is pressed
+    const targetIds =
+      effectiveSelectedIdsRef.current.length > 0
+        ? effectiveSelectedIdsRef.current
+        : selectedInstanceIdRef.current
+        ? [selectedInstanceIdRef.current]
+        : [];
+
+    const targetBox = new THREE.Box3();
+    let foundTarget = false;
+    targetIds.forEach((id) => {
+      const mesh = instanceMeshesRef.current.get(id);
+      if (mesh) {
+        targetBox.expandByObject(mesh);
+        foundTarget = true;
+      }
+    });
+
+    let targetCenter = new THREE.Vector3(0, 0, 0);
+    let targetDist = 1200;
+    let maxDim = 100;
+
+    if (foundTarget) {
+      targetCenter = targetBox.getCenter(new THREE.Vector3());
+      const targetSize = targetBox.getSize(new THREE.Vector3());
+      maxDim = Math.max(targetSize.x, targetSize.y, targetSize.z, 20);
+      targetDist = Math.max(maxDim * 1.8, 80);
+    } else {
+      // If no component is selected, keep the user's current zoom distance!
+      targetCenter = orbit.target.clone();
+      const currentDist = camera.position.distanceTo(orbit.target);
+      targetDist = Math.max(currentDist, 100);
+    }
 
     switch (cameraViewMode) {
       case "top":
-        camera.position.set(target.x, target.y + targetDist, target.z + 0.001);
+        camera.position.set(targetCenter.x, targetCenter.y + targetDist, targetCenter.z + 0.001);
+        camera.up.set(0, 0, -1);
+        break;
+      case "bottom":
+        camera.position.set(targetCenter.x, targetCenter.y - targetDist, targetCenter.z + 0.001);
+        camera.up.set(0, 0, 1);
         break;
       case "front":
-        camera.position.set(target.x, target.y, target.z + targetDist);
+        camera.position.set(targetCenter.x, targetCenter.y, targetCenter.z + targetDist);
+        camera.up.set(0, 1, 0);
         break;
       case "back":
-        camera.position.set(target.x, target.y, target.z - targetDist);
+        camera.position.set(targetCenter.x, targetCenter.y, targetCenter.z - targetDist);
+        camera.up.set(0, 1, 0);
         break;
       case "left":
-        camera.position.set(target.x - targetDist, target.y, target.z);
+        camera.position.set(targetCenter.x - targetDist, targetCenter.y, targetCenter.z);
+        camera.up.set(0, 1, 0);
         break;
       case "right":
-        camera.position.set(target.x + targetDist, target.y, target.z);
+        camera.position.set(targetCenter.x + targetDist, targetCenter.y, targetCenter.z);
+        camera.up.set(0, 1, 0);
         break;
       case "perspective":
       default:
-        camera.position.set(2200, 1600, 2400);
+        camera.up.set(0, 1, 0);
+        if (foundTarget) {
+          camera.position.set(
+            targetCenter.x + targetDist * 0.75,
+            targetCenter.y + targetDist * 0.6,
+            targetCenter.z + targetDist * 0.75
+          );
+        } else {
+          camera.position.set(2200, 1600, 2400);
+        }
         break;
     }
-    camera.lookAt(target);
+    camera.lookAt(targetCenter);
+    orbit.target.copy(targetCenter);
     orbit.update();
-  }, [cameraViewMode]);
+  }, [cameraViewMode, cameraViewTrigger]);
+
+  // Handle Dedicated Isolated View / Foreground Obstacle Culling
+  // Only isolates or hides objects when the user has explicitly turned on the special "Alohida ko'rsatish" button!
+  // Simply selecting a model does NOT hide anything - all elements stay visible normally.
+  useEffect(() => {
+    const camera = cameraRef.current;
+    if (!camera) return;
+
+    // 1. If isolated view is NOT active or no target is selected:
+    if (!effectiveIsolate || !selectedInstanceId) {
+      // Restore any previously hidden instances immediately
+      hiddenObstructionIdsRef.current.forEach((instId) => {
+        const mesh = instanceMeshesRef.current.get(instId);
+        if (mesh) {
+          const inst = instances.find((i) => i.instanceId === instId);
+          if (inst) {
+            const isAirframeInst = inst.isAirframe || inst.componentId === "01";
+            mesh.visible = isAirframeInst ? (inst.visible && droneVisible) : inst.visible;
+          }
+        }
+      });
+      hiddenObstructionIdsRef.current.clear();
+      camera.near = 0.5;
+      camera.updateProjectionMatrix();
+      setHiddenObstaclesCount(0);
+      onHiddenObstaclesCountChange?.(0);
+      return;
+    }
+
+    // 2. The user pressed the special "Alohida ko'rsatish" button:
+    const targetIds =
+      effectiveSelectedIdsRef.current.length > 0
+        ? effectiveSelectedIdsRef.current
+        : [selectedInstanceId];
+
+    const targetBox = new THREE.Box3();
+    let foundTarget = false;
+    targetIds.forEach((id) => {
+      const mesh = instanceMeshesRef.current.get(id);
+      if (mesh) {
+        targetBox.expandByObject(mesh);
+        foundTarget = true;
+      }
+    });
+
+    if (!foundTarget) return;
+
+    const margin = 20; // lateral tolerance in mm
+    const newlyHidden = new Set<string>();
+
+    instances.forEach((inst) => {
+      if (!inst.placed) return;
+      if (targetIds.includes(inst.instanceId)) return; // Never hide the target itself
+
+      const mesh = instanceMeshesRef.current.get(inst.instanceId);
+      if (!mesh) return;
+
+      const isAirframe = inst.isAirframe || inst.componentId === "01";
+      const otherBox = new THREE.Box3().setFromObject(mesh);
+
+      let isObstructing = false;
+
+      if (isAirframe) {
+        // Airframe always obstructs viewing the internal components in isolated mode
+        isObstructing = true;
+      } else if (cameraViewMode !== "perspective") {
+        // Check if other components stand between camera and target along view direction
+        switch (cameraViewMode) {
+          case "front": {
+            const inFront = otherBox.max.z > targetBox.max.z - 2;
+            const overlapX = !(otherBox.max.x < targetBox.min.x - margin || otherBox.min.x > targetBox.max.x + margin);
+            const overlapY = !(otherBox.max.y < targetBox.min.y - margin || otherBox.min.y > targetBox.max.y + margin);
+            isObstructing = inFront && overlapX && overlapY;
+            break;
+          }
+          case "back": {
+            const inFront = otherBox.min.z < targetBox.min.z + 2;
+            const overlapX = !(otherBox.max.x < targetBox.min.x - margin || otherBox.min.x > targetBox.max.x + margin);
+            const overlapY = !(otherBox.max.y < targetBox.min.y - margin || otherBox.min.y > targetBox.max.y + margin);
+            isObstructing = inFront && overlapX && overlapY;
+            break;
+          }
+          case "top": {
+            const inFront = otherBox.max.y > targetBox.max.y - 2;
+            const overlapX = !(otherBox.max.x < targetBox.min.x - margin || otherBox.min.x > targetBox.max.x + margin);
+            const overlapZ = !(otherBox.max.z < targetBox.min.z - margin || otherBox.min.z > targetBox.max.z + margin);
+            isObstructing = inFront && overlapX && overlapZ;
+            break;
+          }
+          case "bottom": {
+            const inFront = otherBox.min.y < targetBox.min.y + 2;
+            const overlapX = !(otherBox.max.x < targetBox.min.x - margin || otherBox.min.x > targetBox.max.x + margin);
+            const overlapZ = !(otherBox.max.z < targetBox.min.z - margin || otherBox.min.z > targetBox.max.z + margin);
+            isObstructing = inFront && overlapX && overlapZ;
+            break;
+          }
+          case "left": {
+            const inFront = otherBox.min.x < targetBox.min.x + 2;
+            const overlapY = !(otherBox.max.y < targetBox.min.y - margin || otherBox.min.y > targetBox.max.y + margin);
+            const overlapZ = !(otherBox.max.z < targetBox.min.z - margin || otherBox.min.z > targetBox.max.z + margin);
+            isObstructing = inFront && overlapY && overlapZ;
+            break;
+          }
+          case "right": {
+            const inFront = otherBox.max.x > targetBox.max.x - 2;
+            const overlapY = !(otherBox.max.y < targetBox.min.y - margin || otherBox.min.y > targetBox.max.y + margin);
+            const overlapZ = !(otherBox.max.z < targetBox.min.z - margin || otherBox.min.z > targetBox.max.z + margin);
+            isObstructing = inFront && overlapY && overlapZ;
+            break;
+          }
+        }
+      }
+
+      if (isObstructing) {
+        mesh.visible = false;
+        newlyHidden.add(inst.instanceId);
+      }
+    });
+
+    hiddenObstructionIdsRef.current = newlyHidden;
+    setHiddenObstaclesCount(newlyHidden.size);
+    onHiddenObstaclesCountChange?.(newlyHidden.size);
+  }, [
+    effectiveIsolate,
+    selectedInstanceId,
+    cameraViewMode,
+    instances,
+    droneVisible,
+  ]);
 
   // Handle Focus / Frame on Selected Instance(s) [Shortcut: F]
   useEffect(() => {
@@ -1036,8 +1487,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       );
       mesh.scale.set(inst.scale[0], inst.scale[1], inst.scale[2]);
 
+      const isObstructionHidden = hiddenObstructionIdsRef.current.has(inst.instanceId);
       const isAirframeInst = inst.isAirframe || inst.componentId === "01";
-      mesh.visible = isAirframeInst ? (inst.visible && droneVisible) : inst.visible;
+      mesh.visible = isObstructionHidden ? false : (isAirframeInst ? (inst.visible && droneVisible) : inst.visible);
 
       // Highlight selected instances with subtle emissive rim and apply custom/drone color
       const isSelected = effectiveSelectedIds.includes(inst.instanceId);
@@ -1254,7 +1706,13 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     cablesGroup.clear();
     waypointsGroup.clear();
 
-    if (!showCables) return;
+    if (!showCables) {
+      cableFlowGroupRef.current.clear();
+      flowParticlesRef.current = [];
+      return;
+    }
+
+    const gatheredFlowItems: typeof cableFlowItemsRef.current = [];
 
     cables.forEach((cable) => {
       const sourceInst = instances.find((i) => i.instanceId === cable.sourceInstanceId && i.placed);
@@ -1328,6 +1786,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         ribbonGroup.name = `cable_ribbon_${cable.id}`;
         ribbonGroup.userData = { cableId: cable.id, isCableMesh: true };
 
+        const strandCurves: THREE.CatmullRomCurve3[] = [];
+
         for (let sIdx = 0; sIdx < strandCount; sIdx++) {
           const rawOffset = (sIdx - (strandCount - 1) / 2) * pitch;
           const strandPts: THREE.Vector3[] = [];
@@ -1345,6 +1805,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           }
 
           const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "catmullrom", tension);
+          strandCurves.push(strandCurve);
+
           const strandGeo = new THREE.TubeGeometry(
             strandCurve,
             Math.floor(numDivisions * 0.8),
@@ -1369,6 +1831,15 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         }
 
         cablesGroup.add(ribbonGroup);
+
+        gatheredFlowItems.push({
+          cableId: cable.id,
+          curve,
+          totalLength,
+          isPower: isCablePower(cable),
+          color: cable.color || "#00e5ff",
+          strandCurves,
+        });
       } else {
         // Standard single round cable
         const tubularSegments = Math.max(32, controlPoints.length * 16);
@@ -1389,6 +1860,67 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         cableMesh.name = `cable_${cable.id}`;
         cableMesh.userData = { cableId: cable.id, isCableMesh: true };
         cablesGroup.add(cableMesh);
+
+        gatheredFlowItems.push({
+          cableId: cable.id,
+          curve,
+          totalLength,
+          isPower: isCablePower(cable),
+          color: cable.color || "#00e5ff",
+        });
+      }
+
+      // Render 3D Cable End Identification Stickers (Uchki Shtikerlar / Markirovka)
+      if (cable.endStickers && cable.endStickers.enabled) {
+        const stickers = cable.endStickers;
+        const totalCurveLength = Math.max(1, totalLength);
+        const offsetMm = Math.max(8, Math.min(60, stickers.offsetFromEndMm || 20));
+
+        // Compute normalized u positions along the spline for source (u near 0) and target (u near 1)
+        const uSource = Math.min(0.35, offsetMm / totalCurveLength);
+        const uTarget = Math.max(0.65, 1 - offsetMm / totalCurveLength);
+
+        const stickerEnds = [
+          {
+            u: uSource,
+            text: stickers.sourceText || cable.sourcePinName || "P1",
+            isSource: true,
+          },
+          {
+            u: uTarget,
+            text: stickers.targetText || cable.targetPinName || "P2",
+            isSource: false,
+          },
+        ];
+
+        const stickerBg = stickers.bgColor || "#facc15";
+        const stickerTextCol = stickers.textColor || "#000000";
+        const stickerStyle = stickers.style || "flag";
+        const baseCableRadius = (cable.thicknessMm || 2.8) / 2;
+
+        stickerEnds.forEach((end) => {
+          if (!end.text) return;
+
+          const point = curve.getPointAt(end.u);
+          const tangent = curve.getTangentAt(end.u).normalize();
+
+          const stickerGroup = build3DStickerMesh({
+            cableId: cable.id,
+            point,
+            tangent,
+            cableRadius: baseCableRadius,
+            text: end.text,
+            isSource: end.isSource,
+            style: stickerStyle,
+            bgColor: stickerBg,
+            textColor: stickerTextCol,
+            rotationDeg: stickers.rotationDeg !== undefined ? stickers.rotationDeg : (end.isSource ? 0 : 45),
+            sizeMm: stickers.sizeMm || 24,
+            isSelectedCable,
+          });
+
+          cablesGroup.add(stickerGroup);
+        });
       }
 
       // If this cable is selected, render interactive 3D Waypoint Handles
@@ -1440,6 +1972,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       }
     });
 
+    // Save flow data and populate particles
+    cableFlowItemsRef.current = gatheredFlowItems;
+    rebuildFlowParticles(gatheredFlowItems);
+
     // If an active waypoint handle is selected, attach TransformControls to it!
     const tcInstance = transformControlsRef.current;
     if (tcInstance && selectedCableId && selectedWaypointId) {
@@ -1452,6 +1988,221 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       }
     }
   }, [cables, instances, showCables, selectedCableId, selectedWaypointId]);
+
+  // Rebuild particle meshes based on flowType filter
+  const rebuildFlowParticles = (
+    items: Array<{
+      cableId: string;
+      curve: THREE.CatmullRomCurve3;
+      totalLength: number;
+      isPower: boolean;
+      color: string;
+      strandCurves?: THREE.CatmullRomCurve3[];
+    }>
+  ) => {
+    const flowGroup = cableFlowGroupRef.current;
+    flowGroup.clear();
+    flowParticlesRef.current = [];
+
+    if (!items || items.length === 0) return;
+
+    const currentFlowType = flowTypeRef.current;
+    const baseSphereGeo = new THREE.SphereGeometry(1, 8, 8);
+
+    items.forEach((item) => {
+      if (currentFlowType === "power" && !item.isPower) return;
+      if (currentFlowType === "signal" && item.isPower) return;
+
+      const numPulses = Math.max(3, Math.min(10, Math.floor(item.totalLength / 60)));
+      const curvesToAnimate =
+        item.strandCurves && item.strandCurves.length > 0
+          ? item.strandCurves
+          : [item.curve];
+
+      curvesToAnimate.forEach((c, cIdx) => {
+        const isStrandPower = item.isPower;
+        const radius = isStrandPower ? 2.2 : 1.7;
+
+        const mat = new THREE.MeshStandardMaterial({
+          color: isStrandPower ? 0xffffff : 0xe0f7ff,
+          emissive: isStrandPower ? 0xff6600 : 0x00e5ff,
+          emissiveIntensity: isStrandPower ? 2.2 : 2.4,
+          roughness: 0.1,
+          metalness: 0.6,
+          transparent: true,
+          opacity: 0.95,
+        });
+
+        for (let pIdx = 0; pIdx < numPulses; pIdx++) {
+          const mesh = new THREE.Mesh(baseSphereGeo, mat);
+          mesh.scale.set(radius, radius, radius * 1.8);
+          flowGroup.add(mesh);
+
+          const baseOffset = pIdx / numPulses + cIdx * 0.07;
+          const speed = isStrandPower ? 0.20 : 0.32;
+
+          flowParticlesRef.current.push({
+            mesh,
+            curve: c,
+            baseOffset: baseOffset % 1.0,
+            speed,
+            isPower: isStrandPower,
+            material: mat,
+          });
+        }
+      });
+    });
+  };
+
+  // Re-filter particles when flowType changes
+  useEffect(() => {
+    if (cableFlowItemsRef.current.length > 0) {
+      rebuildFlowParticles(cableFlowItemsRef.current);
+    }
+  }, [flowType]);
+
+  // Snapshot PNG export
+  const handleExportSnapshot = () => {
+    if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return false;
+    try {
+      rendererRef.current.render(sceneRef.current, cameraRef.current);
+      const dataUrl = rendererRef.current.domElement.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = `uav_avionics_3d_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.png`;
+      link.click();
+      return true;
+    } catch (err) {
+      console.error("Export PNG snapshot error:", err);
+      return false;
+    }
+  };
+
+  // Video Recording Logic
+  const handleStartVideoRecording = () => {
+    if (!rendererRef.current) return false;
+    const canvas = rendererRef.current.domElement;
+
+    try {
+      const stream = (canvas as any).captureStream
+        ? (canvas as any).captureStream(30)
+        : (canvas as any).mozCaptureStream
+        ? (canvas as any).mozCaptureStream(30)
+        : null;
+
+      if (!stream) {
+        onShowToast?.("Brauzeringiz video yozishni qo‘llab-quvvatlamaydi.");
+        return false;
+      }
+
+      const mimeCandidates = [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm",
+        "video/mp4",
+      ];
+      let selectedMime = "";
+      for (const cand of mimeCandidates) {
+        if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(cand)) {
+          selectedMime = cand;
+          break;
+        }
+      }
+
+      recordedChunksRef.current = [];
+      const recorder = new MediaRecorder(
+        stream,
+        selectedMime ? { mimeType: selectedMime, videoBitsPerSecond: 5000000 } : undefined
+      );
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          recordedChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = () => {
+        if (recordedChunksRef.current.length === 0) return;
+        const mime = selectedMime || "video/webm";
+        const blob = new Blob(recordedChunksRef.current, { type: mime });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        const ext = mime.includes("mp4") ? "mp4" : "webm";
+        link.download = `uav_avionics_3d_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${ext}`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        setIsVideoRecording(false);
+        setRecordingSeconds(0);
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+        onShowToast?.("🎥 3D Video muvaffaqiyatli saqlandi va yuklab olindi!");
+      };
+
+      recorder.start(250);
+      mediaRecorderRef.current = recorder;
+      setIsVideoRecording(true);
+      setRecordingSeconds(0);
+
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          if (prev >= 120) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+              mediaRecorderRef.current.stop();
+            }
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+
+      onShowToast?.("🔴 3D Video yozish boshlandi. Tugatish uchun tugmani qayta bosing.");
+      return true;
+    } catch (err) {
+      console.error("Video recorder start error:", err);
+      onShowToast?.("Video yozishni boshlashda xatolik yuz berdi.");
+      return false;
+    }
+  };
+
+  const handleStopVideoRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleToggleVideoRecording = () => {
+    if (isVideoRecording) {
+      handleStopVideoRecording();
+    } else {
+      handleStartVideoRecording();
+    }
+  };
+
+  useEffect(() => {
+    onRegisterVideoRecorder?.({
+      start: handleStartVideoRecording,
+      stop: handleStopVideoRecording,
+      isRecording: () => isVideoRecording,
+    });
+  }, [onRegisterVideoRecorder, isVideoRecording]);
+
+  const formatDuration = (sec: number) => {
+    const m = Math.floor(sec / 60).toString().padStart(2, "0");
+    const s = (sec % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const handleCycleSpeed = () => {
+    const speeds = [0.5, 1.0, 2.0];
+    const currIdx = speeds.indexOf(flowSpeed);
+    const nextSpeed = speeds[(currIdx + 1) % speeds.length];
+    onFlowSpeedChange?.(nextSpeed);
+    onShowToast?.(`⚡ Oqim tezligi: ${nextSpeed}x`);
+  };
 
   return (
     <div
@@ -1543,6 +2294,220 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             className="ml-2 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-slate-300 hover:text-white transition-all text-[11px]"
           >
             Tozalash
+          </button>
+        </div>
+      )}
+
+      {hiddenObstaclesCount > 0 && effectiveIsolate && (
+        <div
+          id="obstruction-culling-indicator-banner"
+          className="absolute top-16 left-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-slate-950/95 border border-amber-500/50 rounded-xl shadow-2xl backdrop-blur-md text-amber-200 text-xs select-none pointer-events-auto animate-fadeIn"
+        >
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping flex-shrink-0" />
+          <span>
+            Model alohida ko‘rsatilmoqda (<strong className="text-amber-300 font-bold">{hiddenObstaclesCount}</strong> ta to‘siq yashirildi)
+          </span>
+          {handleToggleIsolate && (
+            <button
+              type="button"
+              id="btn-restore-obstructions"
+              onClick={handleToggleIsolate}
+              className="ml-2 px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded text-[11px] border border-amber-500/40 cursor-pointer font-medium transition-colors"
+              title="Barcha elementlarni qayta ko‘rsatish"
+            >
+              Barchasini ko‘rsatish
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Floating 3D Animation & Media Export Controller (Top-Right) */}
+      <div
+        id="viewport-animation-export-hud"
+        className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 bg-slate-950/85 hover:bg-slate-950/95 border border-slate-700/70 hover:border-cyan-500/50 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto transition-all"
+      >
+        {/* Flow Animation Play/Pause */}
+        <button
+          type="button"
+          id="btn-toggle-cable-flow"
+          onClick={() => {
+            const next = !isFlowAnimating;
+            onToggleFlowAnimation?.(next);
+            onShowToast?.(
+              next
+                ? "✨ Kabellarda signal va quvvat oqimi faollashtirildi"
+                : "⏸ Kabellar oqim animatsiyasi to‘xtatildi"
+            );
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
+            isFlowAnimating
+              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-sm shadow-cyan-500/20"
+              : "bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-transparent"
+          }`}
+          title={isFlowAnimating ? "Animatsiyani to‘xtatish" : "Kabel oqimi animatsiyasini yoqish"}
+        >
+          {isFlowAnimating ? (
+            <Pause className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+          ) : (
+            <Play className="w-3.5 h-3.5 text-slate-300 fill-slate-300" />
+          )}
+          <span className="text-[12px] font-semibold">
+            {isFlowAnimating ? "Oqim: Faol" : "Animatsiya"}
+          </span>
+          {isFlowAnimating && (
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-0.5" />
+          )}
+        </button>
+
+        {/* Cable Flow Filtering & Speed Options (visible when flow animating) */}
+        {isFlowAnimating && (
+          <div className="flex items-center gap-1 pl-1 pr-1 border-l border-slate-700/60">
+            {/* Flow Type selector */}
+            <div className="flex items-center bg-slate-900/80 rounded-lg p-0.5 border border-slate-700/50 text-[10px]">
+              <button
+                type="button"
+                id="btn-flow-type-all"
+                onClick={() => onFlowTypeChange?.("all")}
+                className={`px-1.5 py-0.5 rounded ${
+                  flowType === "all"
+                    ? "bg-cyan-500 text-black font-bold"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Barcha kabellarda oqim"
+              >
+                Hammasi
+              </button>
+              <button
+                type="button"
+                id="btn-flow-type-power"
+                onClick={() => onFlowTypeChange?.("power")}
+                className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                  flowType === "power"
+                    ? "bg-amber-500 text-black font-bold"
+                    : "text-slate-400 hover:text-amber-300"
+                }`}
+                title="Faqat quvvat kabellari (Power)"
+              >
+                <Zap className="w-2.5 h-2.5" />
+                Power
+              </button>
+              <button
+                type="button"
+                id="btn-flow-type-signal"
+                onClick={() => onFlowTypeChange?.("signal")}
+                className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
+                  flowType === "signal"
+                    ? "bg-cyan-400 text-black font-bold"
+                    : "text-slate-400 hover:text-cyan-300"
+                }`}
+                title="Faqat signal kabellari"
+              >
+                <Activity className="w-2.5 h-2.5" />
+                Signal
+              </button>
+            </div>
+
+            {/* Flow Speed Cycle Button */}
+            <button
+              type="button"
+              id="btn-cycle-flow-speed"
+              onClick={handleCycleSpeed}
+              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white font-mono text-[11px] border border-slate-700/40"
+              title="Oqim tezligini o‘zgartirish (0.5x / 1x / 2x)"
+            >
+              {flowSpeed}x
+            </button>
+          </div>
+        )}
+
+        {/* 360° Auto-Rotate Toggle */}
+        <button
+          type="button"
+          id="btn-toggle-auto-rotate"
+          onClick={() => {
+            const next = !isAutoRotateActive;
+            onToggleAutoRotate?.(next);
+            onShowToast?.(
+              next
+                ? "🔄 360° Aylanma ko‘rinish yoqildi"
+                : "Aylanma ko‘rinish to‘xtatildi"
+            );
+          }}
+          className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+            isAutoRotateActive
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
+              : "bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-transparent"
+          }`}
+          title="360° Avtomatik aylanish (Turntable)"
+        >
+          <RotateCw
+            className={`w-3.5 h-3.5 ${isAutoRotateActive ? "animate-spin text-emerald-400" : ""}`}
+          />
+        </button>
+
+        <div className="h-4 w-[1px] bg-slate-700/60 mx-0.5" />
+
+        {/* Capture Snapshot Image (PNG) */}
+        <button
+          type="button"
+          id="btn-export-png-snapshot"
+          onClick={() => {
+            if (handleExportSnapshot()) {
+              onShowToast?.("📸 3D Ko‘rinish PNG rasm formatida saqlandi!");
+            }
+          }}
+          className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white rounded-xl text-[11px] font-medium border border-slate-700/40 transition-all cursor-pointer"
+          title="3D ko‘rinishni yuqori aniqlikdagi PNG rasm sifatida yuklab olish"
+        >
+          <Camera className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="hidden sm:inline">PNG</span>
+        </button>
+
+        {/* Record 3D Video */}
+        <button
+          type="button"
+          id="btn-toggle-video-record"
+          onClick={handleToggleVideoRecording}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
+            isVideoRecording
+              ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 animate-pulse border border-rose-400"
+              : "bg-white/5 hover:bg-rose-500/20 text-slate-200 hover:text-rose-200 border border-slate-700/40"
+          }`}
+          title={isVideoRecording ? "Videoni to‘xtatish va yuklab olish" : "3D harakatli video yozish"}
+        >
+          {isVideoRecording ? (
+            <>
+              <Square className="w-3 h-3 fill-white" />
+              <span className="font-mono font-bold text-white">
+                {formatDuration(recordingSeconds)}
+              </span>
+            </>
+          ) : (
+            <>
+              <Video className="w-3.5 h-3.5 text-rose-400" />
+              <span className="hidden sm:inline">Video</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Floating Video Recording Live Indicator Banner */}
+      {isVideoRecording && (
+        <div
+          id="video-recording-live-pill"
+          className="absolute top-16 right-4 z-20 flex items-center gap-2.5 px-3 py-1.5 bg-rose-950/90 border border-rose-500/60 rounded-xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto animate-pulse"
+        >
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+          <span className="font-semibold text-rose-100">
+            3D Video yozilmoqda: <span className="font-mono">{formatDuration(recordingSeconds)}</span>
+          </span>
+          <button
+            type="button"
+            id="btn-stop-recording-pill"
+            onClick={handleStopVideoRecording}
+            className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded text-[11px] font-medium ml-1 transition-colors"
+          >
+            Saqlash
           </button>
         </div>
       )}

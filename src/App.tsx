@@ -9,6 +9,7 @@ import {
   CameraViewMode,
   PinDefinition,
   SceneTheme,
+  CableFlowType,
 } from "./types";
 import {
   computeDroneRelativeTransform,
@@ -167,9 +168,47 @@ export default function App() {
   const [selectedPinFullName, setSelectedPinFullName] = useState<string | null>(null);
   const [selectedCableId, setSelectedCableId] = useState<string | null>(null);
 
+  // Errors and toasts
+  const [loadingAssetErrors, setLoadingAssetErrors] = useState<Map<string, string>>(new Map());
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage((prev) => (prev === msg ? null : prev));
+    }, 4000);
+  }, []);
+
   const [transformMode, setTransformMode] = useState<TransformMode>("translate");
   const [transformSpace, setTransformSpace] = useState<TransformSpace>("world");
   const [cameraViewMode, setCameraViewMode] = useState<CameraViewMode>("perspective");
+  const [isIsolatedView, setIsIsolatedView] = useState<boolean>(false);
+  const [hiddenObstaclesCount, setHiddenObstaclesCount] = useState<number>(0);
+  const [cameraViewTrigger, setCameraViewTrigger] = useState<number>(0);
+
+  const handleSetCameraView = useCallback((mode: CameraViewMode) => {
+    setCameraViewMode(mode);
+    setCameraViewTrigger(Date.now());
+  }, []);
+
+  const handleToggleIsolatedView = useCallback(() => {
+    setIsIsolatedView((prev) => {
+      const next = !prev;
+      if (next) {
+        showToast("👁️ Alohida ko‘rsatish: Tanlangan model atrofidagi to‘siqlar yashirildi [I]");
+      } else {
+        showToast("🌐 Barcha elementlar qayta ko‘rsatilmoqda");
+      }
+      return next;
+    });
+  }, [showToast]);
+
+  // Automatically turn off isolate mode when selection is cleared
+  useEffect(() => {
+    if (selectedInstanceIds.length === 0) {
+      setIsIsolatedView(false);
+    }
+  }, [selectedInstanceIds]);
 
   // Drone airframe visuals & Scene Theme
   const [droneOpacity, setDroneOpacity] = useState<number>(0.45);
@@ -197,9 +236,7 @@ export default function App() {
     pin: PinDefinition;
   } | null>(null);
 
-  // Errors and toasts
-  const [loadingAssetErrors, setLoadingAssetErrors] = useState<Map<string, string>>(new Map());
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Errors and modals
   const [isModelImportOpen, setIsModelImportOpen] = useState<boolean>(false);
   const [modelImportTargetId, setModelImportTargetId] = useState<string>("01");
 
@@ -220,6 +257,44 @@ export default function App() {
   // Focus trigger & Shortcuts Modal state
   const [focusTrigger, setFocusTrigger] = useState<number>(0);
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
+
+  // Cable flow animation & Video recording states
+  const [isFlowAnimating, setIsFlowAnimating] = useState<boolean>(false);
+  const [flowSpeed, setFlowSpeed] = useState<number>(1.0);
+  const [flowType, setFlowType] = useState<CableFlowType>("all");
+  const [isAutoRotateActive, setIsAutoRotateActive] = useState<boolean>(false);
+  const [isVideoRecording, setIsVideoRecording] = useState<boolean>(false);
+  const videoRecorderRef = React.useRef<{
+    start: () => boolean;
+    stop: () => void;
+    isRecording: () => boolean;
+  } | null>(null);
+
+  const handleToggleFlowAnimation = useCallback((explicitState?: boolean) => {
+    setIsFlowAnimating((prev) => {
+      const next = typeof explicitState === "boolean" ? explicitState : !prev;
+      if (next) {
+        showToast("✨ Kabellarda signal va quvvat oqimi faollashtirildi [Space]");
+      } else {
+        showToast("⏸ Kabellar oqim animatsiyasi to‘xtatildi [Space]");
+      }
+      return next;
+    });
+  }, [showToast]);
+
+  const handleToggleVideo = useCallback(() => {
+    if (videoRecorderRef.current) {
+      if (videoRecorderRef.current.isRecording()) {
+        videoRecorderRef.current.stop();
+        setIsVideoRecording(false);
+      } else {
+        const ok = videoRecorderRef.current.start();
+        if (ok) setIsVideoRecording(true);
+      }
+    } else {
+      showToast("Video yozish tizimi hozirda tayyorlanmoqda");
+    }
+  }, [showToast]);
 
   // Cloud Sync & Auto-Save states (Firebase Firestore & LocalStorage)
   const [isCloudModalOpen, setIsCloudModalOpen] = useState<boolean>(false);
@@ -243,13 +318,6 @@ export default function App() {
   );
   const hasLocalModificationsRef = React.useRef<boolean>(false);
   const lastLocalActionTimeRef = React.useRef<number>(0);
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => {
-      setToastMessage((prev) => (prev === msg ? null : prev));
-    }, 4000);
-  }, []);
 
   // Load Manifest CSV & Restore previous scene state
   useEffect(() => {
@@ -1860,6 +1928,28 @@ export default function App() {
         return;
       }
 
+      // 12.1. I (Toggle Isolate / Alohida ko‘rsatish)
+      if (!isCtrlOrCmd && !e.altKey && (e.key === "i" || e.key === "I")) {
+        if (selectedInstanceIds.length > 0) {
+          e.preventDefault();
+          handleToggleIsolatedView();
+        }
+        return;
+      }
+
+      // 12.2. Space (Toggle Cable Flow Animation)
+      if (
+        !isCtrlOrCmd &&
+        !e.altKey &&
+        !e.shiftKey &&
+        (e.code === "Space" || e.key === " ") &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName || "")
+      ) {
+        e.preventDefault();
+        handleToggleFlowAnimation();
+        return;
+      }
+
       // 13. Transform Modes: W (Translate), E (Rotate), R (Scale)
       if (!isCtrlOrCmd && !e.altKey && (e.key === "w" || e.key === "W")) {
         setTransformMode("translate");
@@ -2724,6 +2814,10 @@ export default function App() {
         autoSaveStatus={autoSaveStatus}
         lastSavedAtText={lastSavedTimeText}
         onForceSave={handleManualSave}
+        isFlowAnimating={isFlowAnimating}
+        onToggleFlowAnimation={handleToggleFlowAnimation}
+        isVideoRecording={isVideoRecording}
+        onToggleVideo={handleToggleVideo}
       />
 
       {/* Main Workspace Body */}
@@ -2825,13 +2919,36 @@ export default function App() {
             onCancelPlacingPinMode={() => setIsPlacingPinMode(false)}
             focusOnSelectionTrigger={focusTrigger}
             onTransformStart={handleTransformStart}
+            cameraViewTrigger={cameraViewTrigger}
+            hideObstacles={isIsolatedView}
+            onToggleHideObstacles={handleToggleIsolatedView}
+            isIsolatedView={isIsolatedView}
+            onToggleIsolatedView={handleToggleIsolatedView}
+            onHiddenObstaclesCountChange={setHiddenObstaclesCount}
+            isFlowAnimating={isFlowAnimating}
+            onToggleFlowAnimation={handleToggleFlowAnimation}
+            flowSpeed={flowSpeed}
+            onFlowSpeedChange={setFlowSpeed}
+            flowType={flowType}
+            onFlowTypeChange={setFlowType}
+            isAutoRotateActive={isAutoRotateActive}
+            onToggleAutoRotate={() => setIsAutoRotateActive((prev) => !prev)}
+            onCapturePNG={handleCapturePNG}
+            onShowToast={showToast}
+            onRegisterVideoRecorder={(rec) => {
+              videoRecorderRef.current = rec;
+            }}
           />
 
           {/* Floating Camera Orientation Selector */}
           <CameraViewControls
             currentView={cameraViewMode}
-            onSetCameraView={setCameraViewMode}
-            onResetCamera={() => setCameraViewMode("perspective")}
+            onSetCameraView={handleSetCameraView}
+            onResetCamera={() => handleSetCameraView("perspective")}
+            selectedInstanceName={selectedInstance ? (selectedInstance.customLabel || selectedInstance.name) : null}
+            isIsolatedView={isIsolatedView}
+            onToggleIsolatedView={handleToggleIsolatedView}
+            hiddenObstaclesCount={hiddenObstaclesCount}
           />
 
           {/* Floating Keyboard Shortcuts & Quick Actions HUD */}
@@ -2978,6 +3095,24 @@ export default function App() {
               <span>Fokus</span>
             </div>
 
+            {/* Isolate (Alohida ko'rsatish) */}
+            <div
+              className={`flex items-center gap-1.5 ${
+                selectedInstanceIds.length > 0
+                  ? isIsolatedView
+                    ? "text-amber-400 font-semibold cursor-pointer"
+                    : "text-amber-300/80 hover:text-amber-200 cursor-pointer"
+                  : "text-slate-500 opacity-60"
+              }`}
+              onClick={selectedInstanceIds.length > 0 ? handleToggleIsolatedView : undefined}
+              title="Tanlangan modelni alohida ko‘rsatish (to‘siqlarni yashirish) [Klaviatura: I]"
+            >
+              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
+                I
+              </kbd>
+              <span>{isIsolatedView ? "Alohida (Faol)" : "Alohida"}</span>
+            </div>
+
             <span className="text-slate-700">|</span>
 
             {/* Shortcuts Dialog Trigger */}
@@ -3054,6 +3189,8 @@ export default function App() {
             onReloadJetson={handleReloadJetson}
             isReloadingJetson={isReloadingJetson}
             onChangeModel={handleOpenModelImport}
+            isIsolatedView={isIsolatedView}
+            onToggleIsolatedView={handleToggleIsolatedView}
           />
         )}
       </div>
