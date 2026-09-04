@@ -27,8 +27,10 @@ import { COMPONENT_PINS } from "./data/pinDefinitions";
 import { HeaderBar } from "./components/HeaderBar";
 import { UnplacedInventoryPanel } from "./components/UnplacedInventoryPanel";
 import { PlacedInspectorPanel } from "./components/PlacedInspectorPanel";
-import { Viewport3D } from "./components/Viewport3D";
+import { Viewport3D, computePinWorldPosition } from "./components/Viewport3D";
+import * as THREE from "three";
 import { CameraViewControls } from "./components/CameraViewControls";
+import { ViewportQuickTools } from "./components/ViewportQuickTools";
 import { CableConnectModal } from "./components/CableConnectModal";
 import { KeyboardShortcutsModal } from "./components/KeyboardShortcutsModal";
 import { ModelImportModal } from "./components/ModelImportModal";
@@ -274,6 +276,7 @@ export default function App() {
     setIsFlowAnimating((prev) => {
       const next = typeof explicitState === "boolean" ? explicitState : !prev;
       if (next) {
+        setShowCables(true);
         showToast("✨ Kabellarda signal va quvvat oqimi faollashtirildi [Space]");
       } else {
         showToast("⏸ Kabellar oqim animatsiyasi to‘xtatildi [Space]");
@@ -430,6 +433,7 @@ export default function App() {
           }
 
           if (Array.isArray(parsed.cables)) {
+            cablesRef.current = parsed.cables;
             setCables(parsed.cables);
           }
           if (typeof parsed.droneColor === "string") {
@@ -565,6 +569,15 @@ export default function App() {
             }
 
             if (chosenSource === "cloud" && cloudProj) {
+              // Safeguard: If cloud document has empty cables but local storage has cables, preserve local cables!
+              if (
+                (!cloudProj.cables || cloudProj.cables.length === 0) &&
+                localParsed &&
+                Array.isArray(localParsed.cables) &&
+                localParsed.cables.length > 0
+              ) {
+                cloudProj.cables = localParsed.cables;
+              }
               restoreFromData(cloudProj);
               setCurrentCloudProject(cloudProj);
               setCloudCode(cloudProj.cloudCode);
@@ -575,6 +588,9 @@ export default function App() {
               // Synchronize to localStorage so local storage is also fresh
               setTimeout(() => performLocalSave(), 200);
             } else if (chosenSource === "local" && localParsed) {
+              if (cloudProj?.updatedAt) {
+                lastKnownRemoteUpdateRef.current = cloudProj.updatedAt;
+              }
               restoreFromData(localParsed);
               showToast("Loyiha xotiradan yuklandi");
               // Backup local work to Cloud Firestore so other browsers can see it
@@ -585,7 +601,7 @@ export default function App() {
                     name: "3.5M Twin-Motor UAV Avionics",
                     cloudCode: localStorage.getItem("drone_avionics_cloud_code") || undefined,
                     instances: localParsed.instances,
-                    cables: localParsed.cables || [],
+                    cables: (localParsed.cables && localParsed.cables.length > 0) ? localParsed.cables : (cablesRef.current || []),
                     clientId: clientIdRef.current,
                     customModels: modelManager.getCustomModelRegistry(),
                     sceneTheme: localParsed.sceneTheme || sceneTheme,
@@ -692,7 +708,7 @@ export default function App() {
           droneRelativePos: inst.droneRelativePos,
           droneRelativeRot: inst.droneRelativeRot,
         })),
-        cables,
+        cables: (cables && cables.length > 0) ? cables : (cablesRef.current || []),
         customManifest: manifest.filter(
           (m) => Number(m.id) > 21 || m.id.startsWith("custom")
         ),
@@ -789,7 +805,7 @@ export default function App() {
         name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
         cloudCode: activeCloudCode,
         instances,
-        cables,
+        cables: (cables && cables.length > 0) ? cables : (cablesRef.current || []),
         droneFrame: {
           color: droneColor,
           opacity: droneOpacity,
@@ -863,6 +879,15 @@ export default function App() {
         return;
       }
 
+      // 4.5. Guard: If remote cables are empty/missing, but we already have connected cables locally, preserve them
+      if (
+        (!remoteData.cables || remoteData.cables.length === 0) &&
+        cablesRef.current &&
+        cablesRef.current.length > 0
+      ) {
+        remoteData.cables = cablesRef.current;
+      }
+
       console.log("Authoritative project update received from another browser/client:", remoteData.cloudCode, remoteData.updatedAt);
       lastKnownRemoteUpdateRef.current = remoteData.updatedAt || new Date().toISOString();
 
@@ -883,6 +908,7 @@ export default function App() {
       setInstances(remoteData.instances);
 
       if (Array.isArray(remoteData.cables)) {
+        cablesRef.current = remoteData.cables;
         setCables(remoteData.cables);
       }
       if (remoteData.droneFrame) {
@@ -1950,6 +1976,22 @@ export default function App() {
         return;
       }
 
+      // 12.3. C (Toggle Cable Visibility)
+      if (
+        !isCtrlOrCmd &&
+        !e.altKey &&
+        (e.key === "c" || e.key === "C") &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName || "")
+      ) {
+        e.preventDefault();
+        setShowCables((prev) => {
+          const next = !prev;
+          showToast(next ? "🔌 Kabellar ko‘rsatildi [C]" : "🙈 Kabellar yashirildi [C]");
+          return next;
+        });
+        return;
+      }
+
       // 13. Transform Modes: W (Translate), E (Rotate), R (Scale)
       if (!isCtrlOrCmd && !e.altKey && (e.key === "w" || e.key === "W")) {
         setTransformMode("translate");
@@ -2308,12 +2350,91 @@ export default function App() {
     );
   };
 
+  const handleSwapCableEnds = (cableId: string) => {
+    setCables((prev) =>
+      prev.map((c) => {
+        if (c.id !== cableId) return c;
+        const reversedRoutePoints = c.routePoints
+          ? [...c.routePoints].reverse()
+          : undefined;
+        return {
+          ...c,
+          sourceInstanceId: c.targetInstanceId,
+          sourcePinName: c.targetPinName,
+          targetInstanceId: c.sourceInstanceId,
+          targetPinName: c.sourcePinName,
+          routePoints: reversedRoutePoints,
+          endStickers: c.endStickers
+            ? {
+                ...c.endStickers,
+                sourceText: c.endStickers.targetText,
+                targetText: c.endStickers.sourceText,
+              }
+            : undefined,
+        };
+      })
+    );
+    recordSnapshot("Kabel oqim yo‘nalishi almashtirildi");
+    showToast("Kabel oqim yo‘nalishi va uchlari almashtirildi (A ⇄ B)");
+  };
+
+  // Helper function to calculate squared distance from point P to line segment VW
+  const getDistanceToSegmentSquared = (
+    p: { x: number; y: number; z: number },
+    v: { x: number; y: number; z: number },
+    w: { x: number; y: number; z: number }
+  ): number => {
+    const l2 = (w.x - v.x) ** 2 + (w.y - v.y) ** 2 + (w.z - v.z) ** 2;
+    if (l2 === 0) return (p.x - v.x) ** 2 + (p.y - v.y) ** 2 + (p.z - v.z) ** 2;
+    let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y) + (p.z - v.z) * (w.z - v.z)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const projX = v.x + t * (w.x - v.x);
+    const projY = v.y + t * (w.y - v.y);
+    const projZ = v.z + t * (w.z - v.z);
+    return (p.x - projX) ** 2 + (p.y - projY) ** 2 + (p.z - projZ) ** 2;
+  };
+
   const handleAddCableRoutePoint = (cableId: string, customPoint?: Partial<CableRoutePoint>) => {
+    recordSnapshot("Kabelga burilish nuqtasi qo‘shildi");
     setCables((prev) =>
       prev.map((c) => {
         if (c.id !== cableId) return c;
         const pts = c.routePoints ? [...c.routePoints] : [];
+
+        // Determine start and end anchor positions
+        const sourceInst = instances.find((i) => i.instanceId === c.sourceInstanceId && i.placed);
+        const targetInst = instances.find((i) => i.instanceId === c.targetInstanceId && i.placed);
+
+        const sourcePins = sourceInst
+          ? (sourceInst.customPins && sourceInst.customPins.length > 0
+              ? sourceInst.customPins
+              : COMPONENT_PINS[sourceInst.componentId] || [])
+          : [];
+        const targetPins = targetInst
+          ? (targetInst.customPins && targetInst.customPins.length > 0
+              ? targetInst.customPins
+              : COMPONENT_PINS[targetInst.componentId] || [])
+          : [];
+
+        const sPin = sourcePins.find((p) => p.fullName === c.sourcePinName);
+        const tPin = targetPins.find((p) => p.fullName === c.targetPinName);
+
+        const p1Vec = sourceInst
+          ? computePinWorldPosition(sourceInst, sPin ? sPin.localOffset : [0, 0, 0])
+          : new THREE.Vector3(0, 0, 0);
+        const p2Vec = targetInst
+          ? computePinWorldPosition(targetInst, tPin ? tPin.localOffset : [0, 0, 0])
+          : new THREE.Vector3(0, 0, 0);
+
+        // Complete polyline path: [start, ...waypoints, end]
+        const polyline: Array<{ x: number; y: number; z: number }> = [
+          { x: p1Vec.x, y: p1Vec.y, z: p1Vec.z },
+          ...pts.map((pt) => ({ x: pt.x, y: pt.y, z: pt.z })),
+          { x: p2Vec.x, y: p2Vec.y, z: p2Vec.z },
+        ];
+
         let newPoint: CableRoutePoint;
+        let insertionIndex = pts.length; // default to appending if no match
 
         if (
           customPoint &&
@@ -2328,31 +2449,46 @@ export default function App() {
             z: Math.round(customPoint.z * 10) / 10,
             type: customPoint.type || "waypoint",
           };
+
+          // Find the exact segment that this point is closest to
+          let minDistanceSq = Infinity;
+          for (let i = 0; i < polyline.length - 1; i++) {
+            const dSq = getDistanceToSegmentSquared(newPoint, polyline[i], polyline[i + 1]);
+            if (dSq < minDistanceSq) {
+              minDistanceSq = dSq;
+              insertionIndex = i; // segment i is between polyline[i] and polyline[i+1]
+            }
+          }
         } else {
-          // Midpoint calculation between source/last waypoint and target
-          const sourceInst = instances.find((i) => i.instanceId === c.sourceInstanceId && i.placed);
-          const targetInst = instances.find((i) => i.instanceId === c.targetInstanceId && i.placed);
-          const p1 = sourceInst ? sourceInst.position : [0, 0, 0];
-          const p2 = targetInst ? targetInst.position : [0, 0, 0];
-          const lastPos =
-            pts.length > 0
-              ? [pts[pts.length - 1].x, pts[pts.length - 1].y, pts[pts.length - 1].z]
-              : p1;
-
-          const midX = (lastPos[0] + p2[0]) / 2;
-          const midY = (lastPos[1] + p2[1]) / 2 + 35; // 35mm arch
-          const midZ = (lastPos[2] + p2[2]) / 2;
-
+          // If added via button without specific coordinates:
+          // Find the longest segment and insert at its midpoint
+          let maxSegLenSq = -1;
+          let longestSegIdx = 0;
+          for (let i = 0; i < polyline.length - 1; i++) {
+            const dSq =
+              (polyline[i + 1].x - polyline[i].x) ** 2 +
+              (polyline[i + 1].y - polyline[i].y) ** 2 +
+              (polyline[i + 1].z - polyline[i].z) ** 2;
+            if (dSq > maxSegLenSq) {
+              maxSegLenSq = dSq;
+              longestSegIdx = i;
+            }
+          }
+          const segA = polyline[longestSegIdx];
+          const segB = polyline[longestSegIdx + 1];
           newPoint = {
             id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-            x: Math.round(midX * 10) / 10,
-            y: Math.round(midY * 10) / 10,
-            z: Math.round(midZ * 10) / 10,
+            x: Math.round(((segA.x + segB.x) / 2) * 10) / 10,
+            y: Math.round((((segA.y + segB.y) / 2) + 20) * 10) / 10,
+            z: Math.round(((segA.z + segB.z) / 2) * 10) / 10,
             type: "waypoint",
           };
+          insertionIndex = longestSegIdx;
         }
 
-        return { ...c, routePoints: [...pts, newPoint] };
+        const updatedRoutePoints = [...pts];
+        updatedRoutePoints.splice(insertionIndex, 0, newPoint);
+        return { ...c, routePoints: updatedRoutePoints };
       })
     );
     showToast("Kabelga burilish nuqtasi qo‘shildi");
@@ -2888,6 +3024,7 @@ export default function App() {
             onUpdateCableRoutePoint={handleUpdateCableRoutePoint}
             onDeleteCableRoutePoint={handleDeleteCableRoutePoint}
             onStraightenCable={handleStraightenCable}
+            onSwapCableEnds={handleSwapCableEnds}
             transformMode={transformMode}
             transformSpace={transformSpace}
             droneOpacity={droneOpacity}
@@ -2940,193 +3077,56 @@ export default function App() {
             }}
           />
 
-          {/* Floating Camera Orientation Selector */}
-          <CameraViewControls
-            currentView={cameraViewMode}
-            onSetCameraView={handleSetCameraView}
-            onResetCamera={() => handleSetCameraView("perspective")}
-            selectedInstanceName={selectedInstance ? (selectedInstance.customLabel || selectedInstance.name) : null}
-            isIsolatedView={isIsolatedView}
-            onToggleIsolatedView={handleToggleIsolatedView}
-            hiddenObstaclesCount={hiddenObstaclesCount}
-          />
-
-          {/* Floating Keyboard Shortcuts & Quick Actions HUD */}
+          {/* Top Floating Viewport HUD (Unified Bar: Camera View Presets on Left, Quick Tools on Right) */}
           <div
-            id="viewport-shortcuts-hud"
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-slate-950/90 backdrop-blur-md border border-slate-800/90 text-slate-300 px-3 py-1.5 rounded-full text-[11px] flex items-center gap-2.5 shadow-2xl z-20 pointer-events-auto select-none"
+            className="viewport-top-hud"
+            id="viewport-top-hud"
+            style={{
+              paddingLeft: isLeftPanelOpen ? "0px" : "88px",
+              paddingRight: isRightPanelOpen ? "0px" : "96px",
+            }}
           >
-            {/* Undo */}
-            <button
-              type="button"
-              className={`flex items-center gap-1.5 transition-colors ${
-                canUndo ? "text-amber-300 hover:text-amber-200 cursor-pointer" : "text-slate-600 cursor-not-allowed opacity-50"
-              }`}
-              onClick={canUndo ? handleUndo : undefined}
-              disabled={!canUndo}
-              title={`Orqaga qaytarish [Ctrl+Z] (${undoCount} ta)`}
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Ctrl+Z
-              </kbd>
-              <span>Undo</span>
-            </button>
+            {/* Left: Camera Orientation Controls */}
+            <CameraViewControls
+              currentView={cameraViewMode}
+              onSetCameraView={handleSetCameraView}
+              onResetCamera={() => handleSetCameraView("perspective")}
+              selectedInstanceName={selectedInstance ? (selectedInstance.customLabel || selectedInstance.name) : null}
+              isIsolatedView={isIsolatedView}
+              onToggleIsolatedView={handleToggleIsolatedView}
+              hiddenObstaclesCount={hiddenObstaclesCount}
+            />
 
-            {/* Redo */}
-            <button
-              type="button"
-              className={`flex items-center gap-1.5 transition-colors ${
-                canRedo ? "text-amber-300 hover:text-amber-200 cursor-pointer" : "text-slate-600 cursor-not-allowed opacity-50"
-              }`}
-              onClick={canRedo ? handleRedo : undefined}
-              disabled={!canRedo}
-              title={`Oldinga qaytarish [Ctrl+Y] (${redoCount} ta)`}
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Ctrl+Y
-              </kbd>
-              <span>Redo</span>
-            </button>
-
-            <span className="text-slate-700">|</span>
-
-            {/* Delete */}
-            <div
-              className={`flex items-center gap-1.5 ${selectedInstanceIds.length > 0 ? "text-rose-300 hover:text-rose-200 cursor-pointer" : "text-slate-500 opacity-60"}`}
-              onClick={selectedInstanceIds.length > 0 ? handleDeleteSelected : undefined}
-              title="Tanlangan elementlarni sahnadan olib tashlash [Delete]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Del
-              </kbd>
-              <span>O‘chirish</span>
-            </div>
-
-            <span className="text-slate-700">|</span>
-
-            {/* Copy */}
-            <div
-              className={`flex items-center gap-1.5 ${selectedInstanceIds.length > 0 ? "text-emerald-300 hover:text-emerald-200 cursor-pointer" : "text-slate-500 opacity-60"}`}
-              onClick={selectedInstanceIds.length > 0 ? handleCopySelected : undefined}
-              title="Tanlangan elementlardan nusxa olish [Ctrl+C]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Ctrl+C
-              </kbd>
-              <span>Nusxa</span>
-            </div>
-
-            {/* Paste */}
-            <div
-              className={`flex items-center gap-1.5 ${clipboard.length > 0 ? "text-sky-300 hover:text-sky-200 cursor-pointer" : "text-slate-500 opacity-60"}`}
-              onClick={clipboard.length > 0 ? handlePaste : undefined}
-              title="Nusxalangan elementlarni sahnaga joylashtirish [Ctrl+V]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Ctrl+V
-              </kbd>
-              <span>Joylash</span>
-              {clipboard.length > 0 && (
-                <span className="bg-cyan-500/25 text-cyan-300 px-1.5 py-0.2 rounded-full text-[9px] border border-cyan-500/40 font-bold">
-                  {clipboard.length}
-                </span>
-              )}
-            </div>
-
-            {/* Duplicate */}
-            <div
-              className={`flex items-center gap-1.5 ${selectedInstanceIds.length > 0 ? "text-teal-300 hover:text-teal-200 cursor-pointer" : "text-slate-500 opacity-60"}`}
-              onClick={selectedInstanceIds.length > 0 ? handleDuplicateSelected : undefined}
-              title="Tanlangan elementlarni tezkor dublikat qilish [Ctrl+D]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Ctrl+D
-              </kbd>
-              <span>Dublikat</span>
-            </div>
-
-            <span className="text-slate-700">|</span>
-
-            {/* Flip H */}
-            <div
-              className={`flex items-center gap-1.5 ${
-                selectedInstanceIds.length > 0
-                  ? "text-indigo-300 hover:text-indigo-100 cursor-pointer"
-                  : "text-slate-500 opacity-60"
-              }`}
-              onClick={selectedInstanceIds.length > 0 ? () => handleFlipSelected("horizontal") : undefined}
-              title="Tanlangan elementlarni gorizontal 180° ga burish [Klaviatura: H]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                H
-              </kbd>
-              <span>↔ Flip</span>
-            </div>
-
-            {/* Flip V */}
-            <div
-              className={`flex items-center gap-1.5 ${
-                selectedInstanceIds.length > 0
-                  ? "text-violet-300 hover:text-violet-100 cursor-pointer"
-                  : "text-slate-500 opacity-60"
-              }`}
-              onClick={selectedInstanceIds.length > 0 ? () => handleFlipSelected("vertical") : undefined}
-              title="Tanlangan elementlarni vertikal 180° ga ag‘darish [Klaviatura: Shift+V]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                Shift+V
-              </kbd>
-              <span>↕ Vertikal</span>
-            </div>
-
-            {/* Focus */}
-            <div
-              className={`flex items-center gap-1.5 ${
-                selectedInstanceIds.length > 0
-                  ? "text-blue-300 hover:text-blue-100 cursor-pointer"
-                  : "text-slate-500 opacity-60"
-              }`}
-              onClick={selectedInstanceIds.length > 0 ? handleFocusSelected : undefined}
-              title="Kamerani tanlangan elementga fokuslash [Klaviatura: F]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                F
-              </kbd>
-              <span>Fokus</span>
-            </div>
-
-            {/* Isolate (Alohida ko'rsatish) */}
-            <div
-              className={`flex items-center gap-1.5 ${
-                selectedInstanceIds.length > 0
-                  ? isIsolatedView
-                    ? "text-amber-400 font-semibold cursor-pointer"
-                    : "text-amber-300/80 hover:text-amber-200 cursor-pointer"
-                  : "text-slate-500 opacity-60"
-              }`}
-              onClick={selectedInstanceIds.length > 0 ? handleToggleIsolatedView : undefined}
-              title="Tanlangan modelni alohida ko‘rsatish (to‘siqlarni yashirish) [Klaviatura: I]"
-            >
-              <kbd className="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded text-[10px] font-mono border border-slate-700">
-                I
-              </kbd>
-              <span>{isIsolatedView ? "Alohida (Faol)" : "Alohida"}</span>
-            </div>
-
-            <span className="text-slate-700">|</span>
-
-            {/* Shortcuts Dialog Trigger */}
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-cyan-400 hover:text-cyan-200 cursor-pointer transition-colors"
-              onClick={() => setIsShortcutsModalOpen(true)}
-              title="Barcha klaviatura qisqa tugmalari ro‘yxatini ochish [Klaviatura: ? yoki F1]"
-            >
-              <kbd className="bg-slate-800 text-cyan-300 px-1.5 py-0.5 rounded text-[10px] font-mono border border-cyan-700/50">
-                ?
-              </kbd>
-              <span>Tugmalar</span>
-            </button>
+            {/* Right: Viewport Quick Action Tools */}
+            <ViewportQuickTools
+              isFlowAnimating={isFlowAnimating}
+              onToggleFlowAnimation={handleToggleFlowAnimation}
+              flowType={flowType}
+              onFlowTypeChange={setFlowType}
+              flowSpeed={flowSpeed}
+              onCycleFlowSpeed={() => {
+                const speeds: (0.5 | 1 | 2)[] = [0.5, 1, 2];
+                const idx = speeds.indexOf(flowSpeed as 0.5 | 1 | 2);
+                setFlowSpeed(speeds[(idx + 1) % speeds.length]);
+              }}
+              isAutoRotateActive={isAutoRotateActive}
+              onToggleAutoRotate={() => {
+                const next = !isAutoRotateActive;
+                setIsAutoRotateActive(next);
+                showToast(next ? "🔄 360° Aylanma ko‘rinish yoqildi" : "Aylanma ko‘rinish to‘xtatildi");
+              }}
+              onCapturePNG={handleCapturePNG}
+              isVideoRecording={isVideoRecording}
+              onToggleVideo={handleToggleVideo}
+              showCables={showCables}
+              onToggleShowCables={() => {
+                setShowCables((prev) => {
+                  const next = !prev;
+                  showToast(next ? "🔌 Kabellar ko‘rsatildi [C]" : "🙈 Kabellar yashirildi [C]");
+                  return next;
+                });
+              }}
+            />
           </div>
         </div>
 
@@ -3185,6 +3185,7 @@ export default function App() {
             onUpdateCableRoutePoint={handleUpdateCableRoutePoint}
             onDeleteCableRoutePoint={handleDeleteCableRoutePoint}
             onStraightenCable={handleStraightenCable}
+            onSwapCableEnds={handleSwapCableEnds}
             onCollapse={() => setIsRightPanelOpen(false)}
             onReloadJetson={handleReloadJetson}
             isReloadingJetson={isReloadingJetson}

@@ -240,6 +240,7 @@ export type CableConnection = {
   estimatedVoltageDropV?: number;
   currentRatingA?: number;
   ampacityStatus?: "ok" | "exceeded" | "engineering_data_required";
+  flowDirection?: "forward" | "reverse" | "bidirectional"; // Cable energy/signal flow direction
 };
 
 export type TransformMode = "translate" | "rotate" | "scale";

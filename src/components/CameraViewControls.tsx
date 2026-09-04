@@ -23,24 +23,14 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 }) => {
   return (
     <div
-      className="camera-view-bar flex items-center gap-1.5 px-2 py-1.5 bg-slate-950/90 border border-slate-800/90 rounded-xl backdrop-blur-md shadow-2xl z-20 pointer-events-auto select-none"
+      className="camera-view-bar"
       id="camera-view-floating-controls"
-      style={{
-        position: "absolute",
-        top: "16px",
-        left: "16px",
-        transform: "none",
-        bottom: "auto",
-      }}
     >
       {/* Perspective / Isometric */}
       <button
+        type="button"
         id="btn-cam-perspective"
-        className={`cam-btn px-2.5 py-1 rounded-lg text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
-          currentView === "perspective"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "perspective" ? "active" : ""}`}
         onClick={() => onSetCameraView("perspective")}
         title="Perspektiv / Izometrik 3D ko‘rinish"
       >
@@ -48,16 +38,13 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
         <span>3D</span>
       </button>
 
-      <div className="h-4 w-[1px] bg-slate-800 mx-0.5" />
+      <div className="cam-divider" />
 
       {/* Top View */}
       <button
+        type="button"
         id="btn-cam-top"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "top"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "top" ? "active" : ""}`}
         onClick={() => onSetCameraView("top")}
         title="Tepadan ko‘rinish (Top - XZ tekisligi)"
       >
@@ -67,12 +54,9 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 
       {/* Bottom View */}
       <button
+        type="button"
         id="btn-cam-bottom"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "bottom"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "bottom" ? "active" : ""}`}
         onClick={() => onSetCameraView("bottom")}
         title="Pastdan ko‘rinish (Bottom - pastki yuzalar)"
       >
@@ -82,26 +66,20 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 
       {/* Front View */}
       <button
+        type="button"
         id="btn-cam-front"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "front"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "front" ? "active" : ""}`}
         onClick={() => onSetCameraView("front")}
-        title="Oldindan ko‘rinish (Front - to‘g‘ridan-to‘g‘ri old ko‘rinish)"
+        title="Oldindan ko‘rinish (Front)"
       >
         <span>Old</span>
       </button>
 
       {/* Back View */}
       <button
+        type="button"
         id="btn-cam-back"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "back"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "back" ? "active" : ""}`}
         onClick={() => onSetCameraView("back")}
         title="Orqadan ko‘rinish (Back)"
       >
@@ -110,12 +88,9 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 
       {/* Left View */}
       <button
+        type="button"
         id="btn-cam-left"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "left"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "left" ? "active" : ""}`}
         onClick={() => onSetCameraView("left")}
         title="Chap tomondan ko‘rinish (Left)"
       >
@@ -125,12 +100,9 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 
       {/* Right View */}
       <button
+        type="button"
         id="btn-cam-right"
-        className={`cam-btn px-2 py-1 rounded-lg text-xs flex items-center gap-1 transition-all cursor-pointer ${
-          currentView === "right"
-            ? "bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60"
-        }`}
+        className={`cam-btn ${currentView === "right" ? "active" : ""}`}
         onClick={() => onSetCameraView("right")}
         title="O‘ng tomondan ko‘rinish (Right)"
       >
@@ -140,8 +112,9 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
 
       {/* Center Reset */}
       <button
+        type="button"
         id="btn-cam-center-reset"
-        className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+        className="cam-icon-btn"
         onClick={onResetCamera}
         title="Kamerani boshlang‘ich holatga qaytarish"
       >
@@ -151,15 +124,15 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
       {/* If a model is selected, show target chip and Obstacle Hiding toggle */}
       {selectedInstanceName && (
         <>
-          <div className="h-4 w-[1px] bg-slate-800 mx-0.5" />
+          <div className="cam-divider" />
 
           {/* Selected target info */}
           <div
-            className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-900 border border-slate-700/60 rounded text-[11px] text-cyan-300 max-w-[150px] truncate"
+            className="cam-target-chip"
             title={`Fokuslangan model: ${selectedInstanceName}`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0 animate-pulse" />
-            <span className="truncate">{selectedInstanceName}</span>
+            <span className="cam-pulse-dot" />
+            <span className="cam-target-name">{selectedInstanceName}</span>
           </div>
 
           {/* Special "Alohida ko'rsatish" (Isolate) Button */}
@@ -168,11 +141,7 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
               type="button"
               id="btn-toggle-isolated-view"
               onClick={onToggleIsolatedView}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${
-                isIsolatedView
-                  ? "bg-amber-500/25 text-amber-300 border border-amber-400/60 hover:bg-amber-500/35 shadow-sm"
-                  : "bg-slate-800/60 text-slate-300 border border-slate-700/60 hover:bg-slate-700/60 hover:text-white"
-              }`}
+              className={`cam-isolate-btn ${isIsolatedView ? "active" : ""}`}
               title={
                 isIsolatedView
                   ? "Alohida ko‘rsatish faol: Model to‘siqlarsiz alohida ko‘rinmoqda. Barcha elementlarni qaytarish uchun bosing."
@@ -184,10 +153,10 @@ export const CameraViewControls: React.FC<CameraViewControlsProps> = ({
               ) : (
                 <Eye size={13} className="text-cyan-400" />
               )}
-              <span>{isIsolatedView ? "Alohida: FAOL" : "Alohida ko‘rsatish"}</span>
+              <span>{isIsolatedView ? "Alohida: FAOL" : "Alohida"}</span>
               {hiddenObstaclesCount > 0 && isIsolatedView && (
-                <span className="ml-0.5 px-1 py-0.2 bg-amber-400/30 text-amber-200 rounded text-[9px] font-bold">
-                  {hiddenObstaclesCount} to‘siq
+                <span className="cam-badge-warning">
+                  {hiddenObstaclesCount}
                 </span>
               )}
             </button>

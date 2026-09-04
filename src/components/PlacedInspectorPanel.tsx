@@ -110,6 +110,7 @@ interface PlacedInspectorPanelProps {
   onUpdateCableRoutePoint?: (cableId: string, pointId: string, coords: { x: number; y: number; z: number }) => void;
   onDeleteCableRoutePoint?: (cableId: string, pointId: string) => void;
   onStraightenCable?: (cableId: string) => void;
+  onSwapCableEnds?: (cableId: string) => void;
   onCollapse?: () => void;
   onReloadJetson?: () => void;
   isReloadingJetson?: boolean;
@@ -151,6 +152,7 @@ interface CableItemCardProps {
   onUpdateCableRoutePoint?: (cableId: string, pointId: string, coords: { x: number; y: number; z: number }) => void;
   onDeleteCableRoutePoint?: (cableId: string, pointId: string) => void;
   onStraightenCable?: (cableId: string) => void;
+  onSwapCableEnds?: (cableId: string) => void;
 }
 
 const CableItemCard: React.FC<CableItemCardProps> = ({
@@ -164,6 +166,7 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
   onUpdateCableRoutePoint,
   onDeleteCableRoutePoint,
   onStraightenCable,
+  onSwapCableEnds,
 }) => {
   const [isExpanded, setIsExpanded] = useState<boolean>(isSelected);
 
@@ -231,15 +234,27 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
 
       <div className="cable-endpoints my-1.5 text-xs text-slate-300 flex items-center gap-1.5">
         <div className="endpoint-node truncate flex-1">
-          <span className="node-tag text-[10px] text-slate-500 block">Manba:</span>
-          <span className="node-pin font-mono truncate block" title={cable.sourcePinName}>
+          <span className="node-tag text-[10px] text-slate-500 block">1-tanlangan (Manba):</span>
+          <span className="node-pin font-mono truncate block text-cyan-300 font-medium" title={cable.sourcePinName}>
             {cable.sourcePinName}
           </span>
         </div>
-        <div className="endpoint-arrow text-slate-500">→</div>
-        <div className="endpoint-node truncate flex-1">
-          <span className="node-tag text-[10px] text-slate-500 block">Qabul:</span>
-          <span className="node-pin font-mono truncate block" title={cable.targetPinName}>
+        {onSwapCableEnds && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSwapCableEnds(cable.id);
+            }}
+            className="px-1.5 py-1 bg-slate-800/90 hover:bg-cyan-950 text-cyan-400 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/60 rounded text-[11px] font-mono flex items-center gap-1 transition-all shadow-sm"
+            title="Kabel oqim yo‘nalishini teskarisiga almashtirish (1-va 2-tanlangan uchlar o‘rnini almashtirish)"
+          >
+            ⇄
+          </button>
+        )}
+        <div className="endpoint-node truncate flex-1 text-right">
+          <span className="node-tag text-[10px] text-slate-500 block">2-tanlangan (Qabul):</span>
+          <span className="node-pin font-mono truncate block text-slate-300 font-medium" title={cable.targetPinName}>
             {cable.targetPinName}
           </span>
         </div>
@@ -969,6 +984,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   onUpdateCableRoutePoint,
   onDeleteCableRoutePoint,
   onStraightenCable,
+  onSwapCableEnds,
   onCollapse,
   onReloadJetson,
   isReloadingJetson = false,
@@ -2523,6 +2539,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                           onUpdateCableRoutePoint={onUpdateCableRoutePoint}
                           onDeleteCableRoutePoint={onDeleteCableRoutePoint}
                           onStraightenCable={onStraightenCable}
+                          onSwapCableEnds={onSwapCableEnds}
                         />
                       ))}
                     </div>
@@ -2567,6 +2584,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                           onUpdateCableRoutePoint={onUpdateCableRoutePoint}
                           onDeleteCableRoutePoint={onDeleteCableRoutePoint}
                           onStraightenCable={onStraightenCable}
+                          onSwapCableEnds={onSwapCableEnds}
                         />
                       ))}
                     </div>

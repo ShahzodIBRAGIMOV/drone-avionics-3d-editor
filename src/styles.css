@@ -1125,22 +1125,42 @@ body {
   color: var(--text-primary);
 }
 
+/* ==========================================================================
+   Viewport Top HUD & Floating Toolbars (Optimized Non-Overlapping Layout)
+   ========================================================================== */
+.viewport-top-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+  z-index: 25;
+  transition: padding 0.2s ease;
+}
+
+.viewport-top-hud > * {
+  pointer-events: auto;
+}
+
 /* Floating Camera View Bar */
 .camera-view-bar {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 2px;
-  background: rgba(11, 23, 33, 0.9);
+  background: rgba(11, 23, 33, 0.94);
   border: 1px solid var(--border-color);
-  border-radius: 5px;
-  padding: 3px;
-  backdrop-filter: blur(8px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  z-index: 30;
+  border-radius: 7px;
+  padding: 3px 5px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  max-width: 100%;
+  overflow-x: auto;
+  user-select: none;
 }
 
 .cam-btn {
@@ -1148,14 +1168,15 @@ body {
   align-items: center;
   gap: 4px;
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-secondary);
-  padding: 5px 9px;
+  padding: 4px 8px;
   font-size: 11.5px;
   font-weight: 500;
-  border-radius: 3px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: all 0.14s ease;
+  white-space: nowrap;
 }
 
 .cam-btn:hover {
@@ -1164,20 +1185,397 @@ body {
 }
 
 .cam-btn.active {
+  background: rgba(0, 210, 235, 0.22);
+  color: var(--accent-cyan);
+  border-color: rgba(0, 210, 235, 0.5);
+  font-weight: 600;
+}
+
+.cam-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 5px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.cam-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.cam-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
+  margin: 0 2px;
+  flex-shrink: 0;
+}
+
+.cam-target-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(16, 33, 46, 0.9);
+  border: 1px solid var(--border-bright);
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--accent-cyan);
+  max-width: 140px;
+}
+
+.cam-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--accent-cyan);
+}
+
+.cam-target-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cam-isolate-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  background: rgba(16, 33, 46, 0.8);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.cam-isolate-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
+}
+
+.cam-isolate-btn.active {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.6);
+  font-weight: 600;
+}
+
+.cam-badge-warning {
+  margin-left: 2px;
+  padding: 1px 4px;
+  background: rgba(245, 158, 11, 0.3);
+  color: #fef08a;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+/* Floating Viewport Quick Action Tools (Turntable, Flow, PNG, Video) */
+.viewport-quick-tools {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(11, 23, 33, 0.94);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  padding: 3px 5px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.viewport-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  white-space: nowrap;
+}
+
+.viewport-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.viewport-quick-btn.active {
+  background: rgba(0, 210, 235, 0.2);
+  color: var(--accent-cyan);
+  border-color: rgba(0, 210, 235, 0.5);
+  font-weight: 600;
+}
+
+.viewport-quick-btn.recording {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #ef4444;
+  animation: pulseRecording 1.4s infinite;
+}
+
+@keyframes pulseRecording {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(220, 38, 38, 0.65); }
+  50% { opacity: 0.85; box-shadow: 0 0 4px rgba(220, 38, 38, 0.3); }
+}
+
+.viewport-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  margin-left: 2px;
+  animation: pulseDot 1.2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.viewport-spin-anim {
+  animation: spinSlow 2.5s linear infinite;
+}
+
+.viewport-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--border-color);
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+/* Cable Flow filters & speed */
+.viewport-flow-filters {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 3px;
+  background: rgba(6, 17, 26, 0.9);
+  border: 1px solid rgba(0, 210, 235, 0.25);
+  border-radius: 5px;
+  margin-right: 2px;
+}
+
+.viewport-filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.viewport-filter-tag:hover {
+  color: #fff;
+}
+
+.viewport-filter-tag.active {
   background: var(--accent-cyan);
   color: #06151f;
   font-weight: 700;
 }
 
-.cam-btn.subtle {
-  color: var(--text-muted);
+.viewport-filter-tag.active-red,
+.viewport-filter-tag.active-amber {
+  background: #ef4444;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.45);
 }
 
-.cam-btn-divider {
-  width: 1px;
-  height: 16px;
-  background: var(--border-color);
-  margin: 0 3px;
+.viewport-filter-tag.active-blue,
+.viewport-filter-tag.active-cyan {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.45);
+}
+
+.viewport-speed-badge {
+  padding: 2px 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 2px;
+  transition: all 0.12s ease;
+}
+
+.viewport-speed-badge:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+}
+
+/* Floating Status & Guidance Banners in 3D Viewport */
+.viewport-banner {
+  position: absolute;
+  top: 56px;
+  z-index: 24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  pointer-events: auto;
+}
+
+.viewport-banner.cable-hud {
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 23, 33, 0.95);
+  border: 1px solid var(--accent-cyan);
+  color: #fff;
+  max-width: 90%;
+  overflow-x: auto;
+}
+
+.viewport-banner.pin-guide {
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(18, 26, 36, 0.96);
+  border: 1px solid #f59e0b;
+  color: #fef3c7;
+}
+
+.viewport-banner.multi-select {
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 23, 33, 0.95);
+  border: 1px solid rgba(0, 210, 235, 0.45);
+  color: #e0f2fe;
+}
+
+.viewport-banner.obstruction-banner {
+  left: 14px;
+  background: rgba(20, 22, 28, 0.95);
+  border: 1px solid #f59e0b;
+  color: #fef3c7;
+}
+
+.viewport-banner.recording-banner {
+  right: 14px;
+  background: rgba(30, 10, 16, 0.95);
+  border: 1px solid #ef4444;
+  color: #ffe4e6;
+  animation: pulseRecording 1.5s infinite;
+}
+
+.viewport-banner-btn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.12s ease;
+  white-space: nowrap;
+}
+
+.viewport-banner-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.viewport-banner-btn.primary {
+  background: var(--accent-cyan);
+  color: #06151f;
+  border-color: var(--accent-cyan);
+  font-weight: 700;
+}
+
+.viewport-banner-btn.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fef08a;
+  border-color: #f59e0b;
+}
+
+.viewport-banner-btn.danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #f87171;
+}
+
+.viewport-banner-close {
+  padding: 2px 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 3px;
+}
+
+.viewport-banner-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* Floating Bottom Shortcuts HUD */
+.viewport-shortcuts-hud {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(11, 23, 33, 0.94);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+  pointer-events: auto;
+  user-select: none;
+  white-space: nowrap;
+  max-width: calc(100% - 28px);
+  overflow-x: auto;
+}
+
+.viewport-shortcuts-hud kbd {
+  background: rgba(16, 33, 46, 0.9);
+  color: var(--text-primary);
+  padding: 1.5px 5px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border-bright);
 }
 
 /* Inspector Panel Elements */

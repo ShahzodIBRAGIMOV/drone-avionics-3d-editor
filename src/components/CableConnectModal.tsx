@@ -95,6 +95,7 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
   const [stickerOffsetMm, setStickerOffsetMm] = useState<number>(20);
   const [stickerRotationDeg, setStickerRotationDeg] = useState<number>(0);
   const [stickerSizeMm, setStickerSizeMm] = useState<number>(24);
+  const [flowDirection, setFlowDirection] = useState<"forward" | "reverse">("forward");
 
   const targetInstance = placedInstances.find((i) => i.instanceId === targetInstanceId);
   const targetPins: PinDefinition[] = targetInstance
@@ -173,6 +174,7 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
       sourcePinName: sourcePin.fullName,
       targetInstanceId,
       targetPinName: targetPinFullName,
+      flowDirection,
       color: isRibbon && strandColors.length > 0 ? strandColors[0] : cableColor,
       cableType,
       wireGauge,
@@ -270,7 +272,45 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
               </div>
             </div>
 
-            <ArrowRight size={18} style={{ color: "#64748b" }} />
+            {/* Flow Direction Indicator & Switcher */}
+            <button
+              type="button"
+              onClick={() => setFlowDirection((prev) => (prev === "forward" ? "reverse" : "forward"))}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "rgba(30, 41, 59, 0.8)",
+                border: "1px solid #334155",
+                borderRadius: "6px",
+                padding: "6px 8px",
+                cursor: "pointer",
+                gap: "3px",
+                transition: "all 0.2s",
+              }}
+              title="Oqim yo‘nalishini almashtirish (1-elementdan 2-elementga yoki aksincha)"
+            >
+              <ArrowRight
+                size={18}
+                style={{
+                  color: flowDirection === "forward" ? "#38bdf8" : "#f59e0b",
+                  transform: flowDirection === "reverse" ? "rotate(180deg)" : "none",
+                  transition: "transform 0.2s",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "9px",
+                  fontWeight: 600,
+                  fontFamily: "monospace",
+                  color: flowDirection === "forward" ? "#38bdf8" : "#f59e0b",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {flowDirection === "forward" ? "1 ➔ 2" : "2 ➔ 1"}
+              </span>
+            </button>
 
             {/* Target */}
             <div>

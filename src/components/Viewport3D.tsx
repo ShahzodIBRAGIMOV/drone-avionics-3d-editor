@@ -31,13 +31,37 @@ import { build3DStickerMesh } from "../utils/cable3DStickers";
 
 export function isCablePower(cable: CableConnection): boolean {
   const type = (cable.cableType || "").toLowerCase();
+
+  // Explicit signal types take precedence
+  const signalKeywords = [
+    "signal",
+    "uart",
+    "can",
+    "i2c",
+    "spi",
+    "pwm",
+    "telemetry",
+    "sbus",
+    "ppm",
+    "gps",
+    "video",
+    "camera",
+    "ethernet",
+    "usb",
+    "servo",
+  ];
+  if (signalKeywords.some((k) => type.includes(k))) {
+    return false;
+  }
+
   if (
     type.includes("power") ||
     type.includes("bat") ||
     type.includes("esc") ||
     type.includes("vbat") ||
     type.includes("bec") ||
-    type.includes("current")
+    type.includes("current") ||
+    type.includes("quvvat")
   ) {
     return true;
   }
@@ -77,9 +101,6 @@ export function isCablePower(cable: CableConnection): boolean {
         "#f97316",
         "#ea580c",
         "#c2410c",
-        "#eab308",
-        "#ca8a04",
-        "#facc15",
         "#ff0000",
         "#ff5500",
       ].includes(col)
@@ -222,6 +243,7 @@ interface Viewport3DProps {
   onUpdateCableRoutePoint?: (cableId: string, pointId: string, coords: { x: number; y: number; z: number }) => void;
   onDeleteCableRoutePoint?: (cableId: string, pointId: string) => void;
   onStraightenCable?: (cableId: string) => void;
+  onSwapCableEnds?: (cableId: string) => void;
   transformMode: TransformMode;
   transformSpace: TransformSpace;
   droneOpacity: number;
@@ -281,6 +303,34 @@ interface Viewport3DProps {
   }) => void;
 }
 
+/**
+ * Computes the exact 3D world position of a component's electrical pin.
+ * If the 3D mesh is already loaded, it uses the scene matrixWorld.
+ * If the mesh is still loading asynchronously, it computes the exact transform mathematically
+ * from the instance's physical position, rotation, and scale so pins and cables render immediately!
+ */
+export function computePinWorldPosition(
+  inst: PhysicalInstance,
+  localOffset: [number, number, number],
+  mesh?: THREE.Group
+): THREE.Vector3 {
+  if (mesh) {
+    mesh.updateMatrixWorld(true);
+    return new THREE.Vector3(...localOffset).applyMatrix4(mesh.matrixWorld);
+  }
+  const pos = new THREE.Vector3(inst.position[0], inst.position[1], inst.position[2]);
+  const rot = new THREE.Euler(
+    THREE.MathUtils.degToRad(inst.rotation[0]),
+    THREE.MathUtils.degToRad(inst.rotation[1]),
+    THREE.MathUtils.degToRad(inst.rotation[2]),
+    "XYZ"
+  );
+  const q = new THREE.Quaternion().setFromEuler(rot);
+  const scale = new THREE.Vector3(inst.scale[0], inst.scale[1], inst.scale[2]);
+  const mat = new THREE.Matrix4().compose(pos, q, scale);
+  return new THREE.Vector3(...localOffset).applyMatrix4(mat);
+}
+
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   instances,
   cables,
@@ -294,6 +344,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   onUpdateCableRoutePoint,
   onDeleteCableRoutePoint,
   onStraightenCable,
+  onSwapCableEnds,
   transformMode,
   transformSpace,
   droneOpacity,
@@ -360,21 +411,32 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const flowParticlesRef = useRef<
     Array<{
       mesh: THREE.Mesh;
+      auraMesh?: THREE.Mesh;
       curve: THREE.CatmullRomCurve3;
       baseOffset: number;
       speed: number;
       isPower: boolean;
-      material: THREE.MeshStandardMaterial;
+      material: THREE.MeshBasicMaterial | THREE.MeshStandardMaterial;
+      auraMaterial?: THREE.MeshBasicMaterial;
+      cableId: string;
+      sourceInstanceId: string;
+      targetInstanceId: string;
+      flowDirection?: "forward" | "reverse" | "bidirectional";
     }>
   >([]);
   const cableFlowItemsRef = useRef<
     Array<{
       cableId: string;
+      sourceInstanceId: string;
+      targetInstanceId: string;
+      flowDirection?: "forward" | "reverse" | "bidirectional";
       curve: THREE.CatmullRomCurve3;
       totalLength: number;
       isPower: boolean;
       color: string;
       strandCurves?: THREE.CatmullRomCurve3[];
+      cableRadius?: number;
+      strandLabels?: string[];
     }>
   >([]);
 
@@ -410,6 +472,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   const selectedInstanceIdRef = useRef<string | null>(selectedInstanceId);
   selectedInstanceIdRef.current = selectedInstanceId;
+
+  // Synchronization ticker when async 3D meshes are loaded into the scene
+  const [meshSyncTicket, setMeshSyncTicket] = useState<number>(0);
 
   // Selected cable lookup
   const selectedCable = useMemo(() => {
@@ -453,6 +518,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   const effectiveSelectedIdsRef = useRef<string[]>(effectiveSelectedIds);
   const onSelectInstanceRef = useRef(onSelectInstance);
+  const rebuildFlowParticlesRef = useRef<(items: any[]) => void>(() => {});
   const onUpdateTransformRef = useRef(onUpdateTransform);
   const onUpdateMultipleTransformsRef = useRef(onUpdateMultipleTransforms);
 
@@ -820,7 +886,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           if (!isSticker && selectedCableIdRef.current === cableId) {
             onAddCableRoutePointRef.current?.(cableId, {
               x: Math.round(hit.point.x * 10) / 10,
-              y: Math.round((hit.point.y + 15) * 10) / 10,
+              y: Math.round(hit.point.y * 10) / 10,
               z: Math.round(hit.point.z * 10) / 10,
             });
           }
@@ -987,34 +1053,102 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       // Dynamic Cable Flow Animation (Energy & Signal Pulses)
       if (
         isFlowAnimatingRef.current &&
-        showCablesRef.current &&
-        flowParticlesRef.current.length > 0
+        showCablesRef.current
       ) {
-        cableFlowGroupRef.current.visible = true;
+        if (flowParticlesRef.current.length === 0 && cableFlowItemsRef.current.length > 0) {
+          rebuildFlowParticlesRef.current(cableFlowItemsRef.current);
+        }
+
+        if (flowParticlesRef.current.length > 0) {
+          cableFlowGroupRef.current.visible = true;
         const time = clockRef.current.getElapsedTime();
         const speedMult = flowSpeedRef.current;
         const particles = flowParticlesRef.current;
         const pLen = particles.length;
 
+        const currentSelIds = effectiveSelectedIdsRef.current || [];
+        const hasSelectionPair = currentSelIds.length >= 2;
+        const firstSelected = hasSelectionPair ? currentSelIds[0] : null;
+        const secondSelected = hasSelectionPair ? currentSelIds[1] : null;
+
         for (let i = 0; i < pLen; i++) {
           const p = particles[i];
-          const u = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+
+          // Priority rule:
+          // "Kabeldagi oqim qaysi element birinchi tanlangan bo'lsa o'sha tomondan ikkinchi tomonga oqsin"
+          let isReversed = p.flowDirection === "reverse";
+
+          if (firstSelected && secondSelected) {
+            // Agar foydalanuvchi ikkita elementni tanlagan bo'lsa:
+            // Birinchi tanlangan elementdan ikkinchi tanlangan elementga qarab oqsin!
+            if (
+              p.sourceInstanceId === firstSelected &&
+              p.targetInstanceId === secondSelected
+            ) {
+              // 1-tanlangan manba (source), 2-tanlangan manzil (target) -> to'g'ri yo'nalish (source -> target)
+              isReversed = false;
+            } else if (
+              p.sourceInstanceId === secondSelected &&
+              p.targetInstanceId === firstSelected
+            ) {
+              // 1-tanlangan manzil (target), 2-tanlangan manba (source) -> teskari yo'nalish (target -> source)
+              // Shu orqali oqim aynan 1-tanlangan elementdan 2-tanlangan elementga qarab oqadi!
+              isReversed = true;
+            }
+          }
+
+          let u: number;
+          if (p.flowDirection === "bidirectional") {
+            const raw = (time * p.speed * speedMult + p.baseOffset) % 2.0;
+            u = raw > 1.0 ? 2.0 - raw : raw;
+          } else if (isReversed) {
+            // Teskari oqim: target (u=1.0) dan source (u=0.0) ga tomon harakatlanish
+            const raw = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+            u = 1.0 - raw;
+            if (u < 0) u += 1.0;
+            if (u > 1.0) u -= 1.0;
+          } else {
+            // Standart oqim: source (u=0.0) dan target (u=1.0) ga tomon harakatlanish
+            u = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+          }
+
           const pt = p.curve.getPointAt(u);
           p.mesh.position.copy(pt);
+          if (p.auraMesh) {
+            p.auraMesh.position.copy(pt);
+          }
 
           // Align pulse along the curve direction
           const tangent = p.curve.getTangentAt(u);
-          p.mesh.quaternion.setFromUnitVectors(vUp, tangent);
+          if (isReversed) {
+            tangent.negate();
+          }
+          if (Math.abs(vUp.dot(tangent)) > 0.98) {
+            p.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+          } else {
+            p.mesh.quaternion.setFromUnitVectors(vUp, tangent);
+          }
+          if (p.auraMesh) {
+            p.auraMesh.quaternion.copy(p.mesh.quaternion);
+          }
 
-          // Pulsing glow intensity
-          const pulse = p.isPower
-            ? 1.8 + 0.6 * Math.sin(time * 8 + p.baseOffset * 10)
-            : 2.0 + 0.5 * Math.sin(time * 12 + p.baseOffset * 15);
-          p.material.emissiveIntensity = pulse;
+          // Pulsing glow intensity: Power is vivid Red, Signal is vibrant Blue
+          if ("emissiveIntensity" in p.material) {
+            const pulse = p.isPower
+              ? 2.2 + 0.8 * Math.sin(time * 9 + p.baseOffset * 10)
+              : 2.5 + 0.7 * Math.sin(time * 14 + p.baseOffset * 15);
+            (p.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
+          }
+          if (p.auraMaterial) {
+            p.auraMaterial.opacity = p.isPower
+              ? 0.36 + 0.14 * Math.sin(time * 9 + p.baseOffset * 10)
+              : 0.38 + 0.14 * Math.sin(time * 14 + p.baseOffset * 15);
+          }
         }
-      } else {
-        cableFlowGroupRef.current.visible = false;
       }
+    } else {
+      cableFlowGroupRef.current.visible = false;
+    }
 
       renderer.render(scene, camera);
     };
@@ -1441,6 +1575,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     const scene = sceneRef.current;
     if (!scene) return;
 
+    let isMounted = true;
     const currentMeshes = instanceMeshesRef.current;
     const placedInstances = instances.filter((i) => i.placed);
     const placedIds = new Set(placedInstances.map((i) => i.instanceId));
@@ -1453,155 +1588,202 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       }
     });
 
-    // Add or update placed meshes
-    placedInstances.forEach(async (inst) => {
-      let mesh = currentMeshes.get(inst.instanceId);
+    const syncPlacedMeshes = async () => {
+      let newlyLoaded = false;
 
-      // If model version changed or component changed, remove old 3D mesh and re-instantiate
-      if (mesh && (mesh.userData.modelVersion !== inst.modelVersion || mesh.userData.componentId !== inst.componentId)) {
-        scene.remove(mesh);
-        currentMeshes.delete(inst.instanceId);
-        mesh = undefined;
-      }
-
-      if (!mesh) {
-        try {
-          // Ensure template is loaded
-          await modelManager.loadModelTemplate(inst.componentId);
-          mesh = modelManager.createInstanceMesh(inst.componentId, inst.instanceId);
-          mesh.userData.modelVersion = inst.modelVersion;
-          scene.add(mesh);
-          currentMeshes.set(inst.instanceId, mesh);
-        } catch (err) {
-          console.warn(`Could not spawn instance ${inst.instanceId}:`, err);
-          return;
-        }
-      }
-
-      // Update transform
-      mesh.position.set(inst.position[0], inst.position[1], inst.position[2]);
-      mesh.rotation.set(
-        THREE.MathUtils.degToRad(inst.rotation[0]),
-        THREE.MathUtils.degToRad(inst.rotation[1]),
-        THREE.MathUtils.degToRad(inst.rotation[2])
-      );
-      mesh.scale.set(inst.scale[0], inst.scale[1], inst.scale[2]);
-
-      const isObstructionHidden = hiddenObstructionIdsRef.current.has(inst.instanceId);
-      const isAirframeInst = inst.isAirframe || inst.componentId === "01";
-      mesh.visible = isObstructionHidden ? false : (isAirframeInst ? (inst.visible && droneVisible) : inst.visible);
-
-      // Highlight selected instances with subtle emissive rim and apply custom/drone color
-      const isSelected = effectiveSelectedIds.includes(inst.instanceId);
-      mesh.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh) {
-          const meshObj = child as THREE.Mesh;
-          if (meshObj.geometry && (!meshObj.geometry.attributes.normal || meshObj.geometry.attributes.normal.count === 0)) {
-            meshObj.geometry.computeVertexNormals();
+      // Find instances connected to currently selected instance(s)
+      const connectedInstanceIds = new Set<string>();
+      if (effectiveSelectedIds.length > 0) {
+        cables.forEach((c) => {
+          if (effectiveSelectedIds.includes(c.sourceInstanceId)) {
+            connectedInstanceIds.add(c.targetInstanceId);
           }
-          const mats = Array.isArray(meshObj.material) ? meshObj.material : [meshObj.material];
-          mats.forEach((mat) => {
-            if (!mat) return;
-            const stdMat = mat as THREE.MeshStandardMaterial;
-            if (stdMat.color) {
-              if (isAirframeInst) {
-                if (inst.customColor) {
-                  stdMat.color.set(inst.customColor);
-                } else if (droneColor && droneColor !== "original" && droneColor !== "#cbd5e1") {
-                  stdMat.color.set(droneColor);
+          if (effectiveSelectedIds.includes(c.targetInstanceId)) {
+            connectedInstanceIds.add(c.sourceInstanceId);
+          }
+        });
+      }
+      const hasActiveSelection = effectiveSelectedIds.length > 0;
+
+      // Add or update placed meshes
+      for (const inst of placedInstances) {
+        let mesh = currentMeshes.get(inst.instanceId);
+
+        // If model version changed or component changed, remove old 3D mesh and re-instantiate
+        if (mesh && (mesh.userData.modelVersion !== inst.modelVersion || mesh.userData.componentId !== inst.componentId)) {
+          scene.remove(mesh);
+          currentMeshes.delete(inst.instanceId);
+          mesh = undefined;
+        }
+
+        if (!mesh) {
+          try {
+            // Ensure template is loaded
+            await modelManager.loadModelTemplate(inst.componentId);
+            if (!isMounted) return;
+            mesh = modelManager.createInstanceMesh(inst.componentId, inst.instanceId);
+            mesh.userData.modelVersion = inst.modelVersion;
+            scene.add(mesh);
+            currentMeshes.set(inst.instanceId, mesh);
+            newlyLoaded = true;
+          } catch (err) {
+            console.warn(`Could not spawn instance ${inst.instanceId}:`, err);
+            continue;
+          }
+        }
+
+        // Update transform
+        mesh.position.set(inst.position[0], inst.position[1], inst.position[2]);
+        mesh.rotation.set(
+          THREE.MathUtils.degToRad(inst.rotation[0]),
+          THREE.MathUtils.degToRad(inst.rotation[1]),
+          THREE.MathUtils.degToRad(inst.rotation[2])
+        );
+        mesh.scale.set(inst.scale[0], inst.scale[1], inst.scale[2]);
+        mesh.updateMatrixWorld(true);
+
+        const isObstructionHidden = hiddenObstructionIdsRef.current.has(inst.instanceId);
+        const isAirframeInst = inst.isAirframe || inst.componentId === "01";
+        const isSelected = effectiveSelectedIds.includes(inst.instanceId);
+        const isConnected = connectedInstanceIds.has(inst.instanceId);
+        const isDimmed = hasActiveSelection && !isAirframeInst && !isSelected && !isConnected;
+
+        mesh.visible = isObstructionHidden ? false : (isAirframeInst ? (inst.visible && droneVisible) : inst.visible);
+
+        mesh.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            const meshObj = child as THREE.Mesh;
+            if (meshObj.geometry && (!meshObj.geometry.attributes.normal || meshObj.geometry.attributes.normal.count === 0)) {
+              meshObj.geometry.computeVertexNormals();
+            }
+            const mats = Array.isArray(meshObj.material) ? meshObj.material : [meshObj.material];
+            mats.forEach((mat) => {
+              if (!mat) return;
+              const stdMat = mat as THREE.MeshStandardMaterial;
+              if (stdMat.color) {
+                if (isAirframeInst) {
+                  if (inst.customColor) {
+                    stdMat.color.set(inst.customColor);
+                  } else if (droneColor && droneColor !== "original" && droneColor !== "#cbd5e1") {
+                    stdMat.color.set(droneColor);
+                  } else {
+                    // Authentic original drone colors (fuselage navy, wings blue, tail accents)
+                    if (stdMat.vertexColors || stdMat.userData?.hasVertexColors || meshObj.geometry?.attributes?.color) {
+                      stdMat.vertexColors = true;
+                      stdMat.color.setHex(0xffffff);
+                    } else if (stdMat.userData?.origColor !== undefined) {
+                      stdMat.color.setHex(stdMat.userData.origColor);
+                    }
+                  }
+                } else if (isDimmed) {
+                  // User request: non-connected elements gray and faded into background
+                  stdMat.color.setHex(0x334155);
                 } else {
-                  // Authentic original drone colors (fuselage navy, wings blue, tail accents)
-                  if (stdMat.vertexColors || stdMat.userData?.hasVertexColors || meshObj.geometry?.attributes?.color) {
-                    stdMat.vertexColors = true;
-                    stdMat.color.setHex(0xffffff);
+                  if (inst.customColor) {
+                    stdMat.color.set(inst.customColor);
                   } else if (stdMat.userData?.origColor !== undefined) {
                     stdMat.color.setHex(stdMat.userData.origColor);
                   }
                 }
+              }
+
+              if (isAirframeInst) {
+                stdMat.opacity = droneOpacity;
+                stdMat.transparent = droneOpacity < 0.99;
+                stdMat.wireframe = droneWireframe;
+                stdMat.side = THREE.DoubleSide;
+                stdMat.roughness = 0.35;
+                stdMat.metalness = 0.08;
+                stdMat.depthWrite = true;
+              } else if (isDimmed) {
+                // Ghosted gray element that visually fades out of view
+                stdMat.opacity = 0.07;
+                stdMat.transparent = true;
+                stdMat.depthWrite = false;
               } else {
-                if (inst.customColor) {
-                  stdMat.color.set(inst.customColor);
-                } else if (stdMat.userData?.origColor !== undefined) {
-                  stdMat.color.setHex(stdMat.userData.origColor);
+                stdMat.opacity = 1.0;
+                stdMat.transparent = false;
+                stdMat.depthWrite = true;
+              }
+
+              stdMat.needsUpdate = true;
+
+              if (stdMat.emissive) {
+                if (isSelected) {
+                  stdMat.emissive.setHex(0x0088cc);
+                  stdMat.emissiveIntensity = 0.55;
+                } else if (isConnected) {
+                  // Connected companion element: distinct bright emerald glow
+                  stdMat.emissive.setHex(0x00d26a);
+                  stdMat.emissiveIntensity = 0.45;
+                } else {
+                  stdMat.emissive.setHex(0x000000);
+                  stdMat.emissiveIntensity = 0;
                 }
               }
-            }
-
-            if (isAirframeInst) {
-              stdMat.opacity = droneOpacity;
-              stdMat.transparent = droneOpacity < 0.99;
-              stdMat.wireframe = droneWireframe;
-              stdMat.side = THREE.DoubleSide;
-              stdMat.roughness = 0.35;
-              stdMat.metalness = 0.08;
-            }
-
-            stdMat.needsUpdate = true;
-
-            if (stdMat.emissive) {
-              if (isSelected) {
-                stdMat.emissive.setHex(0x0088aa);
-                stdMat.emissiveIntensity = 0.45;
-              } else {
-                stdMat.emissive.setHex(0x000000);
-                stdMat.emissiveIntensity = 0;
-              }
-            }
-          });
-        }
-      });
-    });
-
-    // Attach TransformControls to selected instance or multi-selection pivot
-    const tc = transformControlsRef.current;
-    if (tc) {
-      if (selectedCableId && selectedWaypointId) {
-        // Active waypoint handle attachment is handled in cable synchronization effect
-        return;
+            });
+          }
+        });
       }
 
-      if (effectiveSelectedIds.length === 1) {
-        const singleId = effectiveSelectedIds[0];
-        if (currentMeshes.has(singleId)) {
-          const selectedMesh = currentMeshes.get(singleId)!;
-          const instData = instances.find((i) => i.instanceId === singleId);
-          if (instData?.locked) {
-            tc.detach();
+      // Attach TransformControls to selected instance or multi-selection pivot
+      const tc = transformControlsRef.current;
+      if (tc && isMounted) {
+        if (selectedCableId && selectedWaypointId) {
+          // Active waypoint handle attachment is handled in cable synchronization effect
+        } else if (effectiveSelectedIds.length === 1) {
+          const singleId = effectiveSelectedIds[0];
+          if (currentMeshes.has(singleId)) {
+            const selectedMesh = currentMeshes.get(singleId)!;
+            const instData = instances.find((i) => i.instanceId === singleId);
+            if (instData?.locked) {
+              tc.detach();
+            } else {
+              tc.attach(selectedMesh);
+            }
           } else {
-            tc.attach(selectedMesh);
+            tc.detach();
+          }
+        } else if (effectiveSelectedIds.length > 1) {
+          // Multi-selection: calculate center of unlocked active meshes
+          const activeIds = effectiveSelectedIds.filter((id: string) => {
+            const inst = instances.find((i) => i.instanceId === id);
+            return inst && !inst.locked && currentMeshes.has(id);
+          });
+
+          if (activeIds.length > 0) {
+            const center = new THREE.Vector3();
+            activeIds.forEach((id: string) => {
+              const m = currentMeshes.get(id)!;
+              center.add(m.position);
+            });
+            center.divideScalar(activeIds.length);
+
+            const pivot = multiPivotGroupRef.current;
+            pivot.position.copy(center);
+            pivot.rotation.set(0, 0, 0);
+            pivot.scale.set(1, 1, 1);
+            pivot.updateMatrixWorld(true);
+            tc.attach(pivot);
+          } else {
+            tc.detach();
           }
         } else {
           tc.detach();
         }
-      } else if (effectiveSelectedIds.length > 1) {
-        // Multi-selection: calculate center of unlocked active meshes
-        const activeIds = effectiveSelectedIds.filter((id: string) => {
-          const inst = instances.find((i) => i.instanceId === id);
-          return inst && !inst.locked && currentMeshes.has(id);
-        });
-
-        if (activeIds.length > 0) {
-          const center = new THREE.Vector3();
-          activeIds.forEach((id: string) => {
-            const m = currentMeshes.get(id)!;
-            center.add(m.position);
-          });
-          center.divideScalar(activeIds.length);
-
-          const pivot = multiPivotGroupRef.current;
-          pivot.position.copy(center);
-          pivot.rotation.set(0, 0, 0);
-          pivot.scale.set(1, 1, 1);
-          pivot.updateMatrixWorld(true);
-          tc.attach(pivot);
-        } else {
-          tc.detach();
-        }
-      } else {
-        tc.detach();
       }
-    }
-  }, [instances, effectiveSelectedIds, droneColor, droneOpacity, droneWireframe, droneVisible, selectedCableId, selectedWaypointId]);
+
+      if (isMounted && newlyLoaded) {
+        setMeshSyncTicket((t) => t + 1);
+      }
+    };
+
+    syncPlacedMeshes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [instances, cables, effectiveSelectedIds, droneColor, droneOpacity, droneWireframe, droneVisible, selectedCableId, selectedWaypointId]);
 
   // Synchronize 3D Pin Markers
   useEffect(() => {
@@ -1615,8 +1797,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     placedInstances.forEach((inst) => {
       // Only render user-defined pins. No automatic dummy pins!
       const pins: PinDefinition[] = inst.customPins || [];
+      if (pins.length === 0) return;
       const instMesh = instanceMeshesRef.current.get(inst.instanceId);
-      if (!instMesh || pins.length === 0) return;
 
       pins.forEach((pin) => {
         const isSelected = selectedPinFullName === pin.fullName;
@@ -1690,14 +1872,12 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         }
 
         // Compute local position of pin in world coordinates
-        const localOffset = new THREE.Vector3(...pin.localOffset);
-        localOffset.applyMatrix4(instMesh.matrixWorld);
-        marker.position.copy(localOffset);
+        marker.position.copy(computePinWorldPosition(inst, pin.localOffset, instMesh));
 
         pinGroup.add(marker);
       });
     });
-  }, [instances, selectedPinFullName, showPins]);
+  }, [instances, selectedPinFullName, showPins, meshSyncTicket]);
 
   // Synchronize 3D Cable Spline Meshes & Interactive Waypoint Handles
   useEffect(() => {
@@ -1721,7 +1901,6 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
       const sourceMesh = instanceMeshesRef.current.get(sourceInst.instanceId);
       const targetMesh = instanceMeshesRef.current.get(targetInst.instanceId);
-      if (!sourceMesh || !targetMesh) return;
 
       const sourcePins = (sourceInst.customPins && sourceInst.customPins.length > 0)
         ? sourceInst.customPins
@@ -1733,13 +1912,19 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName);
       const tPin = targetPins.find((p) => p.fullName === cable.targetPinName);
 
-      const p1 = sPin ? new THREE.Vector3(...sPin.localOffset) : new THREE.Vector3(0, 0, 0);
-      const p2 = tPin ? new THREE.Vector3(...tPin.localOffset) : new THREE.Vector3(0, 0, 0);
+      const sOffset: [number, number, number] = sPin ? sPin.localOffset : [0, 0, 0];
+      const tOffset: [number, number, number] = tPin ? tPin.localOffset : [0, 0, 0];
 
-      p1.applyMatrix4(sourceMesh.matrixWorld);
-      p2.applyMatrix4(targetMesh.matrixWorld);
+      const p1 = computePinWorldPosition(sourceInst, sOffset, sourceMesh);
+      const p2 = computePinWorldPosition(targetInst, tOffset, targetMesh);
 
       const isSelectedCable = cable.id === selectedCableId;
+      const isCableConnectedToSelection =
+        effectiveSelectedIds.length > 0 &&
+        (effectiveSelectedIds.includes(cable.sourceInstanceId) ||
+         effectiveSelectedIds.includes(cable.targetInstanceId));
+      const isCableDimmed =
+        effectiveSelectedIds.length > 0 && !isCableConnectedToSelection;
       const distance = p1.distanceTo(p2);
 
       // Build spline control points
@@ -1817,11 +2002,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           const strandColorHex = strandColors[sIdx] || cable.color || "#00e5ff";
 
           const strandMat = new THREE.MeshStandardMaterial({
-            color: isSelectedCable ? 0x38bdf8 : strandColorHex,
+            color: isCableDimmed ? 0x334155 : (isSelectedCable ? 0x38bdf8 : strandColorHex),
             roughness: 0.35,
             metalness: 0.25,
-            emissive: isSelectedCable ? 0x0284c7 : strandColorHex,
-            emissiveIntensity: isSelectedCable ? 0.45 : 0.15,
+            opacity: isCableDimmed ? 0.12 : 1.0,
+            transparent: isCableDimmed,
+            depthWrite: !isCableDimmed,
+            emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : strandColorHex),
+            emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
           });
 
           const strandMesh = new THREE.Mesh(strandGeo, strandMat);
@@ -1832,14 +2020,21 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         cablesGroup.add(ribbonGroup);
 
-        gatheredFlowItems.push({
-          cableId: cable.id,
-          curve,
-          totalLength,
-          isPower: isCablePower(cable),
-          color: cable.color || "#00e5ff",
-          strandCurves,
-        });
+        if (!isCableDimmed) {
+          gatheredFlowItems.push({
+            cableId: cable.id,
+            sourceInstanceId: cable.sourceInstanceId,
+            targetInstanceId: cable.targetInstanceId,
+            flowDirection: cable.flowDirection || "forward",
+            curve,
+            totalLength,
+            isPower: isCablePower(cable),
+            color: cable.color || "#00e5ff",
+            strandCurves,
+            cableRadius: strandRadius,
+            strandLabels: cable.strandLabels,
+          });
+        }
       } else {
         // Standard single round cable
         const tubularSegments = Math.max(32, controlPoints.length * 16);
@@ -1849,11 +2044,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         const tubeGeometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 8, false);
         const tubeMaterial = new THREE.MeshStandardMaterial({
-          color: isSelectedCable ? 0x38bdf8 : (cable.color || 0x00e5ff),
+          color: isCableDimmed ? 0x334155 : (isSelectedCable ? 0x38bdf8 : (cable.color || 0x00e5ff)),
           roughness: 0.35,
           metalness: 0.25,
-          emissive: isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff),
-          emissiveIntensity: isSelectedCable ? 0.45 : 0.15,
+          opacity: isCableDimmed ? 0.12 : 1.0,
+          transparent: isCableDimmed,
+          depthWrite: !isCableDimmed,
+          emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff)),
+          emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
         });
 
         const cableMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
@@ -1861,17 +2059,23 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         cableMesh.userData = { cableId: cable.id, isCableMesh: true };
         cablesGroup.add(cableMesh);
 
-        gatheredFlowItems.push({
-          cableId: cable.id,
-          curve,
-          totalLength,
-          isPower: isCablePower(cable),
-          color: cable.color || "#00e5ff",
-        });
+        if (!isCableDimmed) {
+          gatheredFlowItems.push({
+            cableId: cable.id,
+            sourceInstanceId: cable.sourceInstanceId,
+            targetInstanceId: cable.targetInstanceId,
+            flowDirection: cable.flowDirection || "forward",
+            curve,
+            totalLength,
+            isPower: isCablePower(cable),
+            color: cable.color || "#00e5ff",
+            cableRadius: radius,
+          });
+        }
       }
 
       // Render 3D Cable End Identification Stickers (Uchki Shtikerlar / Markirovka)
-      if (cable.endStickers && cable.endStickers.enabled) {
+      if (!isCableDimmed && cable.endStickers && cable.endStickers.enabled) {
         const stickers = cable.endStickers;
         const totalCurveLength = Math.max(1, totalLength);
         const offsetMm = Math.max(8, Math.min(60, stickers.offsetFromEndMm || 20));
@@ -1987,17 +2191,22 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         tcInstance.setMode("translate");
       }
     }
-  }, [cables, instances, showCables, selectedCableId, selectedWaypointId]);
+  }, [cables, instances, showCables, selectedCableId, selectedWaypointId, meshSyncTicket, effectiveSelectedIds]);
 
   // Rebuild particle meshes based on flowType filter
   const rebuildFlowParticles = (
     items: Array<{
       cableId: string;
+      sourceInstanceId: string;
+      targetInstanceId: string;
+      flowDirection?: "forward" | "reverse" | "bidirectional";
       curve: THREE.CatmullRomCurve3;
       totalLength: number;
       isPower: boolean;
       color: string;
       strandCurves?: THREE.CatmullRomCurve3[];
+      cableRadius?: number;
+      strandLabels?: string[];
     }>
   ) => {
     const flowGroup = cableFlowGroupRef.current;
@@ -2007,59 +2216,126 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     if (!items || items.length === 0) return;
 
     const currentFlowType = flowTypeRef.current;
-    const baseSphereGeo = new THREE.SphereGeometry(1, 8, 8);
+    // High-polygon smooth sphere for 360-degree roundness and uniform appearance from every camera angle
+    const baseSphereGeo = new THREE.SphereGeometry(1, 16, 12);
 
     items.forEach((item) => {
-      if (currentFlowType === "power" && !item.isPower) return;
-      if (currentFlowType === "signal" && item.isPower) return;
-
-      const numPulses = Math.max(3, Math.min(10, Math.floor(item.totalLength / 60)));
+      const curveLength = Math.max(item.totalLength, 15);
+      // Evenly spaced pulse count along length (1 pulse every ~60mm)
+      const numPulses = Math.max(1, Math.min(14, Math.round(curveLength / 60)));
       const curvesToAnimate =
         item.strandCurves && item.strandCurves.length > 0
           ? item.strandCurves
           : [item.curve];
 
       curvesToAnimate.forEach((c, cIdx) => {
-        const isStrandPower = item.isPower;
-        const radius = isStrandPower ? 2.2 : 1.7;
+        let isStrandPower = item.isPower;
+        if (item.strandLabels && item.strandLabels[cIdx]) {
+          const lbl = item.strandLabels[cIdx].toLowerCase();
+          if (
+            lbl.includes("vcc") ||
+            lbl.includes("bat") ||
+            lbl.includes("5v") ||
+            lbl.includes("pwr") ||
+            lbl.includes("12v") ||
+            lbl.includes("+")
+          ) {
+            isStrandPower = true;
+          } else if (
+            lbl.includes("signal") ||
+            lbl.includes("tx") ||
+            lbl.includes("rx") ||
+            lbl.includes("pwm") ||
+            lbl.includes("data") ||
+            lbl.includes("clk") ||
+            lbl.includes("scl") ||
+            lbl.includes("sda")
+          ) {
+            isStrandPower = false;
+          }
+        }
 
-        const mat = new THREE.MeshStandardMaterial({
-          color: isStrandPower ? 0xffffff : 0xe0f7ff,
-          emissive: isStrandPower ? 0xff6600 : 0x00e5ff,
-          emissiveIntensity: isStrandPower ? 2.2 : 2.4,
-          roughness: 0.1,
-          metalness: 0.6,
+        // Apply flowType filter
+        if (currentFlowType === "power" && !isStrandPower) return;
+        if (currentFlowType === "signal" && isStrandPower) return;
+
+        // Radius calculation: must sit visibly outside the cable cylinder on all sides (360°)
+        const cableR = item.cableRadius || 1.5;
+        const coreRadius = Math.max(cableR * 1.6, cableR + 1.25);
+        const auraRadius = Math.max(cableR * 2.3, cableR + 2.35);
+
+        // Core pulse material:
+        // Signal: High-intensity electric blue (0x0066ff)
+        // Power: High-intensity laser red (0xff0033)
+        // depthTest: false guarantees 360-degree visibility from ANY camera angle without occlusion!
+        const coreMat = new THREE.MeshBasicMaterial({
+          color: isStrandPower ? 0xff0033 : 0x0066ff,
           transparent: true,
           opacity: 0.95,
+          depthTest: false, // Fully visible from all sides without being hidden by wire or geometry
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+
+        // Aura glow material:
+        // Signal: Luminous cyan-blue aura
+        // Power: Luminous bright red aura
+        const auraMat = new THREE.MeshBasicMaterial({
+          color: isStrandPower ? 0xff2255 : 0x00b4d8,
+          transparent: true,
+          opacity: 0.48,
+          depthTest: false,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
         });
 
         for (let pIdx = 0; pIdx < numPulses; pIdx++) {
-          const mesh = new THREE.Mesh(baseSphereGeo, mat);
-          mesh.scale.set(radius, radius, radius * 1.8);
-          flowGroup.add(mesh);
+          const coreMesh = new THREE.Mesh(baseSphereGeo, coreMat);
+          coreMesh.scale.set(coreRadius, coreRadius, coreRadius * 1.4);
+          coreMesh.renderOrder = 999;
+          flowGroup.add(coreMesh);
+
+          const auraMesh = new THREE.Mesh(baseSphereGeo, auraMat);
+          auraMesh.scale.set(auraRadius, auraRadius, auraRadius * 1.4);
+          auraMesh.renderOrder = 998;
+          flowGroup.add(auraMesh);
 
           const baseOffset = pIdx / numPulses + cIdx * 0.07;
-          const speed = isStrandPower ? 0.20 : 0.32;
+          // Constant physical flow speed in mm per second (identical linear speed across short & long cables!)
+          const physicalSpeedMmPerSec = isStrandPower ? 95 : 125;
+          const speed = physicalSpeedMmPerSec / curveLength;
 
           flowParticlesRef.current.push({
-            mesh,
+            mesh: coreMesh,
+            auraMesh,
             curve: c,
             baseOffset: baseOffset % 1.0,
             speed,
             isPower: isStrandPower,
-            material: mat,
+            material: coreMat,
+            auraMaterial: auraMat,
+            cableId: item.cableId,
+            sourceInstanceId: item.sourceInstanceId,
+            targetInstanceId: item.targetInstanceId,
+            flowDirection: item.flowDirection || "forward",
           });
         }
       });
     });
+
+    rebuildFlowParticlesRef.current = rebuildFlowParticles;
   };
 
-  // Re-filter particles when flowType changes
+  // Keep rebuildFlowParticlesRef up to date
+  rebuildFlowParticlesRef.current = rebuildFlowParticles;
+
+  // Re-filter particles when flowType, isFlowAnimating, or showCables changes
   useEffect(() => {
     if (cableFlowItemsRef.current.length > 0) {
       rebuildFlowParticles(cableFlowItemsRef.current);
     }
-  }, [flowType]);
+  }, [flowType, isFlowAnimating, showCables]);
 
   // Snapshot PNG export
   const handleExportSnapshot = () => {
@@ -2214,7 +2490,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       {selectedCable && (
         <div
           id="selected-cable-viewport-hud"
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-4 py-2 bg-slate-900/95 border border-cyan-500/50 rounded-xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto max-w-[90vw] overflow-x-auto"
+          className="viewport-banner cable-hud"
         >
           <div
             className="w-3 h-3 rounded-full flex-shrink-0 shadow-sm"
@@ -2227,11 +2503,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             Uzunlik: {selectedCable.calculatedLengthMm || 0} mm
             {selectedCable.slackMm ? ` (+${selectedCable.slackMm}mm)` : ""}
           </span>
-          <div className="h-3 w-[1px] bg-slate-700 mx-1 flex-shrink-0" />
+          <div className="viewport-divider" />
           <button
             type="button"
             onClick={() => onAddCableRoutePoint?.(selectedCable.id)}
-            className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-medium text-[11px] flex items-center gap-1 transition-colors whitespace-nowrap cursor-pointer"
+            className="viewport-banner-btn primary"
             title="Kabelga yangi 3D burilish nuqtasi qo‘shish"
           >
             + Burilish nuqtasi
@@ -2239,15 +2515,25 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           <button
             type="button"
             onClick={() => onStraightenCable?.(selectedCable.id)}
-            className="px-2.5 py-1 bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white rounded text-[11px] transition-colors whitespace-nowrap cursor-pointer"
+            className="viewport-banner-btn"
             title="Barcha burilishlarni o‘chirib to‘g‘rilash"
           >
             Tekislash
           </button>
+          {onSwapCableEnds && (
+            <button
+              type="button"
+              onClick={() => onSwapCableEnds(selectedCable.id)}
+              className="viewport-banner-btn"
+              title="Kabel oqim yo‘nalishini teskarisiga almashtirish (Manba ⇄ Qabul qiluvchi)"
+            >
+              ⇄ Oqim (A ⇄ B)
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onSelectCable?.(null)}
-            className="p-1 text-slate-400 hover:text-white rounded hover:bg-white/10 text-xs ml-1 flex-shrink-0 cursor-pointer"
+            className="viewport-banner-close"
             title="Yopish"
           >
             ✕
@@ -2258,7 +2544,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       {isPlacingPinMode && (
         <div
           id="pin-placing-guide-banner"
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 px-4 py-2.5 bg-slate-900/90 border border-amber-400/50 rounded-xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto"
+          className="viewport-banner pin-guide"
         >
           <div className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
           <span className="font-semibold text-amber-200">
@@ -2266,9 +2552,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           </span>
           {onCancelPlacingPinMode && (
             <button
+              type="button"
               id="cancel-pin-placing-mode-btn"
               onClick={onCancelPlacingPinMode}
-              className="ml-2 px-2.5 py-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-md text-slate-200 hover:text-white transition-all text-[11px]"
+              className="viewport-banner-btn"
             >
               Tugatish
             </button>
@@ -2279,7 +2566,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       {effectiveSelectedIds.length > 1 && !isPlacingPinMode && (
         <div
           id="multi-selection-indicator-banner"
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2.5 px-4 py-2 bg-slate-900/90 border border-cyan-500/40 rounded-xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto"
+          className="viewport-banner multi-select"
         >
           <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
           <span className="font-semibold text-cyan-200">
@@ -2289,9 +2576,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             (Shift + Click: birgalikda tanlash / o‘qlarni surish)
           </span>
           <button
+            type="button"
             id="btn-clear-multiselection"
             onClick={() => onSelectInstanceRef.current?.(null, false)}
-            className="ml-2 px-2 py-0.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded text-slate-300 hover:text-white transition-all text-[11px]"
+            className="viewport-banner-btn"
           >
             Tozalash
           </button>
@@ -2301,7 +2589,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       {hiddenObstaclesCount > 0 && effectiveIsolate && (
         <div
           id="obstruction-culling-indicator-banner"
-          className="absolute top-16 left-4 z-20 flex items-center gap-2 px-3 py-1.5 bg-slate-950/95 border border-amber-500/50 rounded-xl shadow-2xl backdrop-blur-md text-amber-200 text-xs select-none pointer-events-auto animate-fadeIn"
+          className="viewport-banner obstruction-banner"
         >
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping flex-shrink-0" />
           <span>
@@ -2312,7 +2600,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
               type="button"
               id="btn-restore-obstructions"
               onClick={handleToggleIsolate}
-              className="ml-2 px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 rounded text-[11px] border border-amber-500/40 cursor-pointer font-medium transition-colors"
+              className="viewport-banner-btn warning"
               title="Barcha elementlarni qayta ko‘rsatish"
             >
               Barchasini ko‘rsatish
@@ -2321,181 +2609,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         </div>
       )}
 
-      {/* Floating 3D Animation & Media Export Controller (Top-Right) */}
-      <div
-        id="viewport-animation-export-hud"
-        className="absolute top-4 right-4 z-20 flex items-center gap-1.5 p-1.5 bg-slate-950/85 hover:bg-slate-950/95 border border-slate-700/70 hover:border-cyan-500/50 rounded-2xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto transition-all"
-      >
-        {/* Flow Animation Play/Pause */}
-        <button
-          type="button"
-          id="btn-toggle-cable-flow"
-          onClick={() => {
-            const next = !isFlowAnimating;
-            onToggleFlowAnimation?.(next);
-            onShowToast?.(
-              next
-                ? "✨ Kabellarda signal va quvvat oqimi faollashtirildi"
-                : "⏸ Kabellar oqim animatsiyasi to‘xtatildi"
-            );
-          }}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium transition-all cursor-pointer ${
-            isFlowAnimating
-              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-400/50 shadow-sm shadow-cyan-500/20"
-              : "bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-transparent"
-          }`}
-          title={isFlowAnimating ? "Animatsiyani to‘xtatish" : "Kabel oqimi animatsiyasini yoqish"}
-        >
-          {isFlowAnimating ? (
-            <Pause className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
-          ) : (
-            <Play className="w-3.5 h-3.5 text-slate-300 fill-slate-300" />
-          )}
-          <span className="text-[12px] font-semibold">
-            {isFlowAnimating ? "Oqim: Faol" : "Animatsiya"}
-          </span>
-          {isFlowAnimating && (
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping ml-0.5" />
-          )}
-        </button>
-
-        {/* Cable Flow Filtering & Speed Options (visible when flow animating) */}
-        {isFlowAnimating && (
-          <div className="flex items-center gap-1 pl-1 pr-1 border-l border-slate-700/60">
-            {/* Flow Type selector */}
-            <div className="flex items-center bg-slate-900/80 rounded-lg p-0.5 border border-slate-700/50 text-[10px]">
-              <button
-                type="button"
-                id="btn-flow-type-all"
-                onClick={() => onFlowTypeChange?.("all")}
-                className={`px-1.5 py-0.5 rounded ${
-                  flowType === "all"
-                    ? "bg-cyan-500 text-black font-bold"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Barcha kabellarda oqim"
-              >
-                Hammasi
-              </button>
-              <button
-                type="button"
-                id="btn-flow-type-power"
-                onClick={() => onFlowTypeChange?.("power")}
-                className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
-                  flowType === "power"
-                    ? "bg-amber-500 text-black font-bold"
-                    : "text-slate-400 hover:text-amber-300"
-                }`}
-                title="Faqat quvvat kabellari (Power)"
-              >
-                <Zap className="w-2.5 h-2.5" />
-                Power
-              </button>
-              <button
-                type="button"
-                id="btn-flow-type-signal"
-                onClick={() => onFlowTypeChange?.("signal")}
-                className={`px-1.5 py-0.5 rounded flex items-center gap-0.5 ${
-                  flowType === "signal"
-                    ? "bg-cyan-400 text-black font-bold"
-                    : "text-slate-400 hover:text-cyan-300"
-                }`}
-                title="Faqat signal kabellari"
-              >
-                <Activity className="w-2.5 h-2.5" />
-                Signal
-              </button>
-            </div>
-
-            {/* Flow Speed Cycle Button */}
-            <button
-              type="button"
-              id="btn-cycle-flow-speed"
-              onClick={handleCycleSpeed}
-              className="px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-slate-300 hover:text-white font-mono text-[11px] border border-slate-700/40"
-              title="Oqim tezligini o‘zgartirish (0.5x / 1x / 2x)"
-            >
-              {flowSpeed}x
-            </button>
-          </div>
-        )}
-
-        {/* 360° Auto-Rotate Toggle */}
-        <button
-          type="button"
-          id="btn-toggle-auto-rotate"
-          onClick={() => {
-            const next = !isAutoRotateActive;
-            onToggleAutoRotate?.(next);
-            onShowToast?.(
-              next
-                ? "🔄 360° Aylanma ko‘rinish yoqildi"
-                : "Aylanma ko‘rinish to‘xtatildi"
-            );
-          }}
-          className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-            isAutoRotateActive
-              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-400/50"
-              : "bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-transparent"
-          }`}
-          title="360° Avtomatik aylanish (Turntable)"
-        >
-          <RotateCw
-            className={`w-3.5 h-3.5 ${isAutoRotateActive ? "animate-spin text-emerald-400" : ""}`}
-          />
-        </button>
-
-        <div className="h-4 w-[1px] bg-slate-700/60 mx-0.5" />
-
-        {/* Capture Snapshot Image (PNG) */}
-        <button
-          type="button"
-          id="btn-export-png-snapshot"
-          onClick={() => {
-            if (handleExportSnapshot()) {
-              onShowToast?.("📸 3D Ko‘rinish PNG rasm formatida saqlandi!");
-            }
-          }}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-white/5 hover:bg-white/15 text-slate-200 hover:text-white rounded-xl text-[11px] font-medium border border-slate-700/40 transition-all cursor-pointer"
-          title="3D ko‘rinishni yuqori aniqlikdagi PNG rasm sifatida yuklab olish"
-        >
-          <Camera className="w-3.5 h-3.5 text-cyan-400" />
-          <span className="hidden sm:inline">PNG</span>
-        </button>
-
-        {/* Record 3D Video */}
-        <button
-          type="button"
-          id="btn-toggle-video-record"
-          onClick={handleToggleVideoRecording}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-medium transition-all cursor-pointer ${
-            isVideoRecording
-              ? "bg-rose-500 text-white shadow-lg shadow-rose-500/30 animate-pulse border border-rose-400"
-              : "bg-white/5 hover:bg-rose-500/20 text-slate-200 hover:text-rose-200 border border-slate-700/40"
-          }`}
-          title={isVideoRecording ? "Videoni to‘xtatish va yuklab olish" : "3D harakatli video yozish"}
-        >
-          {isVideoRecording ? (
-            <>
-              <Square className="w-3 h-3 fill-white" />
-              <span className="font-mono font-bold text-white">
-                {formatDuration(recordingSeconds)}
-              </span>
-            </>
-          ) : (
-            <>
-              <Video className="w-3.5 h-3.5 text-rose-400" />
-              <span className="hidden sm:inline">Video</span>
-            </>
-          )}
-        </button>
-      </div>
-
       {/* Floating Video Recording Live Indicator Banner */}
       {isVideoRecording && (
         <div
           id="video-recording-live-pill"
-          className="absolute top-16 right-4 z-20 flex items-center gap-2.5 px-3 py-1.5 bg-rose-950/90 border border-rose-500/60 rounded-xl shadow-2xl backdrop-blur-md text-white text-xs select-none pointer-events-auto animate-pulse"
+          className="viewport-banner recording-banner"
         >
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
           <span className="font-semibold text-rose-100">
@@ -2505,7 +2623,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             type="button"
             id="btn-stop-recording-pill"
             onClick={handleStopVideoRecording}
-            className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded text-[11px] font-medium ml-1 transition-colors"
+            className="viewport-banner-btn danger"
           >
             Saqlash
           </button>
