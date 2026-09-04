@@ -195,6 +195,12 @@ export type CableConnection = {
   color: string; // hex color for 3D visual
   cableType: "CAN" | "Power" | "UART" | "PWM" | "Ethernet" | "Airspeed" | "Other" | string;
   wireGauge?: string;
+  // Ribbon / Multi-strand cable fields (Lentali shleyf kabel):
+  isRibbon?: boolean; // Whether flat ribbon / multi-strand cable
+  strandCount?: number; // Number of strands (e.g. 3 for servo, 3-8 for UART)
+  strandPitchMm?: number; // Distance between adjacent strand centers in mm (e.g. 1.8 - 3.0 mm)
+  strandColors?: string[]; // Array of hex colors for each strand
+  strandLabels?: string[]; // Array of custom names/signals for each strand
   // Advanced Avionics Cable Fields:
   cableProfileId?: string; // References CableProfile.id
   designation?: string; // e.g. "W001", "W002"

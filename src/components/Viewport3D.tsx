@@ -14,6 +14,7 @@ import {
 } from "../types";
 import { modelManager, COMPONENT_ID_TO_ASSET_KEY } from "../services/modelManager";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
+import { getDefaultStrandColors } from "../data/cablePresets";
 
 export const SCENE_THEMES: Record<
   SceneTheme,
@@ -624,7 +625,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const cableIntersects = raycaster.intersectObjects(cablesGroupRef.current.children, true);
       if (cableIntersects.length > 0) {
         const hit = cableIntersects[0];
-        const cableId = hit.object.userData?.cableId;
+        let current: THREE.Object3D | null = hit.object;
+        while (current && !current.userData?.cableId && current.parent) {
+          current = current.parent;
+        }
+        const cableId = current?.userData?.cableId || hit.object.userData?.cableId;
         if (cableId) {
           onSelectCableRef.current?.(cableId);
           // If already selected, clicking on the cable tube creates a new bend waypoint at the hit location!
@@ -1302,24 +1307,89 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const totalLength = Math.round(curve.getLength());
       cable.calculatedLengthMm = totalLength;
 
-      const tubularSegments = Math.max(32, controlPoints.length * 16);
-      const radius = isSelectedCable
-        ? ((cable.thicknessMm || 3.0) / 2) * 1.25
-        : (cable.thicknessMm || 2.8) / 2;
+      const isRibbonCable = Boolean(cable.isRibbon && (cable.strandCount || 0) > 1);
+      const strandCount = isRibbonCable ? (cable.strandCount || 3) : 1;
+      const strandColors =
+        cable.strandColors && cable.strandColors.length >= strandCount
+          ? cable.strandColors
+          : isRibbonCable
+          ? getDefaultStrandColors(cable.cableType, strandCount)
+          : [cable.color || "#00e5ff"];
 
-      const tubeGeometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 8, false);
-      const tubeMaterial = new THREE.MeshStandardMaterial({
-        color: isSelectedCable ? 0x38bdf8 : (cable.color || 0x00e5ff),
-        roughness: 0.35,
-        metalness: 0.25,
-        emissive: isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff),
-        emissiveIntensity: isSelectedCable ? 0.45 : 0.15,
-      });
+      if (isRibbonCable && strandCount > 1) {
+        // Render 3D Ribbon / Flat Multi-Strand Cable with distinct strand colors
+        const numDivisions = Math.max(48, controlPoints.length * 20);
+        const frenetFrames = curve.computeFrenetFrames(numDivisions, false);
+        const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);
+        const strandRadius =
+          Math.max(0.65, (cable.thicknessMm || 2.8) * 0.38) * (isSelectedCable ? 1.2 : 1.0);
 
-      const cableMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
-      cableMesh.name = `cable_${cable.id}`;
-      cableMesh.userData = { cableId: cable.id, isCableMesh: true };
-      cablesGroup.add(cableMesh);
+        const ribbonGroup = new THREE.Group();
+        ribbonGroup.name = `cable_ribbon_${cable.id}`;
+        ribbonGroup.userData = { cableId: cable.id, isCableMesh: true };
+
+        for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+          const rawOffset = (sIdx - (strandCount - 1) / 2) * pitch;
+          const strandPts: THREE.Vector3[] = [];
+
+          for (let step = 0; step <= numDivisions; step++) {
+            const u = step / numDivisions;
+            const pt = curve.getPointAt(u);
+            const binormal = frenetFrames.binormals[step] || new THREE.Vector3(0, 1, 0);
+            // Smooth taper at pin connections (so wires meet cleanly at the pin)
+            const endTaper = Math.min(1, Math.min(u, 1 - u) * 7);
+            const effectiveOffset = rawOffset * (0.35 + 0.65 * endTaper);
+
+            const strandPoint = pt.clone().addScaledVector(binormal, effectiveOffset);
+            strandPts.push(strandPoint);
+          }
+
+          const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "catmullrom", tension);
+          const strandGeo = new THREE.TubeGeometry(
+            strandCurve,
+            Math.floor(numDivisions * 0.8),
+            strandRadius,
+            6,
+            false
+          );
+          const strandColorHex = strandColors[sIdx] || cable.color || "#00e5ff";
+
+          const strandMat = new THREE.MeshStandardMaterial({
+            color: isSelectedCable ? 0x38bdf8 : strandColorHex,
+            roughness: 0.35,
+            metalness: 0.25,
+            emissive: isSelectedCable ? 0x0284c7 : strandColorHex,
+            emissiveIntensity: isSelectedCable ? 0.45 : 0.15,
+          });
+
+          const strandMesh = new THREE.Mesh(strandGeo, strandMat);
+          strandMesh.name = `cable_${cable.id}_strand_${sIdx}`;
+          strandMesh.userData = { cableId: cable.id, isCableMesh: true, strandIndex: sIdx };
+          ribbonGroup.add(strandMesh);
+        }
+
+        cablesGroup.add(ribbonGroup);
+      } else {
+        // Standard single round cable
+        const tubularSegments = Math.max(32, controlPoints.length * 16);
+        const radius = isSelectedCable
+          ? ((cable.thicknessMm || 3.0) / 2) * 1.25
+          : (cable.thicknessMm || 2.8) / 2;
+
+        const tubeGeometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 8, false);
+        const tubeMaterial = new THREE.MeshStandardMaterial({
+          color: isSelectedCable ? 0x38bdf8 : (cable.color || 0x00e5ff),
+          roughness: 0.35,
+          metalness: 0.25,
+          emissive: isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff),
+          emissiveIntensity: isSelectedCable ? 0.45 : 0.15,
+        });
+
+        const cableMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
+        cableMesh.name = `cable_${cable.id}`;
+        cableMesh.userData = { cableId: cable.id, isCableMesh: true };
+        cablesGroup.add(cableMesh);
+      }
 
       // If this cable is selected, render interactive 3D Waypoint Handles
       if (isSelectedCable) {

@@ -49,6 +49,13 @@ import {
   calculateScaleFromDimensions,
   calculateProportionalScale,
 } from "../data/componentDimensions";
+import {
+  CABLE_TYPES_CONFIG,
+  QUICK_STRAND_COLORS,
+  getPresetForCableType,
+  getDefaultStrandColors,
+  getDefaultStrandLabels,
+} from "../data/cablePresets";
 
 interface PlacedInspectorPanelProps {
   selectedInstance: PhysicalInstance | null;
@@ -177,6 +184,11 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
           <span className="cable-type-tag text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
             {cable.cableType}
           </span>
+          {cable.isRibbon && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
+              Lentali ({cable.strandCount || 3} ta tomir)
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/30">
@@ -291,6 +303,224 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
               />
             </div>
           </div>
+
+          {/* Ribbon / Multi-Strand Flat Cable Section */}
+          {(() => {
+            const preset = getPresetForCableType(cable.cableType || "PWM");
+            const isRibbon = Boolean(cable.isRibbon);
+            const strandCount = cable.strandCount || (isRibbon ? preset.defaultStrands : 1);
+            const strandColors =
+              cable.strandColors && cable.strandColors.length >= strandCount
+                ? cable.strandColors
+                : getDefaultStrandColors(cable.cableType || "PWM", strandCount);
+            const strandLabels =
+              cable.strandLabels && cable.strandLabels.length >= strandCount
+                ? cable.strandLabels
+                : getDefaultStrandLabels(cable.cableType || "PWM", strandCount);
+
+            const availableCounts: number[] = [];
+            for (let c = preset.minStrands; c <= preset.maxStrands; c++) {
+              availableCounts.push(c);
+            }
+
+            return (
+              <div className="p-2.5 bg-slate-900/90 rounded-lg border border-cyan-500/30 space-y-2.5">
+                {/* Ribbon Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-semibold text-white flex items-center gap-1">
+                      <span>⚡ Lentali kabel (Ribbon / Shleyf):</span>
+                    </span>
+                  </div>
+                  <label className="inline-flex items-center cursor-pointer gap-1.5 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={isRibbon}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const count = checked ? Math.max(preset.defaultStrands, 3) : 1;
+                        onUpdateCable?.(cable.id, {
+                          isRibbon: checked,
+                          strandCount: count,
+                          strandColors: checked
+                            ? getDefaultStrandColors(cable.cableType || "PWM", count)
+                            : [cable.color],
+                          strandLabels: checked
+                            ? getDefaultStrandLabels(cable.cableType || "PWM", count)
+                            : ["Signal"],
+                          strandPitchMm: cable.strandPitchMm || 2.0,
+                        });
+                      }}
+                      className="w-4 h-4 accent-cyan-400 cursor-pointer"
+                    />
+                    <span className={isRibbon ? "text-cyan-300 font-semibold" : "text-slate-400"}>
+                      {isRibbon ? "Yoqilgan" : "Oddiy sim"}
+                    </span>
+                  </label>
+                </div>
+
+                {isRibbon && (
+                  <div className="space-y-2 pt-1 border-t border-slate-800">
+                    {/* Strand Count and Quick Selector */}
+                    <div className="flex items-center justify-between flex-wrap gap-1 text-xs">
+                      <div className="text-slate-300">
+                        <span>Tomirlar soni: </span>
+                        <span className="font-bold text-cyan-300">{strandCount} ta</span>
+                        <span className="text-[10px] text-slate-500 ml-1">
+                          ({preset.minStrands}-{preset.maxStrands} ta)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {availableCounts.map((cnt) => (
+                          <button
+                            key={cnt}
+                            type="button"
+                            onClick={() => {
+                              const newColors = [...strandColors];
+                              const newLabels = [...strandLabels];
+                              const defColors = getDefaultStrandColors(cable.cableType || "PWM", cnt);
+                              const defLabels = getDefaultStrandLabels(cable.cableType || "PWM", cnt);
+                              while (newColors.length < cnt)
+                                newColors.push(defColors[newColors.length] || "#38bdf8");
+                              while (newLabels.length < cnt)
+                                newLabels.push(
+                                  defLabels[newLabels.length] || `${newLabels.length + 1}-tomir`
+                                );
+                              onUpdateCable?.(cable.id, {
+                                strandCount: cnt,
+                                strandColors: newColors.slice(0, cnt),
+                                strandLabels: newLabels.slice(0, cnt),
+                              });
+                            }}
+                            className={`w-6 h-5 flex items-center justify-center rounded text-[10px] font-bold transition-colors ${
+                              strandCount === cnt
+                                ? "bg-cyan-600 text-white border border-cyan-400"
+                                : "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                            }`}
+                          >
+                            {cnt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Ribbon Preview Stripe */}
+                    <div className="bg-slate-950 p-1.5 rounded border border-slate-800 space-y-1">
+                      <span className="text-[9px] text-slate-400 uppercase tracking-wide block">
+                        Lenta ko‘rinishi (Prevyu):
+                      </span>
+                      <div className="flex h-5 rounded overflow-hidden border border-slate-700 shadow-inner">
+                        {Array.from({ length: strandCount }).map((_, idx) => {
+                          const col = strandColors[idx] || "#64748b";
+                          return (
+                            <div
+                              key={idx}
+                              style={{ backgroundColor: col }}
+                              className="flex-1 flex items-center justify-center text-[8px] font-bold border-r border-black/40 last:border-r-0"
+                              title={`Tomir #${idx + 1}: ${strandLabels[idx] || ""} (${col})`}
+                            >
+                              <span className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] text-white">
+                                #{idx + 1}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Individual Strand Colors & Labels */}
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      <span className="text-[10px] font-semibold text-slate-300 block">
+                        Har bir tomir rangi va signali:
+                      </span>
+                      {Array.from({ length: strandCount }).map((_, idx) => {
+                        const col = strandColors[idx] || "#64748b";
+                        const lab = strandLabels[idx] || `${idx + 1}-tomir`;
+                        return (
+                          <div
+                            key={idx}
+                            className="flex items-center gap-2 p-1.5 rounded bg-slate-800/80 border border-slate-700/60 text-xs"
+                          >
+                            <span className="font-bold text-slate-300 w-5 text-center text-[11px]">
+                              #{idx + 1}
+                            </span>
+                            <div
+                              className="w-4 h-4 rounded border border-white/20 flex-shrink-0"
+                              style={{ backgroundColor: col }}
+                            />
+                            <input
+                              type="text"
+                              value={lab}
+                              onChange={(e) => {
+                                const nextLabels = [...strandLabels];
+                                nextLabels[idx] = e.target.value;
+                                onUpdateCable?.(cable.id, { strandLabels: nextLabels });
+                              }}
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[11px] text-white"
+                              placeholder={`Tomir #${idx + 1}`}
+                            />
+                            {/* Quick swatches */}
+                            <div className="flex items-center gap-1">
+                              {QUICK_STRAND_COLORS.slice(0, 5).map((c) => (
+                                <button
+                                  key={c.hex}
+                                  type="button"
+                                  onClick={() => {
+                                    const nextColors = [...strandColors];
+                                    nextColors[idx] = c.hex;
+                                    onUpdateCable?.(cable.id, { strandColors: nextColors });
+                                  }}
+                                  className="w-3.5 h-3.5 rounded-full border border-black/50 cursor-pointer"
+                                  style={{ backgroundColor: c.hex }}
+                                  title={`${c.name} (${c.hex})`}
+                                />
+                              ))}
+                              <input
+                                type="color"
+                                value={col}
+                                onChange={(e) => {
+                                  const nextColors = [...strandColors];
+                                  nextColors[idx] = e.target.value;
+                                  onUpdateCable?.(cable.id, { strandColors: nextColors });
+                                }}
+                                className="w-5 h-5 p-0 border-0 bg-transparent cursor-pointer"
+                                title="Boshqa rang"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Ribbon Pitch */}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800">
+                      <span className="text-slate-400 text-[10px]">
+                        Tomirlar masofasi (Pitch):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="range"
+                          min={1.2}
+                          max={3.5}
+                          step={0.1}
+                          value={cable.strandPitchMm || 2.0}
+                          onChange={(e) =>
+                            onUpdateCable?.(cable.id, {
+                              strandPitchMm: parseFloat(e.target.value) || 2.0,
+                            })
+                          }
+                          className="w-20 accent-cyan-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg"
+                        />
+                        <span className="font-mono text-cyan-300 text-[10px] w-12 text-right">
+                          {(cable.strandPitchMm || 2.0).toFixed(1)} mm
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* 3D Bend Waypoints Management */}
           <div className="p-2 bg-slate-900/80 rounded-lg border border-slate-700/60 space-y-2">
