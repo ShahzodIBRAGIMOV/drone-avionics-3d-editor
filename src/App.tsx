@@ -225,8 +225,8 @@ export default function App() {
   const [showCables, setShowCables] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
 
-  // View Layout Mode: "split" (3D + 2D side-by-side), "3d" (only 3D), "2d" (only 2D Schematic)
-  const [viewLayoutMode, setViewLayoutMode] = useState<"split" | "3d" | "2d">("split");
+  // View Layout Mode: default to "3d" (2D schematic not needed for now)
+  const [viewLayoutMode, setViewLayoutMode] = useState<"split" | "3d" | "2d">("3d");
   const [splitRatio, setSplitRatio] = useState<number>(0.5);
   const [isResizingSplit, setIsResizingSplit] = useState<boolean>(false);
 
@@ -294,7 +294,7 @@ export default function App() {
   const [isShortcutsModalOpen, setIsShortcutsModalOpen] = useState<boolean>(false);
 
   // Cable flow animation & Video recording states
-  const [isFlowAnimating, setIsFlowAnimating] = useState<boolean>(false);
+  const [isFlowAnimating, setIsFlowAnimating] = useState<boolean>(true);
   const [flowSpeed, setFlowSpeed] = useState<number>(1.0);
   const [flowType, setFlowType] = useState<CableFlowType>("all");
   const [isAutoRotateActive, setIsAutoRotateActive] = useState<boolean>(false);
@@ -2044,28 +2044,6 @@ export default function App() {
         return;
       }
 
-      // 12.4. Key '2' (Toggle 3D + 2D Split / 2D / 3D Layout)
-      if (
-        !isCtrlOrCmd &&
-        !e.altKey &&
-        e.key === "2" &&
-        !["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName || "")
-      ) {
-        e.preventDefault();
-        setViewLayoutMode((prev) => {
-          const next = prev === "split" ? "2d" : prev === "2d" ? "3d" : "split";
-          showToast(
-            next === "split"
-              ? "⚡ 3D + 2D Sxema yonma-yon [2]"
-              : next === "2d"
-              ? "📐 2D Sxema to‘liq ko‘rinishda [2]"
-              : "🧊 3D ko‘rinish to‘liq ekranda [2]"
-          );
-          return next;
-        });
-        return;
-      }
-
       // 13. Transform Modes: W (Translate), E (Rotate), R (Scale)
       if (!isCtrlOrCmd && !e.altKey && (e.key === "w" || e.key === "W")) {
         setTransformMode("translate");
@@ -3126,15 +3104,14 @@ export default function App() {
             </button>
           )}
 
-          {/* 3D Viewport Pane (Active in '3d' and 'split' modes) */}
-          {(viewLayoutMode === "3d" || viewLayoutMode === "split") && (
-            <div
-              className="viewport-pane-3d"
-              style={{
-                width: viewLayoutMode === "split" ? `${splitRatio * 100}%` : "100%",
-                display: "block",
-              }}
-            >
+          {/* 3D Viewport Pane (Full Width) */}
+          <div
+            className="viewport-pane-3d"
+            style={{
+              width: "100%",
+              display: "block",
+            }}
+          >
               <Viewport3D
                 instances={instances}
                 cables={cables}
@@ -3257,56 +3234,6 @@ export default function App() {
                 />
               </div>
             </div>
-          )}
-
-          {/* Draggable Divider in Split Mode */}
-          {viewLayoutMode === "split" && (
-            <div
-              className={`viewport-split-divider ${isResizingSplit ? "active" : ""}`}
-              onMouseDown={handleSplitDividerMouseDown}
-              title="3D va 2D o‘lchamini o‘zgartirish uchun suring (Drag to resize)"
-            >
-              <div className="viewport-split-divider-handle" />
-            </div>
-          )}
-
-          {/* 2D Schematic Viewport Pane (Active in '2d' and 'split' modes) */}
-          {(viewLayoutMode === "2d" || viewLayoutMode === "split") && (
-            <div
-              className="viewport-pane-2d"
-              style={{
-                width: viewLayoutMode === "split" ? `${(1 - splitRatio) * 100}%` : "100%",
-                display: "block",
-              }}
-            >
-              <SchematicView2D
-                instances={instances}
-                cables={cables}
-                selectedInstanceId={selectedInstanceId}
-                selectedInstanceIds={selectedInstanceIds}
-                selectedCableId={selectedCableId}
-                onSelectInstance={(id, isShift) => {
-                  handleSelectInstance(id, isShift);
-                  if (id !== null) {
-                    setIsRightPanelOpen(true);
-                  }
-                }}
-                onSelectCable={handleSelectCable}
-                droneOpacity={droneOpacity}
-                sceneTheme={sceneTheme}
-                showCables={showCables}
-                isSplitView={viewLayoutMode === "split"}
-                onToggleSplit={() =>
-                  setViewLayoutMode((prev) => (prev === "split" ? "2d" : "split"))
-                }
-                onToggle3D2D={() =>
-                  setViewLayoutMode((prev) => (prev === "2d" ? "3d" : "2d"))
-                }
-                dimUnselected={dimUnselected}
-                onToggleDimUnselected={handleToggleDimUnselected}
-              />
-            </div>
-          )}
         </div>
 
         {/* Right: Placed Inspector & Electrical Port / Cable Panel */}

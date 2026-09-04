@@ -333,6 +333,22 @@ export function computePinWorldPosition(
   return new THREE.Vector3(...localOffset).applyMatrix4(mat);
 }
 
+/**
+ * Safely verify whether a 3D Object is actively connected to the given Scene root.
+ */
+function isObjectInScene(
+  obj: THREE.Object3D | null | undefined,
+  rootScene: THREE.Scene | null
+): boolean {
+  if (!obj || !rootScene || !obj.parent) return false;
+  let curr: THREE.Object3D | null = obj;
+  while (curr) {
+    if (curr === rootScene) return true;
+    curr = curr.parent;
+  }
+  return false;
+}
+
 export const Viewport3D: React.FC<Viewport3DProps> = ({
   instances,
   cables,
@@ -551,6 +567,14 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     instancesRef.current = instances;
   }, [instances]);
 
+  const cablesRef = useRef<CableConnection[]>(cables);
+  useEffect(() => {
+    cablesRef.current = cables;
+  }, [cables]);
+
+  const isDraggingWaypointRef = useRef<boolean>(false);
+  const activeDraggingWaypointDataRef = useRef<{ cableId: string; waypointId: string } | null>(null);
+
   // Initialize Three.js scene
   useEffect(() => {
     const container = containerRef.current;
@@ -616,6 +640,15 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         // Dragging started: record snapshot for Undo (Ctrl+Z)
         onTransformStartRef.current?.();
 
+        const obj = transformControls.object;
+        if (obj?.userData?.isWaypointHandle) {
+          isDraggingWaypointRef.current = true;
+          activeDraggingWaypointDataRef.current = {
+            cableId: obj.userData.cableId,
+            waypointId: obj.userData.waypointId,
+          };
+        }
+
         // Dragging started: record baseline positions for multi-selection
         const pivot = multiPivotGroupRef.current;
         initialPivotTransformRef.current = {
@@ -636,6 +669,38 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         });
         initialMeshesTransformRef.current = map;
       } else {
+        // Dragging ended: if cable waypoint was dragged, commit final position to React state
+        if (isDraggingWaypointRef.current) {
+          isDraggingWaypointRef.current = false;
+          const obj = transformControls.object;
+          const dragData = activeDraggingWaypointDataRef.current;
+          activeDraggingWaypointDataRef.current = null;
+
+          const cableId = obj?.userData?.cableId || dragData?.cableId;
+          const waypointId = obj?.userData?.waypointId || dragData?.waypointId;
+
+          if (cableId && waypointId) {
+            let targetPos: THREE.Vector3 | null = null;
+            if (obj && obj.userData?.isWaypointHandle) {
+              targetPos = obj.position;
+            } else {
+              const handle = cableWaypointsGroupRef.current.children.find(
+                (c) => c.userData?.waypointId === waypointId
+              );
+              if (handle) targetPos = handle.position;
+            }
+
+            if (targetPos) {
+              const coords = {
+                x: Math.round(targetPos.x * 10) / 10,
+                y: Math.round(targetPos.y * 10) / 10,
+                z: Math.round(targetPos.z * 10) / 10,
+              };
+              onUpdateCableRoutePointRef.current?.(cableId, waypointId, coords);
+            }
+          }
+        }
+
         // Dragging ended: if multi-selection was transformed, commit final positions
         if (effectiveSelectedIdsRef.current.length > 1) {
           const updates: Array<{
@@ -675,6 +740,126 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         }
       }
     });
+
+    // Dynamic 60 FPS real-time updater for cable spline geometry during active waypoint dragging
+    const updateLiveCableMesh = (cableId: string, waypointId: string, newPos: THREE.Vector3) => {
+      const cable = cablesRef.current.find((c) => c.id === cableId);
+      if (!cable) return;
+
+      const sourceInst = instancesRef.current.find((i) => i.instanceId === cable.sourceInstanceId && i.placed);
+      const targetInst = instancesRef.current.find((i) => i.instanceId === cable.targetInstanceId && i.placed);
+      if (!sourceInst || !targetInst) return;
+
+      const sourceMesh = instanceMeshesRef.current.get(sourceInst.instanceId);
+      const targetMesh = instanceMeshesRef.current.get(targetInst.instanceId);
+
+      const sourcePins = (sourceInst.customPins && sourceInst.customPins.length > 0)
+        ? sourceInst.customPins
+        : (COMPONENT_PINS[sourceInst.componentId] || []);
+      const targetPins = (targetInst.customPins && targetInst.customPins.length > 0)
+        ? targetInst.customPins
+        : (COMPONENT_PINS[targetInst.componentId] || []);
+
+      const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName);
+      const tPin = targetPins.find((p) => p.fullName === cable.targetPinName);
+
+      const sOffset: [number, number, number] = sPin ? sPin.localOffset : [0, 0, 0];
+      const tOffset: [number, number, number] = tPin ? tPin.localOffset : [0, 0, 0];
+
+      const p1 = computePinWorldPosition(sourceInst, sOffset, sourceMesh);
+      const p2 = computePinWorldPosition(targetInst, tOffset, targetMesh);
+
+      // Build spline control points with the actively dragged waypoint position
+      const controlPoints: THREE.Vector3[] = [p1];
+      if (cable.routePoints && cable.routePoints.length > 0) {
+        cable.routePoints.forEach((pt) => {
+          if (pt.id === waypointId) {
+            controlPoints.push(newPos.clone());
+          } else {
+            const h = cableWaypointsGroupRef.current.children.find(
+              (child) => child.userData?.waypointId === pt.id
+            );
+            if (h) {
+              controlPoints.push(h.position.clone());
+            } else {
+              controlPoints.push(new THREE.Vector3(pt.x, pt.y, pt.z));
+            }
+          }
+        });
+      } else {
+        controlPoints.push(newPos.clone());
+      }
+      controlPoints.push(p2);
+
+      const tension = cable.curveTension !== undefined ? cable.curveTension : 0.5;
+      const curve = new THREE.CatmullRomCurve3(controlPoints, false, "catmullrom", tension);
+      const totalLength = Math.round(curve.getLength());
+
+      const isRibbonCable = Boolean(cable.isRibbon && (cable.strandCount || 0) > 1);
+      const strandCount = isRibbonCable ? (cable.strandCount || 3) : 1;
+
+      if (isRibbonCable && strandCount > 1) {
+        const ribbonGroup = cablesGroupRef.current.getObjectByName(`cable_ribbon_${cable.id}`) as THREE.Group;
+        if (ribbonGroup) {
+          const numDivisions = Math.max(48, controlPoints.length * 20);
+          const frenetFrames = curve.computeFrenetFrames(numDivisions, false);
+          const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);
+          const strandRadius = Math.max(0.65, (cable.thicknessMm || 2.8) * 0.38) * 1.2;
+
+          const updatedStrandCurves: THREE.CatmullRomCurve3[] = [];
+
+          for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+            const rawOffset = (sIdx - (strandCount - 1) / 2) * pitch;
+            const strandPts: THREE.Vector3[] = [];
+
+            for (let step = 0; step <= numDivisions; step++) {
+              const u = step / numDivisions;
+              const pt = curve.getPointAt(u);
+              const binormal = frenetFrames.binormals[step] || new THREE.Vector3(0, 1, 0);
+              const endTaper = Math.min(1, Math.min(u, 1 - u) * 7);
+              const effectiveOffset = rawOffset * (0.35 + 0.65 * endTaper);
+              strandPts.push(pt.clone().addScaledVector(binormal, effectiveOffset));
+            }
+
+            const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "catmullrom", tension);
+            updatedStrandCurves.push(strandCurve);
+
+            const strandMesh = ribbonGroup.getObjectByName(`cable_${cable.id}_strand_${sIdx}`) as THREE.Mesh;
+            if (strandMesh) {
+              strandMesh.geometry.dispose();
+              strandMesh.geometry = new THREE.TubeGeometry(
+                strandCurve,
+                Math.floor(numDivisions * 0.8),
+                strandRadius,
+                6,
+                false
+              );
+            }
+          }
+
+          const flowItem = cableFlowItemsRef.current.find((f) => f.cableId === cableId);
+          if (flowItem) {
+            flowItem.curve = curve;
+            flowItem.totalLength = totalLength;
+            flowItem.strandCurves = updatedStrandCurves;
+          }
+        }
+      } else {
+        const cableMesh = cablesGroupRef.current.getObjectByName(`cable_${cable.id}`) as THREE.Mesh;
+        if (cableMesh) {
+          const tubularSegments = Math.max(32, controlPoints.length * 16);
+          const radius = (cable.thicknessMm || 2.8) / 2 * (cableId === selectedCableIdRef.current ? 1.25 : 1.0);
+          cableMesh.geometry.dispose();
+          cableMesh.geometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 8, false);
+
+          const flowItem = cableFlowItemsRef.current.find((f) => f.cableId === cableId);
+          if (flowItem) {
+            flowItem.curve = curve;
+            flowItem.totalLength = totalLength;
+          }
+        }
+      }
+    };
 
     transformControls.addEventListener("objectChange", () => {
       const obj = transformControls.object;
@@ -730,12 +915,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       if (obj.userData?.isWaypointHandle && obj.userData?.cableId && obj.userData?.waypointId) {
         const cableId = obj.userData.cableId;
         const waypointId = obj.userData.waypointId;
-        const coords = {
-          x: Math.round(obj.position.x * 10) / 10,
-          y: Math.round(obj.position.y * 10) / 10,
-          z: Math.round(obj.position.z * 10) / 10,
-        };
-        onUpdateCableRoutePointRef.current?.(cableId, waypointId, coords);
+        // Smooth 60 FPS live update directly in Three.js without destroying handles mid-drag!
+        updateLiveCableMesh(cableId, waypointId, obj.position);
         return;
       }
     });
@@ -783,6 +964,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     gridHelperRef.current = grid;
 
     // Pin markers and Cables containers
+    cablesGroupRef.current.renderOrder = 1;
+    cableFlowGroupRef.current.renderOrder = 2;
+    cableWaypointsGroupRef.current.renderOrder = 3;
+    pinMarkersGroupRef.current.renderOrder = 4;
+
     scene.add(pinMarkersGroupRef.current);
     scene.add(cablesGroupRef.current);
     scene.add(cableWaypointsGroupRef.current);
@@ -803,12 +989,36 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     const handlePointerDown = (event: MouseEvent) => {
       if (event.button !== 0) return;
       pointerDownStart = { x: event.clientX, y: event.clientY, time: Date.now() };
+
+      if (!container || !cameraRef.current || !sceneRef.current) return;
+      const rect = container.getBoundingClientRect();
+      const mX = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const mY = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      const downRay = new THREE.Raycaster();
+      downRay.setFromCamera(new THREE.Vector2(mX, mY), cameraRef.current);
+      const wpIntersects = downRay.intersectObjects(cableWaypointsGroupRef.current.children, true);
+      if (wpIntersects.length > 0) {
+        let current: THREE.Object3D | null = wpIntersects[0].object;
+        while (current && current.parent !== cableWaypointsGroupRef.current && current.parent) {
+          current = current.parent;
+        }
+        if (current?.userData?.isWaypointHandle) {
+          const cableId = current.userData.cableId;
+          const waypointId = current.userData.waypointId;
+          onSelectCableRef.current?.(cableId);
+          setSelectedWaypointId(waypointId);
+          if (transformControlsRef.current && isObjectInScene(current, sceneRef.current)) {
+            transformControlsRef.current.attach(current);
+            transformControlsRef.current.setMode("translate");
+          }
+        }
+      }
     };
 
     const handlePointerUp = (event: MouseEvent) => {
       // Only handle left click on canvas
       if (event.button !== 0 || !container || !cameraRef.current || !sceneRef.current) return;
-      if (transformControls.dragging) return;
+      if (transformControls.dragging || isDraggingWaypointRef.current) return;
 
       // If user moved mouse by more than 5px or held down longer than 500ms, they were orbiting/panning the camera!
       // Do NOT trigger selection or deselect - maintain the camera's zoom and orientation completely undisturbed!
@@ -1036,6 +1246,16 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
+      // Safeguard: Ensure TransformControls attached object is actively in the scene graph.
+      // If the object was deleted, unplaced, or had its parent cleared, detach TransformControls
+      // immediately before Three.js computes matrices or renders.
+      const tc = transformControlsRef.current;
+      if (tc && tc.object) {
+        if (!tc.object.parent || !isObjectInScene(tc.object, scene)) {
+          tc.detach();
+        }
+      }
+
       if (orbitControls) {
         orbitControls.autoRotate = isAutoRotateActiveRef.current;
         orbitControls.autoRotateSpeed = 1.0;
@@ -1145,8 +1365,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           }
           if (p.auraMaterial) {
             p.auraMaterial.opacity = p.isPower
-              ? 0.36 + 0.14 * Math.sin(time * 9 + p.baseOffset * 10)
-              : 0.38 + 0.14 * Math.sin(time * 14 + p.baseOffset * 15);
+              ? 0.55 + 0.2 * Math.sin(time * 9 + p.baseOffset * 10)
+              : 0.58 + 0.2 * Math.sin(time * 14 + p.baseOffset * 15);
           }
         }
       }
@@ -1167,6 +1387,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
         recordingTimerRef.current = null;
+      }
+      if (transformControlsRef.current) {
+        transformControlsRef.current.detach();
+        transformControlsRef.current.dispose();
+        transformControlsRef.current = null;
       }
       if (renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);
@@ -1585,8 +1810,22 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     const placedIds = new Set(placedInstances.map((i) => i.instanceId));
 
     // Remove unplaced or deleted meshes
+    const tcNow = transformControlsRef.current;
+    if (tcNow && tcNow.object) {
+      if (
+        !tcNow.object.parent ||
+        !isObjectInScene(tcNow.object, scene) ||
+        (tcNow.object.userData?.instanceId && !placedIds.has(tcNow.object.userData.instanceId))
+      ) {
+        tcNow.detach();
+      }
+    }
+
     currentMeshes.forEach((mesh, id) => {
       if (!placedIds.has(id)) {
+        if (tcNow && tcNow.object === mesh) {
+          tcNow.detach();
+        }
         scene.remove(mesh);
         currentMeshes.delete(id);
       }
@@ -1615,6 +1854,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         // If model version changed or component changed, remove old 3D mesh and re-instantiate
         if (mesh && (mesh.userData.modelVersion !== inst.modelVersion || mesh.userData.componentId !== inst.componentId)) {
+          const tcCurrent = transformControlsRef.current;
+          if (tcCurrent && tcCurrent.object === mesh) {
+            tcCurrent.detach();
+          }
           scene.remove(mesh);
           currentMeshes.delete(inst.instanceId);
           mesh = undefined;
@@ -1647,16 +1890,18 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         mesh.updateMatrixWorld(true);
 
         const isObstructionHidden = hiddenObstructionIdsRef.current.has(inst.instanceId);
-        const isAirframeInst = inst.isAirframe || inst.componentId === "01";
+        const isAirframeInst = Boolean(inst.isAirframe || inst.componentId === "01");
         const isSelected = effectiveSelectedIds.includes(inst.instanceId);
         const isConnected = connectedInstanceIds.has(inst.instanceId);
         const isDimmed = dimUnselected && hasActiveSelection && !isAirframeInst && !isSelected && !isConnected;
 
+        mesh.renderOrder = isAirframeInst ? 950 : 0;
         mesh.visible = isObstructionHidden ? false : (isAirframeInst ? (inst.visible && droneVisible) : inst.visible);
 
         mesh.traverse((child) => {
           if ((child as THREE.Mesh).isMesh) {
             const meshObj = child as THREE.Mesh;
+            meshObj.renderOrder = isAirframeInst ? 950 : 0;
             if (meshObj.geometry && (!meshObj.geometry.attributes.normal || meshObj.geometry.attributes.normal.count === 0)) {
               meshObj.geometry.computeVertexNormals();
             }
@@ -1693,21 +1938,24 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
               if (isAirframeInst) {
                 stdMat.opacity = droneOpacity;
-                stdMat.transparent = droneOpacity < 0.99;
+                stdMat.transparent = true;
                 stdMat.wireframe = droneWireframe;
                 stdMat.side = THREE.DoubleSide;
                 stdMat.roughness = 0.35;
                 stdMat.metalness = 0.08;
-                stdMat.depthWrite = true;
+                stdMat.depthWrite = false;
+                stdMat.depthTest = true;
               } else if (isDimmed) {
                 // Ghosted gray element that visually fades out of view
                 stdMat.opacity = 0.07;
                 stdMat.transparent = true;
                 stdMat.depthWrite = false;
+                stdMat.depthTest = true;
               } else {
                 stdMat.opacity = 1.0;
                 stdMat.transparent = false;
                 stdMat.depthWrite = true;
+                stdMat.depthTest = true;
               }
 
               stdMat.needsUpdate = true;
@@ -1737,14 +1985,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           // Active waypoint handle attachment is handled in cable synchronization effect
         } else if (effectiveSelectedIds.length === 1) {
           const singleId = effectiveSelectedIds[0];
-          if (currentMeshes.has(singleId)) {
-            const selectedMesh = currentMeshes.get(singleId)!;
-            const instData = instances.find((i) => i.instanceId === singleId);
-            if (instData?.locked) {
-              tc.detach();
-            } else {
-              tc.attach(selectedMesh);
-            }
+          const selectedMesh = currentMeshes.get(singleId);
+          const instData = instances.find((i) => i.instanceId === singleId);
+          if (selectedMesh && isObjectInScene(selectedMesh, scene) && !instData?.locked) {
+            tc.attach(selectedMesh);
           } else {
             tc.detach();
           }
@@ -1752,7 +1996,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           // Multi-selection: calculate center of unlocked active meshes
           const activeIds = effectiveSelectedIds.filter((id: string) => {
             const inst = instances.find((i) => i.instanceId === id);
-            return inst && !inst.locked && currentMeshes.has(id);
+            const m = currentMeshes.get(id);
+            return inst && !inst.locked && m && isObjectInScene(m, scene);
           });
 
           if (activeIds.length > 0) {
@@ -1764,11 +2009,18 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             center.divideScalar(activeIds.length);
 
             const pivot = multiPivotGroupRef.current;
+            if (!isObjectInScene(pivot, scene)) {
+              scene.add(pivot);
+            }
             pivot.position.copy(center);
             pivot.rotation.set(0, 0, 0);
             pivot.scale.set(1, 1, 1);
             pivot.updateMatrixWorld(true);
-            tc.attach(pivot);
+            if (isObjectInScene(pivot, scene)) {
+              tc.attach(pivot);
+            } else {
+              tc.detach();
+            }
           } else {
             tc.detach();
           }
@@ -1885,8 +2137,16 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   // Synchronize 3D Cable Spline Meshes & Interactive Waypoint Handles
   useEffect(() => {
+    if (isDraggingWaypointRef.current) {
+      // Do not recreate meshes or detach controls while actively dragging!
+      return;
+    }
     const cablesGroup = cablesGroupRef.current;
     const waypointsGroup = cableWaypointsGroupRef.current;
+    const tcInstance = transformControlsRef.current;
+    if (tcInstance && tcInstance.object && (tcInstance.object.userData?.isWaypointHandle || !tcInstance.object.parent)) {
+      tcInstance.detach();
+    }
     cablesGroup.clear();
     waypointsGroup.clear();
 
@@ -2013,7 +2273,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             metalness: 0.25,
             opacity: isCableDimmed ? 0.12 : 1.0,
             transparent: isCableDimmed,
-            depthWrite: !isCableDimmed,
+            depthTest: true,
+            depthWrite: false,
             emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : strandColorHex),
             emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
           });
@@ -2055,7 +2316,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           metalness: 0.25,
           opacity: isCableDimmed ? 0.12 : 1.0,
           transparent: isCableDimmed,
-          depthWrite: !isCableDimmed,
+          depthTest: true,
+          depthWrite: false,
           emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff)),
           emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
         });
@@ -2187,14 +2449,19 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     rebuildFlowParticles(gatheredFlowItems);
 
     // If an active waypoint handle is selected, attach TransformControls to it!
-    const tcInstance = transformControlsRef.current;
-    if (tcInstance && selectedCableId && selectedWaypointId) {
-      const activeHandle = waypointsGroup.children.find(
-        (child) => child.userData?.waypointId === selectedWaypointId
-      );
-      if (activeHandle) {
-        tcInstance.attach(activeHandle);
-        tcInstance.setMode("translate");
+    if (tcInstance) {
+      if (selectedCableId && selectedWaypointId) {
+        const activeHandle = waypointsGroup.children.find(
+          (child) => child.userData?.waypointId === selectedWaypointId
+        );
+        if (activeHandle && isObjectInScene(activeHandle, sceneRef.current)) {
+          tcInstance.attach(activeHandle);
+          tcInstance.setMode("translate");
+        } else if (tcInstance.object?.userData?.isWaypointHandle) {
+          tcInstance.detach();
+        }
+      } else if (tcInstance.object?.userData?.isWaypointHandle) {
+        tcInstance.detach();
       }
     }
   }, [cables, instances, showCables, selectedCableId, selectedWaypointId, meshSyncTicket, effectiveSelectedIds, dimUnselected]);
@@ -2271,14 +2538,15 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         const auraRadius = Math.max(cableR * 2.3, cableR + 2.35);
 
         // Core pulse material:
-        // Signal: High-intensity electric blue (0x0066ff)
-        // Power: High-intensity laser red (0xff0033)
-        // depthTest: false guarantees 360-degree visibility from ANY camera angle without occlusion!
+        // Signal: High-intensity electric blue (0x0080ff)
+        // Power: High-intensity laser red (0xff1744)
+        // depthTest: true ensures flow is occluded by internal avionics components (battery, FC, ESC, etc.)
+        // Drone airframe has depthWrite: false and renderOrder: 950, so flow remains fully visible through drone frame!
         const coreMat = new THREE.MeshBasicMaterial({
-          color: isStrandPower ? 0xff0033 : 0x0066ff,
+          color: isStrandPower ? 0xff1744 : 0x0080ff,
           transparent: true,
-          opacity: 0.95,
-          depthTest: false, // Fully visible from all sides without being hidden by wire or geometry
+          opacity: 0.96,
+          depthTest: true,
           depthWrite: false,
           side: THREE.DoubleSide,
         });
@@ -2287,10 +2555,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         // Signal: Luminous cyan-blue aura
         // Power: Luminous bright red aura
         const auraMat = new THREE.MeshBasicMaterial({
-          color: isStrandPower ? 0xff2255 : 0x00b4d8,
+          color: isStrandPower ? 0xff3366 : 0x00d4ff,
           transparent: true,
-          opacity: 0.48,
-          depthTest: false,
+          opacity: 0.62,
+          depthTest: true,
           depthWrite: false,
           blending: THREE.AdditiveBlending,
           side: THREE.DoubleSide,
@@ -2298,13 +2566,13 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         for (let pIdx = 0; pIdx < numPulses; pIdx++) {
           const coreMesh = new THREE.Mesh(baseSphereGeo, coreMat);
-          coreMesh.scale.set(coreRadius, coreRadius, coreRadius * 1.4);
-          coreMesh.renderOrder = 999;
+          coreMesh.scale.set(coreRadius, coreRadius, coreRadius * 1.5);
+          coreMesh.renderOrder = 2;
           flowGroup.add(coreMesh);
 
           const auraMesh = new THREE.Mesh(baseSphereGeo, auraMat);
-          auraMesh.scale.set(auraRadius, auraRadius, auraRadius * 1.4);
-          auraMesh.renderOrder = 998;
+          auraMesh.scale.set(auraRadius, auraRadius, auraRadius * 1.5);
+          auraMesh.renderOrder = 2;
           flowGroup.add(auraMesh);
 
           const baseOffset = pIdx / numPulses + cIdx * 0.07;
