@@ -301,6 +301,8 @@ interface Viewport3DProps {
     stop: () => void;
     isRecording: () => boolean;
   }) => void;
+  dimUnselected?: boolean;
+  onToggleDimUnselected?: () => void;
 }
 
 /**
@@ -386,6 +388,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   onCapturePNG,
   onShowToast,
   onRegisterVideoRecorder,
+  dimUnselected = false,
+  onToggleDimUnselected,
 }) => {
   const effectiveIsolate = isIsolatedView || (hideObstacles === true);
   const handleToggleIsolate = onToggleIsolatedView || onToggleHideObstacles;
@@ -1646,7 +1650,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         const isAirframeInst = inst.isAirframe || inst.componentId === "01";
         const isSelected = effectiveSelectedIds.includes(inst.instanceId);
         const isConnected = connectedInstanceIds.has(inst.instanceId);
-        const isDimmed = hasActiveSelection && !isAirframeInst && !isSelected && !isConnected;
+        const isDimmed = dimUnselected && hasActiveSelection && !isAirframeInst && !isSelected && !isConnected;
 
         mesh.visible = isObstructionHidden ? false : (isAirframeInst ? (inst.visible && droneVisible) : inst.visible);
 
@@ -1783,7 +1787,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [instances, cables, effectiveSelectedIds, droneColor, droneOpacity, droneWireframe, droneVisible, selectedCableId, selectedWaypointId]);
+  }, [instances, cables, effectiveSelectedIds, droneColor, droneOpacity, droneWireframe, droneVisible, selectedCableId, selectedWaypointId, dimUnselected]);
 
   // Synchronize 3D Pin Markers
   useEffect(() => {
@@ -1924,7 +1928,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         (effectiveSelectedIds.includes(cable.sourceInstanceId) ||
          effectiveSelectedIds.includes(cable.targetInstanceId));
       const isCableDimmed =
-        effectiveSelectedIds.length > 0 && !isCableConnectedToSelection;
+        dimUnselected &&
+        effectiveSelectedIds.length > 0 &&
+        !isCableConnectedToSelection;
       const distance = p1.distanceTo(p2);
 
       // Build spline control points
@@ -2191,7 +2197,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         tcInstance.setMode("translate");
       }
     }
-  }, [cables, instances, showCables, selectedCableId, selectedWaypointId, meshSyncTicket, effectiveSelectedIds]);
+  }, [cables, instances, showCables, selectedCableId, selectedWaypointId, meshSyncTicket, effectiveSelectedIds, dimUnselected]);
 
   // Rebuild particle meshes based on flowType filter
   const rebuildFlowParticles = (

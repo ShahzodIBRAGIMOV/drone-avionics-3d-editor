@@ -28,6 +28,7 @@ import { HeaderBar } from "./components/HeaderBar";
 import { UnplacedInventoryPanel } from "./components/UnplacedInventoryPanel";
 import { PlacedInspectorPanel } from "./components/PlacedInspectorPanel";
 import { Viewport3D, computePinWorldPosition } from "./components/Viewport3D";
+import { SchematicView2D } from "./components/SchematicView2D";
 import * as THREE from "three";
 import { CameraViewControls } from "./components/CameraViewControls";
 import { ViewportQuickTools } from "./components/ViewportQuickTools";
@@ -224,6 +225,38 @@ export default function App() {
   const [showCables, setShowCables] = useState<boolean>(true);
   const [showGrid, setShowGrid] = useState<boolean>(true);
 
+  // View Layout Mode: "split" (3D + 2D side-by-side), "3d" (only 3D), "2d" (only 2D Schematic)
+  const [viewLayoutMode, setViewLayoutMode] = useState<"split" | "3d" | "2d">("split");
+  const [splitRatio, setSplitRatio] = useState<number>(0.5);
+  const [isResizingSplit, setIsResizingSplit] = useState<boolean>(false);
+
+  // Drag-to-resize handler for 3D/2D split divider
+  const handleSplitDividerMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingSplit(true);
+  };
+
+  useEffect(() => {
+    if (!isResizingSplit) return;
+    const handleMouseMove = (e: MouseEvent) => {
+      const container = document.getElementById("center-viewport-wrapper");
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      const relativeX = e.clientX - rect.left;
+      const newRatio = Math.max(0.2, Math.min(0.8, relativeX / rect.width));
+      setSplitRatio(newRatio);
+    };
+    const handleMouseUp = () => {
+      setIsResizingSplit(false);
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizingSplit]);
+
   // Responsive Panels (Left Inventory, Right Inspector)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(true);
@@ -309,6 +342,25 @@ export default function App() {
   const [cloudCode, setCloudCode] = useState<string | null>(() => {
     return localStorage.getItem("drone_avionics_cloud_code") || null;
   });
+
+  // Dim / Gray out unselected elements toggle (Default false: user requested everything visible by default unless toggled)
+  const [dimUnselected, setDimUnselected] = useState<boolean>(() => {
+    const saved = localStorage.getItem("drone_dim_unselected");
+    return saved !== null ? saved === "true" : false;
+  });
+
+  const handleToggleDimUnselected = useCallback(() => {
+    setDimUnselected((prev) => {
+      const next = !prev;
+      localStorage.setItem("drone_dim_unselected", String(next));
+      showToast(
+        next
+          ? "🎯 Fokus rejimi: Tanlanmagan elementlar kulrang qilinadi [D]"
+          : "👁️ Oddiy rejim: Barcha elementlar to‘liq rangda ko‘rinadi [D]"
+      );
+      return next;
+    });
+  }, [showToast]);
 
   const isInitializedRef = React.useRef<boolean>(false);
   const [isAppReady, setIsAppReady] = useState<boolean>(false);
@@ -1992,6 +2044,28 @@ export default function App() {
         return;
       }
 
+      // 12.4. Key '2' (Toggle 3D + 2D Split / 2D / 3D Layout)
+      if (
+        !isCtrlOrCmd &&
+        !e.altKey &&
+        e.key === "2" &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName || "")
+      ) {
+        e.preventDefault();
+        setViewLayoutMode((prev) => {
+          const next = prev === "split" ? "2d" : prev === "2d" ? "3d" : "split";
+          showToast(
+            next === "split"
+              ? "⚡ 3D + 2D Sxema yonma-yon [2]"
+              : next === "2d"
+              ? "📐 2D Sxema to‘liq ko‘rinishda [2]"
+              : "🧊 3D ko‘rinish to‘liq ekranda [2]"
+          );
+          return next;
+        });
+        return;
+      }
+
       // 13. Transform Modes: W (Translate), E (Rotate), R (Scale)
       if (!isCtrlOrCmd && !e.altKey && (e.key === "w" || e.key === "W")) {
         setTransformMode("translate");
@@ -2016,6 +2090,39 @@ export default function App() {
           showToast(next === "world" ? "🌍 Koordinata: Dunyo (World) [Q]" : "🌐 Koordinata: Lokal (Local) [Q]");
           return next;
         });
+        return;
+      }
+
+      // View Layout Mode Shortcuts: Tab (Toggle 3D/2D), 1 (3D), 2 (2D Sxema), 3 (Split)
+      if (!isCtrlOrCmd && !e.altKey && e.key === "Tab") {
+        e.preventDefault();
+        setViewLayoutMode((prev) => {
+          const next = prev === "2d" ? "3d" : "2d";
+          showToast(next === "3d" ? "🧊 3D Ko‘rinishga o‘tildi [Tab]" : "📋 2D Sxemaga o‘tildi [Tab]");
+          return next;
+        });
+        return;
+      }
+      if (!isCtrlOrCmd && !e.altKey && e.key === "1") {
+        setViewLayoutMode("3d");
+        showToast("🧊 3D Sahnaga o‘tildi [1]");
+        return;
+      }
+      if (!isCtrlOrCmd && !e.altKey && e.key === "2") {
+        setViewLayoutMode("2d");
+        showToast("📋 2D Sxemaga o‘tildi [2]");
+        return;
+      }
+      if (!isCtrlOrCmd && !e.altKey && e.key === "3") {
+        setViewLayoutMode("split");
+        showToast("🪟 3D + 2D Split ko‘rinish [3]");
+        return;
+      }
+
+      // Dim Unselected Elements Toggle: D (without Ctrl/Cmd/Alt)
+      if (!isCtrlOrCmd && !e.altKey && (e.key === "d" || e.key === "D")) {
+        e.preventDefault();
+        handleToggleDimUnselected();
         return;
       }
 
@@ -2072,6 +2179,7 @@ export default function App() {
     handleToggleLockSelected,
     handleToggleVisibilitySelected,
     handleManualSave,
+    handleToggleDimUnselected,
     showToast,
   ]);
 
@@ -2920,6 +3028,8 @@ export default function App() {
         setShowCables={setShowCables}
         showGrid={showGrid}
         setShowGrid={setShowGrid}
+        viewLayoutMode={viewLayoutMode}
+        setViewLayoutMode={setViewLayoutMode}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         onExportCSV={handleExportCSV}
@@ -2954,6 +3064,8 @@ export default function App() {
         onToggleFlowAnimation={handleToggleFlowAnimation}
         isVideoRecording={isVideoRecording}
         onToggleVideo={handleToggleVideo}
+        dimUnselected={dimUnselected}
+        onToggleDimUnselected={handleToggleDimUnselected}
       />
 
       {/* Main Workspace Body */}
@@ -2984,8 +3096,11 @@ export default function App() {
           />
         )}
 
-        {/* Center: 3D Viewport with Floating Controls */}
-        <div className="viewport-wrapper" id="center-viewport-wrapper">
+        {/* Center: 3D Viewport & 2D Schematic with Split/Solo Layouts */}
+        <div
+          className={`viewport-wrapper ${viewLayoutMode === "split" ? "split-layout" : ""}`}
+          id="center-viewport-wrapper"
+        >
           {/* Floating Expand Buttons when sidebars are collapsed */}
           {!isLeftPanelOpen && (
             <button
@@ -3011,123 +3126,187 @@ export default function App() {
             </button>
           )}
 
-          <Viewport3D
-            instances={instances}
-            cables={cables}
-            selectedInstanceId={selectedInstanceId}
-            selectedInstanceIds={selectedInstanceIds}
-            selectedPinFullName={selectedPinFullName}
-            selectedCableId={selectedCableId}
-            onSelectCable={handleSelectCable}
-            onUpdateCable={handleUpdateCable}
-            onAddCableRoutePoint={handleAddCableRoutePoint}
-            onUpdateCableRoutePoint={handleUpdateCableRoutePoint}
-            onDeleteCableRoutePoint={handleDeleteCableRoutePoint}
-            onStraightenCable={handleStraightenCable}
-            onSwapCableEnds={handleSwapCableEnds}
-            transformMode={transformMode}
-            transformSpace={transformSpace}
-            droneOpacity={droneOpacity}
-            droneWireframe={droneWireframe}
-            droneVisible={droneVisible}
-            droneColor={droneColor}
-            sceneTheme={sceneTheme}
-            showPins={showPins}
-            showCables={showCables}
-            showGrid={showGrid}
-            cameraViewMode={cameraViewMode}
-            onSelectInstance={(id, isShift) => {
-              handleSelectInstance(id, isShift);
-              if (id !== null) {
-                setIsRightPanelOpen(true);
-              }
-            }}
-            onSelectPin={(pin) => setSelectedPinFullName(pin)}
-            onUpdateTransform={handleUpdateTransform}
-            onUpdateMultipleTransforms={handleUpdateMultipleTransforms}
-            registerCaptureFn={(fn) => {
-              captureFnRef.current = fn;
-            }}
-            onAssetLoadError={handleAssetLoadError}
-            reloadTrigger={reloadTrigger}
-            isPlacingPinMode={isPlacingPinMode}
-            placingPinTargetInstanceId={placingPinTargetInstanceId}
-            onAddPinAtPoint={handlePinPlacedAtPoint}
-            onCancelPlacingPinMode={() => setIsPlacingPinMode(false)}
-            focusOnSelectionTrigger={focusTrigger}
-            onTransformStart={handleTransformStart}
-            cameraViewTrigger={cameraViewTrigger}
-            hideObstacles={isIsolatedView}
-            onToggleHideObstacles={handleToggleIsolatedView}
-            isIsolatedView={isIsolatedView}
-            onToggleIsolatedView={handleToggleIsolatedView}
-            onHiddenObstaclesCountChange={setHiddenObstaclesCount}
-            isFlowAnimating={isFlowAnimating}
-            onToggleFlowAnimation={handleToggleFlowAnimation}
-            flowSpeed={flowSpeed}
-            onFlowSpeedChange={setFlowSpeed}
-            flowType={flowType}
-            onFlowTypeChange={setFlowType}
-            isAutoRotateActive={isAutoRotateActive}
-            onToggleAutoRotate={() => setIsAutoRotateActive((prev) => !prev)}
-            onCapturePNG={handleCapturePNG}
-            onShowToast={showToast}
-            onRegisterVideoRecorder={(rec) => {
-              videoRecorderRef.current = rec;
-            }}
-          />
+          {/* 3D Viewport Pane (Active in '3d' and 'split' modes) */}
+          {(viewLayoutMode === "3d" || viewLayoutMode === "split") && (
+            <div
+              className="viewport-pane-3d"
+              style={{
+                width: viewLayoutMode === "split" ? `${splitRatio * 100}%` : "100%",
+                display: "block",
+              }}
+            >
+              <Viewport3D
+                instances={instances}
+                cables={cables}
+                selectedInstanceId={selectedInstanceId}
+                selectedInstanceIds={selectedInstanceIds}
+                selectedPinFullName={selectedPinFullName}
+                selectedCableId={selectedCableId}
+                onSelectCable={handleSelectCable}
+                onUpdateCable={handleUpdateCable}
+                onAddCableRoutePoint={handleAddCableRoutePoint}
+                onUpdateCableRoutePoint={handleUpdateCableRoutePoint}
+                onDeleteCableRoutePoint={handleDeleteCableRoutePoint}
+                onStraightenCable={handleStraightenCable}
+                onSwapCableEnds={handleSwapCableEnds}
+                transformMode={transformMode}
+                transformSpace={transformSpace}
+                droneOpacity={droneOpacity}
+                droneWireframe={droneWireframe}
+                droneVisible={droneVisible}
+                droneColor={droneColor}
+                sceneTheme={sceneTheme}
+                showPins={showPins}
+                showCables={showCables}
+                showGrid={showGrid}
+                cameraViewMode={cameraViewMode}
+                onSelectInstance={(id, isShift) => {
+                  handleSelectInstance(id, isShift);
+                  if (id !== null) {
+                    setIsRightPanelOpen(true);
+                  }
+                }}
+                onSelectPin={(pin) => setSelectedPinFullName(pin)}
+                onUpdateTransform={handleUpdateTransform}
+                onUpdateMultipleTransforms={handleUpdateMultipleTransforms}
+                registerCaptureFn={(fn) => {
+                  captureFnRef.current = fn;
+                }}
+                onAssetLoadError={handleAssetLoadError}
+                reloadTrigger={reloadTrigger}
+                isPlacingPinMode={isPlacingPinMode}
+                placingPinTargetInstanceId={placingPinTargetInstanceId}
+                onAddPinAtPoint={handlePinPlacedAtPoint}
+                onCancelPlacingPinMode={() => setIsPlacingPinMode(false)}
+                focusOnSelectionTrigger={focusTrigger}
+                onTransformStart={handleTransformStart}
+                cameraViewTrigger={cameraViewTrigger}
+                hideObstacles={isIsolatedView}
+                onToggleHideObstacles={handleToggleIsolatedView}
+                isIsolatedView={isIsolatedView}
+                onToggleIsolatedView={handleToggleIsolatedView}
+                onHiddenObstaclesCountChange={setHiddenObstaclesCount}
+                isFlowAnimating={isFlowAnimating}
+                onToggleFlowAnimation={handleToggleFlowAnimation}
+                flowSpeed={flowSpeed}
+                onFlowSpeedChange={setFlowSpeed}
+                flowType={flowType}
+                onFlowTypeChange={setFlowType}
+                isAutoRotateActive={isAutoRotateActive}
+                onToggleAutoRotate={() => setIsAutoRotateActive((prev) => !prev)}
+                onCapturePNG={handleCapturePNG}
+                onShowToast={showToast}
+                onRegisterVideoRecorder={(rec) => {
+                  videoRecorderRef.current = rec;
+                }}
+                dimUnselected={dimUnselected}
+                onToggleDimUnselected={handleToggleDimUnselected}
+              />
 
-          {/* Top Floating Viewport HUD (Unified Bar: Camera View Presets on Left, Quick Tools on Right) */}
-          <div
-            className="viewport-top-hud"
-            id="viewport-top-hud"
-            style={{
-              paddingLeft: isLeftPanelOpen ? "0px" : "88px",
-              paddingRight: isRightPanelOpen ? "0px" : "96px",
-            }}
-          >
-            {/* Left: Camera Orientation Controls */}
-            <CameraViewControls
-              currentView={cameraViewMode}
-              onSetCameraView={handleSetCameraView}
-              onResetCamera={() => handleSetCameraView("perspective")}
-              selectedInstanceName={selectedInstance ? (selectedInstance.customLabel || selectedInstance.name) : null}
-              isIsolatedView={isIsolatedView}
-              onToggleIsolatedView={handleToggleIsolatedView}
-              hiddenObstaclesCount={hiddenObstaclesCount}
-            />
+              {/* Top Floating Viewport HUD (Unified Bar: Camera View Presets on Left, Quick Tools on Right) */}
+              <div
+                className="viewport-top-hud"
+                id="viewport-top-hud"
+                style={{
+                  paddingLeft: isLeftPanelOpen ? "0px" : "88px",
+                  paddingRight: isRightPanelOpen && viewLayoutMode === "3d" ? "0px" : "12px",
+                }}
+              >
+                {/* Left: Camera Orientation Controls */}
+                <CameraViewControls
+                  currentView={cameraViewMode}
+                  onSetCameraView={handleSetCameraView}
+                  onResetCamera={() => handleSetCameraView("perspective")}
+                  selectedInstanceName={selectedInstance ? (selectedInstance.customLabel || selectedInstance.name) : null}
+                  isIsolatedView={isIsolatedView}
+                  onToggleIsolatedView={handleToggleIsolatedView}
+                  hiddenObstaclesCount={hiddenObstaclesCount}
+                />
 
-            {/* Right: Viewport Quick Action Tools */}
-            <ViewportQuickTools
-              isFlowAnimating={isFlowAnimating}
-              onToggleFlowAnimation={handleToggleFlowAnimation}
-              flowType={flowType}
-              onFlowTypeChange={setFlowType}
-              flowSpeed={flowSpeed}
-              onCycleFlowSpeed={() => {
-                const speeds: (0.5 | 1 | 2)[] = [0.5, 1, 2];
-                const idx = speeds.indexOf(flowSpeed as 0.5 | 1 | 2);
-                setFlowSpeed(speeds[(idx + 1) % speeds.length]);
+                {/* Right: Viewport Quick Action Tools */}
+                <ViewportQuickTools
+                  isFlowAnimating={isFlowAnimating}
+                  onToggleFlowAnimation={handleToggleFlowAnimation}
+                  flowType={flowType}
+                  onFlowTypeChange={setFlowType}
+                  flowSpeed={flowSpeed}
+                  onCycleFlowSpeed={() => {
+                    const speeds: (0.5 | 1 | 2)[] = [0.5, 1, 2];
+                    const idx = speeds.indexOf(flowSpeed as 0.5 | 1 | 2);
+                    setFlowSpeed(speeds[(idx + 1) % speeds.length]);
+                  }}
+                  isAutoRotateActive={isAutoRotateActive}
+                  onToggleAutoRotate={() => {
+                    const next = !isAutoRotateActive;
+                    setIsAutoRotateActive(next);
+                    showToast(next ? "🔄 360° Aylanma ko‘rinish yoqildi" : "Aylanma ko‘rinish to‘xtatildi");
+                  }}
+                  onCapturePNG={handleCapturePNG}
+                  isVideoRecording={isVideoRecording}
+                  onToggleVideo={handleToggleVideo}
+                  showCables={showCables}
+                  onToggleShowCables={() => {
+                    setShowCables((prev) => {
+                      const next = !prev;
+                      showToast(next ? "🔌 Kabellar ko‘rsatildi [C]" : "🙈 Kabellar yashirildi [C]");
+                      return next;
+                    });
+                  }}
+                  dimUnselected={dimUnselected}
+                  onToggleDimUnselected={handleToggleDimUnselected}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Draggable Divider in Split Mode */}
+          {viewLayoutMode === "split" && (
+            <div
+              className={`viewport-split-divider ${isResizingSplit ? "active" : ""}`}
+              onMouseDown={handleSplitDividerMouseDown}
+              title="3D va 2D o‘lchamini o‘zgartirish uchun suring (Drag to resize)"
+            >
+              <div className="viewport-split-divider-handle" />
+            </div>
+          )}
+
+          {/* 2D Schematic Viewport Pane (Active in '2d' and 'split' modes) */}
+          {(viewLayoutMode === "2d" || viewLayoutMode === "split") && (
+            <div
+              className="viewport-pane-2d"
+              style={{
+                width: viewLayoutMode === "split" ? `${(1 - splitRatio) * 100}%` : "100%",
+                display: "block",
               }}
-              isAutoRotateActive={isAutoRotateActive}
-              onToggleAutoRotate={() => {
-                const next = !isAutoRotateActive;
-                setIsAutoRotateActive(next);
-                showToast(next ? "🔄 360° Aylanma ko‘rinish yoqildi" : "Aylanma ko‘rinish to‘xtatildi");
-              }}
-              onCapturePNG={handleCapturePNG}
-              isVideoRecording={isVideoRecording}
-              onToggleVideo={handleToggleVideo}
-              showCables={showCables}
-              onToggleShowCables={() => {
-                setShowCables((prev) => {
-                  const next = !prev;
-                  showToast(next ? "🔌 Kabellar ko‘rsatildi [C]" : "🙈 Kabellar yashirildi [C]");
-                  return next;
-                });
-              }}
-            />
-          </div>
+            >
+              <SchematicView2D
+                instances={instances}
+                cables={cables}
+                selectedInstanceId={selectedInstanceId}
+                selectedInstanceIds={selectedInstanceIds}
+                selectedCableId={selectedCableId}
+                onSelectInstance={(id, isShift) => {
+                  handleSelectInstance(id, isShift);
+                  if (id !== null) {
+                    setIsRightPanelOpen(true);
+                  }
+                }}
+                onSelectCable={handleSelectCable}
+                droneOpacity={droneOpacity}
+                sceneTheme={sceneTheme}
+                showCables={showCables}
+                isSplitView={viewLayoutMode === "split"}
+                onToggleSplit={() =>
+                  setViewLayoutMode((prev) => (prev === "split" ? "2d" : "split"))
+                }
+                onToggle3D2D={() =>
+                  setViewLayoutMode((prev) => (prev === "2d" ? "3d" : "2d"))
+                }
+                dimUnselected={dimUnselected}
+                onToggleDimUnselected={handleToggleDimUnselected}
+              />
+            </div>
+          )}
         </div>
 
         {/* Right: Placed Inspector & Electrical Port / Cable Panel */}

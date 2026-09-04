@@ -1,5 +1,17 @@
 import React from "react";
-import { Play, Pause, RotateCw, Camera, Video, Square, Zap, Activity, Cable } from "lucide-react";
+import {
+  Play,
+  Pause,
+  RotateCw,
+  Camera,
+  Video,
+  Square,
+  Zap,
+  Activity,
+  Cable,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 
 interface ViewportQuickToolsProps {
   isFlowAnimating: boolean;
@@ -15,6 +27,8 @@ interface ViewportQuickToolsProps {
   onToggleVideo: () => void;
   showCables?: boolean;
   onToggleShowCables?: () => void;
+  dimUnselected?: boolean;
+  onToggleDimUnselected?: () => void;
 }
 
 export const ViewportQuickTools: React.FC<ViewportQuickToolsProps> = ({
@@ -31,9 +45,33 @@ export const ViewportQuickTools: React.FC<ViewportQuickToolsProps> = ({
   onToggleVideo,
   showCables = true,
   onToggleShowCables,
+  dimUnselected = false,
+  onToggleDimUnselected,
 }) => {
   return (
     <div className="viewport-quick-tools" id="viewport-quick-tools">
+      {/* Dim / Gray Out Unselected Elements Toggle */}
+      {onToggleDimUnselected && (
+        <button
+          type="button"
+          id="hud-btn-toggle-dim-unselected"
+          onClick={onToggleDimUnselected}
+          className={`viewport-quick-btn ${dimUnselected ? "active border-amber-500/50 bg-amber-950/40 text-amber-200" : ""}`}
+          title={
+            dimUnselected
+              ? "Fokus faol: Tanlanmagan elementlar kulrang bo‘ladi [D]. Barchasini ko‘rsatish uchun bosing"
+              : "Barcha elementlar to‘liq ko‘rinadi [D]. Kulrang rejimni yoqish uchun bosing"
+          }
+        >
+          {dimUnselected ? (
+            <EyeOff size={13} className="text-amber-400" />
+          ) : (
+            <Eye size={13} className="text-cyan-300" />
+          )}
+          <span>{dimUnselected ? "Kulrang: On" : "Barchasi: On"}</span>
+        </button>
+      )}
+
       {/* Cable Visibility Toggle */}
       {onToggleShowCables && (
         <button

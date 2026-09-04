@@ -176,6 +176,13 @@ const SHORTCUT_LIST: ShortcutItem[] = [
     description: "Tanlangan modelni alohida ko‘rsatish, atrofidagi to‘siq modellarni vaqtincha yashirish",
   },
   {
+    id: "dim-toggle",
+    category: "actions",
+    keys: ["D"],
+    title: "Kulrang / Fokus rejim (Dim Toggle)",
+    description: "Element tanlanganda boshqa elementlarni kulrang qilish yoki barchasini to‘liq ko‘rsatish",
+  },
+  {
     id: "flow-animation-toggle",
     category: "actions",
     keys: ["Space"],
