@@ -15,7 +15,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { CloudProjectData, CloudProjectSummary } from "../types";
-import { listCloudProjects, deleteCloudProject, generateCloudCode } from "../services/cloudProjectService";
+import { listCloudProjects, deleteCloudProject, generateCloudCode, isCloudQuotaExhausted } from "../services/cloudProjectService";
 
 interface CloudSyncModalProps {
   isOpen: boolean;
@@ -230,6 +230,29 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
           {/* TAB 1: SAVE */}
           {activeTab === "save" && (
             <div className="space-y-4">
+              {isCloudQuotaExhausted() && (
+                <div className="bg-amber-950/40 border border-amber-800/60 rounded-xl p-3.5 flex items-start gap-3">
+                  <AlertCircle className="text-amber-400 shrink-0 mt-0.5" size={18} />
+                  <div className="text-xs text-amber-200/90 leading-relaxed space-y-1">
+                    <div className="font-semibold text-amber-300">Firebase Firestore bepul kunlik yozish kvotasi to‘lgan</div>
+                    <div>
+                      Loyiha brauzer xotirasida (LocalStorage) to‘liq va xavfsiz saqlanmoqda. Shuningdek, loyihani JSON fayl qilib yuklab olishingiz mumkin.
+                    </div>
+                    <div className="text-[11px] text-amber-300/80 pt-1">
+                      Kunlik kvota 24 soat ichida (keyingi kunda) avtomatik tarzda qayta tiklanadi.
+                      <a
+                        href="https://console.firebase.google.com/project/gen-lang-client-0194931467/firestore/databases/ai-studio-droneavionics3de-37839b62-b48f-4d52-902a-d0277bc18846/data?openUpgradeDialog=true"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1 underline text-sky-400 hover:text-sky-300 inline-flex items-center gap-0.5"
+                      >
+                        Firebase konsoli <ExternalLink size={10} />
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-3 flex items-start gap-2.5">
                 <CheckCircle2 className="text-emerald-400 shrink-0 mt-0.5" size={16} />
                 <div className="text-xs text-emerald-200/90 leading-relaxed">

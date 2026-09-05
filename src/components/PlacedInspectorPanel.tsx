@@ -41,8 +41,14 @@ import {
   Box,
   Tag,
   Layers,
+  ArrowLeftRight,
+  ArrowRight,
+  ArrowLeft,
+  Activity,
+  Droplets,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, CableRoutePoint, PinDefinition } from "../types";
+import { useLanguage } from "../i18n/LanguageContext";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
 import {
   VERIFIED_COMPONENT_DIMENSIONS,
@@ -191,12 +197,40 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
           <span className="cable-name truncate font-medium text-slate-200">
             {cable.name}
           </span>
-          <span className="cable-type-tag text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
+          <span
+            className={`cable-type-tag text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${
+              cable.cableType === "I2C"
+                ? "bg-cyan-950/90 text-cyan-300 border-cyan-400/50 shadow-sm"
+                : cable.cableType === "Airspeed"
+                ? "bg-sky-950/90 text-sky-300 border-sky-400/50 shadow-sm"
+                : cable.cableType === "CAN"
+                ? "bg-emerald-950/90 text-emerald-300 border-emerald-400/50 shadow-sm"
+                : "bg-slate-800 text-slate-300 border-slate-700"
+            }`}
+          >
             {cable.cableType}
           </span>
           {cable.isRibbon && (
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/40">
               Lentali ({cable.strandCount || 3} ta tomir)
+            </span>
+          )}
+          {cable.isBreakout && (
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-950/90 text-amber-300 border border-amber-500/50 flex items-center gap-1 font-semibold shadow-sm">
+              {cable.breakoutMode === "N-to-1"
+                ? `${cable.strandCount || cable.multiSourcePinNames?.length || 3}-to-1 Breakout`
+                : cable.breakoutMode === "N-to-N"
+                ? `${cable.strandCount || 3}-to-${cable.strandCount || 3} Multi-Pin`
+                : `1-to-${cable.strandCount || cable.multiTargetPinNames?.length || 3} Y-Breakout`}
+            </span>
+          )}
+          {(cable.isTransparent || cable.cableType === "Airspeed" || cable.isTubing) && (
+            <span
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sky-950/90 text-sky-300 border border-sky-400/50 flex items-center gap-1 font-semibold shadow-sm"
+              title={`Shaffof silikon shlang (${Math.round((cable.transparencyOpacity ?? 0.45) * 100)}% shaffoflik)`}
+            >
+              <Droplets size={9} />
+              Shaffof Shlang
             </span>
           )}
           {cable.endStickers?.enabled && (
@@ -211,6 +245,15 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
             >
               <Tag size={9} />
               Shtikerli
+            </span>
+          )}
+          {cable.flowDirection === "bidirectional" && (
+            <span
+              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/90 text-emerald-300 border border-emerald-500/50 flex items-center gap-1 font-semibold shadow-sm"
+              title="Ikki tomonlama ma'lumot uzatuvchi kabel (Dual-bus)"
+            >
+              <ArrowLeftRight size={9} />
+              Ikki tomonlama (1⇄2)
             </span>
           )}
         </div>
@@ -234,9 +277,26 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
 
       <div className="cable-endpoints my-1.5 text-xs text-slate-300 flex items-center gap-1.5">
         <div className="endpoint-node truncate flex-1">
-          <span className="node-tag text-[10px] text-slate-500 block">1-tanlangan (Manba):</span>
-          <span className="node-pin font-mono truncate block text-cyan-300 font-medium" title={cable.sourcePinName}>
-            {cable.sourcePinName}
+          <span className="node-tag text-[10px] text-slate-500 block">
+            {cable.isBreakout && cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1
+              ? `1-tanlangan (${cable.multiSourcePinNames.length} ta Pin):`
+              : "1-tanlangan (Manba):"}
+          </span>
+          <span
+            className={`node-pin font-mono truncate block font-medium ${
+              cable.isBreakout && cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1
+                ? "text-amber-300"
+                : "text-cyan-300"
+            }`}
+            title={
+              cable.isBreakout && cable.multiSourcePinNames
+                ? cable.multiSourcePinNames.join(" | ")
+                : cable.sourcePinName
+            }
+          >
+            {cable.isBreakout && cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1
+              ? `${cable.multiSourcePinNames.length} ta Pin (${cable.sourcePinName.split(".").pop() || ""})`
+              : cable.sourcePinName}
           </span>
         </div>
         {onSwapCableEnds && (
@@ -247,16 +307,105 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
               onSwapCableEnds(cable.id);
             }}
             className="px-1.5 py-1 bg-slate-800/90 hover:bg-cyan-950 text-cyan-400 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/60 rounded text-[11px] font-mono flex items-center gap-1 transition-all shadow-sm"
-            title="Kabel oqim yo‘nalishini teskarisiga almashtirish (1-va 2-tanlangan uchlar o‘rnini almashtirish)"
+            title="Kabel uchlarini teskarisiga almashtirish (1-va 2-tanlangan uchlar o‘rnini almashtirish)"
           >
             ⇄
           </button>
         )}
         <div className="endpoint-node truncate flex-1 text-right">
-          <span className="node-tag text-[10px] text-slate-500 block">2-tanlangan (Qabul):</span>
-          <span className="node-pin font-mono truncate block text-slate-300 font-medium" title={cable.targetPinName}>
-            {cable.targetPinName}
+          <span className="node-tag text-[10px] text-slate-500 block">
+            {cable.isBreakout && cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1
+              ? `2-tanlangan (${cable.multiTargetPinNames.length} ta Pin):`
+              : "2-tanlangan (Qabul):"}
           </span>
+          <span
+            className={`node-pin font-mono truncate block font-medium ${
+              cable.isBreakout && cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1
+                ? "text-amber-300"
+                : "text-slate-300"
+            }`}
+            title={
+              cable.isBreakout && cable.multiTargetPinNames
+                ? cable.multiTargetPinNames.join(" | ")
+                : cable.targetPinName
+            }
+          >
+            {cable.isBreakout && cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1
+              ? `${cable.multiTargetPinNames.length} ta Pin (${cable.targetPinName.split(".").pop() || ""})`
+              : cable.targetPinName}
+          </span>
+        </div>
+      </div>
+
+      {/* Flow Direction Selector (One-way vs Bidirectional vs Smart Sensor) */}
+      <div
+        className="my-1.5 p-2 bg-slate-900/90 rounded border border-slate-800/80 flex flex-col gap-1.5 text-[11px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-slate-400 text-[10px] flex items-center gap-1 font-medium whitespace-nowrap">
+            <Activity size={11} className="text-cyan-400" />
+            <span>Oqim yo‘nalishi (Flow Direction):</span>
+          </span>
+          <span className="text-[10px] text-slate-500 font-mono">
+            {cable.flowDirection === "smart" || !cable.flowDirection
+              ? "Aqlli datchik (Smart)"
+              : cable.flowDirection === "bidirectional"
+              ? "Ikki tomonlama (1⇄2)"
+              : cable.flowDirection === "reverse"
+              ? "Teskari (2➔1)"
+              : "To‘g‘ri (1➔2)"}
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1">
+          <button
+            type="button"
+            onClick={() => onUpdateCable?.(cable.id, { flowDirection: "smart" })}
+            className={`px-1.5 py-1 rounded text-[10px] font-mono transition-all flex items-center justify-center gap-0.5 ${
+              cable.flowDirection === "smart" || !cable.flowDirection
+                ? "bg-violet-600 text-white font-bold shadow-sm ring-1 ring-violet-400"
+                : "bg-slate-800 text-slate-400 hover:text-violet-300"
+            }`}
+            title="Aqlli Datchik (Smart): Avtomatik fizik yo‘nalishlar (Quvvat FC➔GPS, Ma‘lumot GPS➔FC)"
+          >
+            ⚡ Aqlli
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateCable?.(cable.id, { flowDirection: "forward" })}
+            className={`px-1.5 py-1 rounded text-[10px] font-mono transition-all flex items-center justify-center gap-0.5 ${
+              cable.flowDirection === "forward"
+                ? "bg-cyan-600 text-white font-bold shadow-sm"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+            title="Bir tomonlama: 1-dan 2-ga tomon"
+          >
+            <ArrowRight size={10} /> 1➔2
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateCable?.(cable.id, { flowDirection: "bidirectional" })}
+            className={`px-1.5 py-1 rounded text-[10px] font-mono transition-all flex items-center justify-center gap-0.5 ${
+              cable.flowDirection === "bidirectional"
+                ? "bg-emerald-600 text-white font-bold shadow-sm ring-1 ring-emerald-400"
+                : "bg-slate-800 text-slate-400 hover:text-emerald-300"
+            }`}
+            title="Ikki tomonlama: CAN, UART TX/RX, Ethernet kabi signallar ikkala tomonga parallel uzatiladi"
+          >
+            <ArrowLeftRight size={10} /> 1⇄2
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateCable?.(cable.id, { flowDirection: "reverse" })}
+            className={`px-1.5 py-1 rounded text-[10px] font-mono transition-all flex items-center justify-center gap-0.5 ${
+              cable.flowDirection === "reverse"
+                ? "bg-amber-600 text-white font-bold shadow-sm"
+                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+            }`}
+            title="Teskari: 2-dan 1-ga tomon"
+          >
+            <ArrowLeft size={10} /> 2➔1
+          </button>
         </div>
       </div>
 
@@ -266,15 +415,66 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
           className="mt-3 pt-3 border-t border-slate-700/60 space-y-3"
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Cable Type / Communication Protocol Selector */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-slate-300 font-medium flex items-center gap-1">
+                <Activity size={12} className="text-cyan-400" />
+                <span>Aloqa turi / Protokol (Cable Type):</span>
+              </span>
+              <span className="font-mono text-cyan-300 text-[11px] font-semibold">
+                {cable.cableType || "PWM"}
+              </span>
+            </div>
+            <select
+              value={cable.cableType || "PWM"}
+              onChange={(e) => {
+                const newType = e.target.value;
+                const p = getPresetForCableType(newType);
+                onUpdateCable?.(cable.id, {
+                  cableType: newType,
+                  wireGauge: p.defaultGauge,
+                  color: p.color,
+                  isRibbon: p.isRibbonDefault,
+                  strandCount: p.defaultStrands,
+                  strandColors: getDefaultStrandColors(newType, p.defaultStrands),
+                  strandLabels: getDefaultStrandLabels(newType, p.defaultStrands),
+                  ...(p.isTransparentDefault !== undefined ? { isTransparent: p.isTransparentDefault } : {}),
+                  ...(p.defaultOpacity !== undefined ? { transparencyOpacity: p.defaultOpacity } : {}),
+                  ...(p.isTubingDefault !== undefined ? { isTubing: p.isTubingDefault } : {}),
+                });
+              }}
+              className="w-full bg-slate-800/95 text-slate-200 text-xs px-2.5 py-1.5 rounded border border-slate-700 hover:border-cyan-500/60 focus:border-cyan-400 focus:outline-none font-mono cursor-pointer shadow-sm transition-all"
+            >
+              {CABLE_TYPES_CONFIG.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label} ({t.id})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Cable Stretching / Slack Slider */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
               <span className="text-slate-300 font-medium flex items-center gap-1">
                 <span>📏 Cho‘zilish / Bo‘shlik (Slack):</span>
               </span>
-              <span className="font-mono text-cyan-300 font-semibold text-[11px]">
-                {cable.slackMm || 0} mm
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono text-cyan-300 font-semibold text-[11px]">
+                  {cable.slackMm || 0} mm
+                </span>
+                {(cable.slackMm || 0) !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdateCable?.(cable.id, { slackMm: 0 })}
+                    className="px-1.5 py-0.5 text-[10px] bg-slate-700 hover:bg-cyan-600 text-slate-200 rounded transition-colors"
+                    title="Bo‘shlikni nolga tushirib tarang qilish"
+                  >
+                    Tarang
+                  </button>
+                )}
+              </div>
             </div>
             <input
               type="range"
@@ -290,7 +490,7 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
             />
             <div className="flex justify-between text-[10px] text-slate-500 font-mono">
               <span>Tarang (-50mm)</span>
-              <span>Standart (0mm)</span>
+              <span>To‘g‘ri (0mm)</span>
               <span>Bo‘sh (+300mm)</span>
             </div>
           </div>
@@ -557,6 +757,103 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
               </div>
             );
           })()}
+
+          {/* Transparent Silicone Tube / Pitot Pneumatic Section */}
+          <div className="p-2.5 bg-slate-900/90 rounded-lg border border-sky-500/30 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                <Droplets size={13} className="text-sky-400" />
+                <span>Shaffof Silikon Shlang (Pitot):</span>
+              </span>
+              <label className="flex items-center gap-1.5 cursor-pointer text-xs text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={Boolean(cable.isTransparent || cable.cableType === "Airspeed" || cable.isTubing)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    onUpdateCable?.(cable.id, {
+                      isTransparent: checked,
+                      isTubing: checked,
+                      transparencyOpacity: cable.transparencyOpacity ?? 0.45,
+                      color: checked && (cable.color === "#000000" || cable.color === "#1e293b") ? "#e0f2fe" : cable.color,
+                    });
+                  }}
+                  className="accent-sky-500 cursor-pointer"
+                />
+                <span className="text-[11px] font-medium text-sky-300">
+                  {cable.isTransparent ? "Faol (Shaffof)" : "Oddiy sim"}
+                </span>
+              </label>
+            </div>
+
+            {(cable.isTransparent || cable.cableType === "Airspeed" || cable.isTubing) && (
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                {/* Opacity slider */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-400">Shaffoflik (Opacity):</span>
+                    <span className="font-mono text-sky-300 font-semibold">
+                      {Math.round((cable.transparencyOpacity ?? 0.45) * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.15}
+                    max={0.85}
+                    step={0.05}
+                    value={cable.transparencyOpacity ?? 0.45}
+                    onChange={(e) =>
+                      onUpdateCable?.(cable.id, {
+                        transparencyOpacity: parseFloat(e.target.value),
+                        isTransparent: true,
+                        isTubing: true,
+                      })
+                    }
+                    className="w-full accent-sky-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
+                    <span>15% (Muzdek tiniq)</span>
+                    <span>45% (Standart)</span>
+                    <span>85% (Quyuq)</span>
+                  </div>
+                </div>
+
+                {/* Quick silicone material swatches */}
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 block">Tezkor silikon turlari:</span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {[
+                      { name: "Muzdek Tiniq", color: "#e0f2fe", opacity: 0.40 },
+                      { name: "Moviy Shaffof", color: "#bae6fd", opacity: 0.45 },
+                      { name: "Sutsimon Oq", color: "#f8fafc", opacity: 0.55 },
+                      { name: "Sariq Silikon", color: "#fef08a", opacity: 0.40 },
+                    ].map((mat) => (
+                      <button
+                        key={mat.name}
+                        type="button"
+                        onClick={() => {
+                          onUpdateCableColor(cable.id, mat.color);
+                          onUpdateCable?.(cable.id, {
+                            isTransparent: true,
+                            isTubing: true,
+                            transparencyOpacity: mat.opacity,
+                          });
+                        }}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-750 text-slate-200 text-[10px] rounded border border-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
+                        title={mat.name}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-white/30"
+                          style={{ backgroundColor: mat.color, opacity: mat.opacity }}
+                        />
+                        <span>{mat.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Cable End Identification Stickers (Uchki Shtikerlar / Markirovka) */}
           {(() => {
@@ -992,6 +1289,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   isIsolatedView = false,
   onToggleIsolatedView,
 }) => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"inspector" | "pins" | "cables">("inspector");
 
   // State for inline custom pin name editing
@@ -1146,7 +1444,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
           onClick={() => setActiveTab("inspector")}
         >
           <Sliders size={14} />
-          <span>Xususiyatlar</span>
+          <span>{t("inspector.tabProperties")}</span>
         </button>
         <button
           id="tab-btn-pins"
@@ -1154,7 +1452,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
           onClick={() => setActiveTab("pins")}
         >
           <Zap size={14} />
-          <span>Pinlar {selectedInstance ? `(${componentPins.length})` : ""}</span>
+          <span>{t("inspector.tabPins")} {selectedInstance ? `(${componentPins.length})` : ""}</span>
         </button>
         <button
           id="tab-btn-cables"
@@ -1162,7 +1460,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
           onClick={() => setActiveTab("cables")}
         >
           <Cable size={14} />
-          <span>Kabellar ({cables.length})</span>
+          <span>{t("inspector.tabCables")} ({cables.length})</span>
         </button>
         {onCollapse && (
           <button
@@ -2635,27 +2933,27 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                 <div className="telemetry-summary-card">
                   <div className="telemetry-card-header">
                     <Cpu size={18} className="text-cyan" />
-                    <h3>3.8 M UAV Avionika Holati</h3>
+                    <h3>3.8 M UAV {t("inspector.title")}</h3>
                   </div>
 
                   <div className="telemetry-metrics-grid">
                     <div className="metric-box">
                       <span className="metric-value">3800 mm</span>
-                      <span className="metric-label">Qanot oralig‘i</span>
+                      <span className="metric-label">{t("inspector.wingspan")}</span>
                     </div>
                     <div className="metric-box">
-                      <span className="metric-value">32 dona</span>
-                      <span className="metric-label">Jami inventar</span>
+                      <span className="metric-value">32</span>
+                      <span className="metric-label">{t("inspector.totalInventory")}</span>
                     </div>
                     <div className="metric-box">
                       <span className="metric-value">
-                        {instances.filter((i) => i.placed).length} dona
+                        {instances.filter((i) => i.placed).length}
                       </span>
-                      <span className="metric-label">Sahnada</span>
+                      <span className="metric-label">{t("inventory.filterPlaced")}</span>
                     </div>
                     <div className="metric-box">
-                      <span className="metric-value">{cables.length} ta</span>
-                      <span className="metric-label">Faol kabel</span>
+                      <span className="metric-value">{cables.length}</span>
+                      <span className="metric-label">{t("inspector.activeCables")}</span>
                     </div>
                   </div>
                 </div>
@@ -2664,12 +2962,12 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                 <div className="card-section">
                   <div className="section-title-row">
                     <span className="section-title">
-                      Sahnadagi Komponentlar ({instances.filter((i) => i.placed).length})
+                      {t("inspector.placedComponents")} ({instances.filter((i) => i.placed).length})
                     </span>
                   </div>
                   <div className="space-y-1 max-h-[220px] overflow-y-auto pr-1">
                     {instances.filter((i) => i.placed).length === 0 ? (
-                      <p className="text-xs text-slate-400">Sahnada hali hech qanday komponent joylashtirilmagan.</p>
+                      <p className="text-xs text-slate-400">{t("inspector.noComponentsPlaced")}</p>
                     ) : (
                       instances
                         .filter((i) => i.placed)

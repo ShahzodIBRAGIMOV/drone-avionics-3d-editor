@@ -15,6 +15,7 @@ import {
   Box,
 } from "lucide-react";
 import { ComponentManifestItem, PhysicalInstance } from "../types";
+import { useLanguage } from "../i18n/LanguageContext";
 
 interface UnplacedInventoryPanelProps {
   manifest: ComponentManifestItem[];
@@ -45,6 +46,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
   onReloadJetson,
   isReloadingJetson,
 }) => {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMode, setFilterMode] = useState<"all" | "unplaced" | "placed">("all");
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
@@ -79,10 +81,10 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
         <div className="panel-title-row">
           <div className="panel-title-with-icon">
             <Package size={17} className="text-cyan" />
-            <h2>Komponentlar Inventari</h2>
+            <h2>{t("inventory.title")}</h2>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <span className="badge-counter">{instances.length} dona</span>
+            <span className="badge-counter">{instances.length}</span>
             {onCollapse && (
               <button
                 type="button"
@@ -96,7 +98,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
           </div>
         </div>
         <p className="panel-subtitle">
-          Tasdiqlangan {manifest.length} turdagi komponent va {instances.length} dona fizik obyekt.
+          {manifest.length} / {instances.length}
         </p>
 
         {/* 3D Model Picker & Import Button */}
@@ -106,10 +108,10 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
             id="btn-open-github-model-import"
             onClick={() => onOpenModelImport()}
             className="w-full flex items-center justify-center gap-2 py-2 px-3 mb-2 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-700/60 text-cyan-300 hover:text-white text-xs font-semibold transition-all shadow-sm cursor-pointer"
-            title="Istalgan 3D modelni (.glb, .stl, .obj) tanlash, kompyuterdan yuklash yoki kutubxonadan biriktirish"
+            title={t("models.title")}
           >
             <Box size={14} className="text-cyan-400" />
-            <span>3D Model tanlash va yuklash</span>
+            <span>{t("inventory.importModels")}</span>
           </button>
         )}
 
@@ -119,7 +121,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
           <input
             id="input-inventory-search"
             type="text"
-            placeholder="Komponent nomini qidirish..."
+            placeholder={t("inventory.search")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="search-input"
@@ -132,21 +134,21 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
             className={`tab-pill ${filterMode === "all" ? "active" : ""}`}
             onClick={() => setFilterMode("all")}
           >
-            Barchasi ({instances.length})
+            {t("inventory.filterAll")} ({instances.length})
           </button>
           <button
             id="tab-filter-unplaced"
             className={`tab-pill ${filterMode === "unplaced" ? "active" : ""}`}
             onClick={() => setFilterMode("unplaced")}
           >
-            Kutilmoqda ({unplacedCount})
+            {t("inventory.filterUnplaced")} ({unplacedCount})
           </button>
           <button
             id="tab-filter-placed"
             className={`tab-pill ${filterMode === "placed" ? "active" : ""}`}
             onClick={() => setFilterMode("placed")}
           >
-            Sahnada ({placedCount})
+            {t("inventory.filterPlaced")} ({placedCount})
           </button>
         </div>
 
@@ -155,15 +157,15 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
             id="btn-sidebar-auto-place-all"
             className="auto-place-all-action-btn"
             onClick={onAutoPlaceAll}
-            title="Barcha 32 ta avionika elementini dron ichiga muhandislik chizmasi bo‘yicha avtomatik joylashtirish"
+            title={t("inventory.autoPlaceSub")}
           >
             <Sparkles size={15} className="auto-place-btn-icon text-cyan-400 shrink-0" />
             <div className="auto-place-btn-text">
-              <span className="auto-place-btn-title">Avtomatik joylashtirish</span>
-              <span className="auto-place-btn-sub">Barcha 32 ta elementni sahnaga o‘rnatish</span>
+              <span className="auto-place-btn-title">{t("inventory.autoPlace")}</span>
+              <span className="auto-place-btn-sub">{t("inventory.autoPlaceSub")}</span>
             </div>
             <span className="auto-place-badge">
-              {unplacedCount > 0 ? `${unplacedCount} ta qoldi` : "32/32"}
+              {unplacedCount > 0 ? `${unplacedCount}` : "32/32"}
             </span>
           </button>
         )}
@@ -297,7 +299,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
                                 inst.position[1]
                               )} Z:${Math.round(inst.position[2])} mm`
                             ) : (
-                              <span className="unplaced-hint">Joylashtirilmagan</span>
+                              <span className="unplaced-hint">{t("inventory.unplaced")}</span>
                             )}
                           </span>
                         </div>
@@ -311,9 +313,9 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
                                 e.stopPropagation();
                                 onSelectInstance(inst.instanceId, e.shiftKey);
                               }}
-                              title="Sahnada tanlash (Shift bilan ko‘p tanlash)"
+                              title="Select"
                             >
-                              {isSelected ? "Tanlangan" : "Tanlash"}
+                              {isSelected ? t("inventory.selected") : t("inventory.select")}
                             </button>
                           ) : (
                             <button
@@ -323,10 +325,10 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
                                 e.stopPropagation();
                                 onPlaceInstance(inst.instanceId);
                               }}
-                              title="Sahnaga qo‘shish"
+                              title={t("inventory.placeToScene")}
                             >
                               <Plus size={13} />
-                              <span>Sahnaga</span>
+                              <span>{t("inventory.toScene")}</span>
                             </button>
                           )}
                         </div>

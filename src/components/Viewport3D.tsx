@@ -26,11 +26,30 @@ import {
 } from "lucide-react";
 import { modelManager, COMPONENT_ID_TO_ASSET_KEY } from "../services/modelManager";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
-import { getDefaultStrandColors } from "../data/cablePresets";
+import {
+  getDefaultStrandColors,
+  isSensorComponent,
+  isPowerProviderComponent,
+  isPitotComponent,
+  isAirspeedSensorComponent,
+  isPneumaticOrPitotConnection,
+  resolveStrandPhysicalDirection,
+} from "../data/cablePresets";
 import { build3DStickerMesh } from "../utils/cable3DStickers";
 
 export function isCablePower(cable: CableConnection): boolean {
   const type = (cable.cableType || "").toLowerCase();
+
+  // Pneumatic & Airspeed tubing is purely airflow/pressure, NOT electrical power!
+  if (
+    type === "airspeed" ||
+    type.includes("pitot") ||
+    type.includes("pneumatic") ||
+    cable.isTransparent ||
+    cable.isTubing
+  ) {
+    return false;
+  }
 
   // Explicit signal types take precedence
   const signalKeywords = [
@@ -54,6 +73,7 @@ export function isCablePower(cable: CableConnection): boolean {
     return false;
   }
 
+  const cName = (cable.name || "").toLowerCase();
   if (
     type.includes("power") ||
     type.includes("bat") ||
@@ -61,7 +81,11 @@ export function isCablePower(cable: CableConnection): boolean {
     type.includes("vbat") ||
     type.includes("bec") ||
     type.includes("current") ||
-    type.includes("quvvat")
+    type.includes("quvvat") ||
+    cName.includes("power") ||
+    cName.includes("quvvat") ||
+    cName.includes("vbat") ||
+    cName.includes("bec")
   ) {
     return true;
   }
@@ -280,6 +304,7 @@ interface Viewport3DProps {
   onCancelPlacingPinMode?: () => void;
   focusOnSelectionTrigger?: number;
   onTransformStart?: () => void;
+  onCommitTransform?: () => void;
   cameraViewTrigger?: number;
   isIsolatedView?: boolean;
   onToggleIsolatedView?: () => void;
@@ -387,6 +412,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   onCancelPlacingPinMode,
   focusOnSelectionTrigger,
   onTransformStart,
+  onCommitTransform,
   cameraViewTrigger = 0,
   isIsolatedView = false,
   onToggleIsolatedView,
@@ -441,7 +467,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       cableId: string;
       sourceInstanceId: string;
       targetInstanceId: string;
-      flowDirection?: "forward" | "reverse" | "bidirectional";
+      flowDirection?: "forward" | "reverse" | "bidirectional" | "smart";
+      directionSign?: 1 | -1;
     }>
   >([]);
   const cableFlowItemsRef = useRef<
@@ -449,7 +476,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       cableId: string;
       sourceInstanceId: string;
       targetInstanceId: string;
-      flowDirection?: "forward" | "reverse" | "bidirectional";
+      sourceComponentId?: string;
+      sourceLabel?: string;
+      targetComponentId?: string;
+      targetLabel?: string;
+      flowDirection?: "forward" | "reverse" | "bidirectional" | "smart";
       curve: THREE.CatmullRomCurve3;
       totalLength: number;
       isPower: boolean;
@@ -457,6 +488,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       strandCurves?: THREE.CatmullRomCurve3[];
       cableRadius?: number;
       strandLabels?: string[];
+      isTransparent?: boolean;
+      transparencyOpacity?: number;
+      isTubing?: boolean;
+      tubeInnerColor?: string;
     }>
   >([]);
 
@@ -554,6 +589,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const placingPinTargetInstanceIdRef = useRef<string | null>(placingPinTargetInstanceId);
   const onAddPinAtPointRef = useRef(onAddPinAtPoint);
   const onTransformStartRef = useRef(onTransformStart);
+  const onCommitTransformRef = useRef(onCommitTransform);
   const instancesRef = useRef<PhysicalInstance[]>(instances);
 
   useEffect(() => {
@@ -561,7 +597,8 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     placingPinTargetInstanceIdRef.current = placingPinTargetInstanceId;
     onAddPinAtPointRef.current = onAddPinAtPoint;
     onTransformStartRef.current = onTransformStart;
-  }, [isPlacingPinMode, placingPinTargetInstanceId, onAddPinAtPoint, onTransformStart]);
+    onCommitTransformRef.current = onCommitTransform;
+  }, [isPlacingPinMode, placingPinTargetInstanceId, onAddPinAtPoint, onTransformStart, onCommitTransform]);
 
   useEffect(() => {
     instancesRef.current = instances;
@@ -738,6 +775,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             onUpdateMultipleTransformsRef.current?.(updates);
           }
         }
+
+        // Commit transform to permanent storage immediately upon mouse release
+        onCommitTransformRef.current?.();
       }
     });
 
@@ -792,7 +832,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       controlPoints.push(p2);
 
       const tension = cable.curveTension !== undefined ? cable.curveTension : 0.5;
-      const curve = new THREE.CatmullRomCurve3(controlPoints, false, "catmullrom", tension);
+      const curve = new THREE.CatmullRomCurve3(controlPoints, false, "centripetal", tension);
       const totalLength = Math.round(curve.getLength());
 
       const isRibbonCable = Boolean(cable.isRibbon && (cable.strandCount || 0) > 1);
@@ -802,7 +842,6 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         const ribbonGroup = cablesGroupRef.current.getObjectByName(`cable_ribbon_${cable.id}`) as THREE.Group;
         if (ribbonGroup) {
           const numDivisions = Math.max(48, controlPoints.length * 20);
-          const frenetFrames = curve.computeFrenetFrames(numDivisions, false);
           const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);
           const strandRadius = Math.max(0.65, (cable.thicknessMm || 2.8) * 0.38) * 1.2;
 
@@ -815,13 +854,15 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             for (let step = 0; step <= numDivisions; step++) {
               const u = step / numDivisions;
               const pt = curve.getPointAt(u);
-              const binormal = frenetFrames.binormals[step] || new THREE.Vector3(0, 1, 0);
-              const endTaper = Math.min(1, Math.min(u, 1 - u) * 7);
-              const effectiveOffset = rawOffset * (0.35 + 0.65 * endTaper);
+              const tangent = curve.getTangentAt(u);
+              const worldUp = Math.abs(tangent.y) > 0.95 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+              const binormal = new THREE.Vector3().crossVectors(tangent, worldUp).normalize();
+              const endTaper = Math.min(1, Math.min(u, 1 - u) * 8);
+              const effectiveOffset = rawOffset * (0.4 + 0.6 * endTaper);
               strandPts.push(pt.clone().addScaledVector(binormal, effectiveOffset));
             }
 
-            const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "catmullrom", tension);
+            const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "centripetal", tension);
             updatedStrandCurves.push(strandCurve);
 
             const strandMesh = ribbonGroup.getObjectByName(`cable_${cable.id}_strand_${sIdx}`) as THREE.Mesh;
@@ -1298,42 +1339,56 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         for (let i = 0; i < pLen; i++) {
           const p = particles[i];
 
-          // Priority rule:
-          // "Kabeldagi oqim qaysi element birinchi tanlangan bo'lsa o'sha tomondan ikkinchi tomonga oqsin"
-          let isReversed = p.flowDirection === "reverse";
-
-          if (firstSelected && secondSelected) {
-            // Agar foydalanuvchi ikkita elementni tanlagan bo'lsa:
-            // Birinchi tanlangan elementdan ikkinchi tanlangan elementga qarab oqsin!
-            if (
-              p.sourceInstanceId === firstSelected &&
-              p.targetInstanceId === secondSelected
-            ) {
-              // 1-tanlangan manba (source), 2-tanlangan manzil (target) -> to'g'ri yo'nalish (source -> target)
-              isReversed = false;
-            } else if (
-              p.sourceInstanceId === secondSelected &&
-              p.targetInstanceId === firstSelected
-            ) {
-              // 1-tanlangan manzil (target), 2-tanlangan manba (source) -> teskari yo'nalish (target -> source)
-              // Shu orqali oqim aynan 1-tanlangan elementdan 2-tanlangan elementga qarab oqadi!
-              isReversed = true;
-            }
-          }
-
+          let pulseMovingReverse = false;
           let u: number;
-          if (p.flowDirection === "bidirectional") {
-            const raw = (time * p.speed * speedMult + p.baseOffset) % 2.0;
-            u = raw > 1.0 ? 2.0 - raw : raw;
-          } else if (isReversed) {
-            // Teskari oqim: target (u=1.0) dan source (u=0.0) ga tomon harakatlanish
+
+          if (
+            p.flowDirection === "bidirectional" ||
+            p.flowDirection === "smart" ||
+            p.directionSign !== undefined
+          ) {
+            // Har bir puls o'z aniq hisoblangan fizik yo'nalishi (p.directionSign) bo'yicha harakatlanadi
+            // GPS datchik: Quvvat FC -> GPS ga kiradi (red/amber), Ma'lumot esa GPS -> FC ga uzatiladi (blue/green)
+            pulseMovingReverse = p.directionSign === -1;
             const raw = (p.baseOffset + time * p.speed * speedMult) % 1.0;
-            u = 1.0 - raw;
-            if (u < 0) u += 1.0;
-            if (u > 1.0) u -= 1.0;
+            if (pulseMovingReverse) {
+              u = 1.0 - raw;
+              if (u < 0) u += 1.0;
+              if (u >= 1.0) u -= 1.0;
+            } else {
+              u = raw;
+            }
           } else {
-            // Standart oqim: source (u=0.0) dan target (u=1.0) ga tomon harakatlanish
-            u = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+            // Standart bir tomonlama kabel: tanlangan elementlar tartibi yoki flowDirection
+            let isReversed = p.flowDirection === "reverse";
+
+            if (firstSelected && secondSelected) {
+              // Agar foydalanuvchi ikkita elementni tanlagan bo'lsa:
+              // Birinchi tanlangan elementdan ikkinchi tanlangan elementga qarab oqsin!
+              if (
+                p.sourceInstanceId === firstSelected &&
+                p.targetInstanceId === secondSelected
+              ) {
+                isReversed = false;
+              } else if (
+                p.sourceInstanceId === secondSelected &&
+                p.targetInstanceId === firstSelected
+              ) {
+                isReversed = true;
+              }
+            }
+
+            pulseMovingReverse = isReversed;
+            if (isReversed) {
+              // Teskari oqim: target (u=1.0) dan source (u=0.0) ga tomon harakatlanish
+              const raw = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+              u = 1.0 - raw;
+              if (u < 0) u += 1.0;
+              if (u >= 1.0) u -= 1.0;
+            } else {
+              // Standart oqim: source (u=0.0) dan target (u=1.0) ga tomon harakatlanish
+              u = (p.baseOffset + time * p.speed * speedMult) % 1.0;
+            }
           }
 
           const pt = p.curve.getPointAt(u);
@@ -1344,7 +1399,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
           // Align pulse along the curve direction
           const tangent = p.curve.getTangentAt(u);
-          if (isReversed) {
+          if (pulseMovingReverse) {
             tangent.negate();
           }
           if (Math.abs(vUp.dot(tangent)) > 0.98) {
@@ -2074,6 +2129,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         else if (pin.type === "can") pinColor = 0x10b981;
         else if (pin.type === "pwm") pinColor = 0xf59e0b;
         else if (pin.type === "uart") pinColor = 0xf97316;
+        else if (pin.type === "i2c") pinColor = 0x06b6d4;
         else if (pin.type === "ethernet") pinColor = 0x06b6d4;
         else if (pin.type === "usb") pinColor = 0xa855f7;
 
@@ -2201,18 +2257,20 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           controlPoints.push(new THREE.Vector3(pt.x, pt.y, pt.z));
         });
       } else {
-        // Natural wire sag proportional to distance + user-defined slack
-        const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-        const naturalSag = Math.min(distance * 0.12, 80);
+        // Wire sag only when slackMm is explicitly requested (positive)
         const extraSlack = cable.slackMm || 0;
-        mid.y -= (naturalSag + extraSlack);
-        controlPoints.push(mid);
+        if (extraSlack > 0) {
+          const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+          const sagAmount = Math.min(extraSlack * 0.45, 50);
+          mid.y -= sagAmount;
+          controlPoints.push(mid);
+        }
       }
 
       controlPoints.push(p2);
 
       const tension = cable.curveTension !== undefined ? cable.curveTension : 0.5;
-      const curve = new THREE.CatmullRomCurve3(controlPoints, false, "catmullrom", tension);
+      const curve = new THREE.CatmullRomCurve3(controlPoints, false, "centripetal", tension);
       const totalLength = Math.round(curve.getLength());
       cable.calculatedLengthMm = totalLength;
 
@@ -2225,10 +2283,40 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           ? getDefaultStrandColors(cable.cableType, strandCount)
           : [cable.color || "#00e5ff"];
 
+      const isTransparentCable = Boolean(cable.isTransparent || cable.cableType === "Airspeed" || cable.isTubing);
+      const tubeOpacity = isCableDimmed ? 0.12 : (isSelectedCable ? 0.72 : (cable.transparencyOpacity ?? 0.45));
+
+      const isTargetBreakout = Boolean(
+        cable.isBreakout &&
+        cable.multiTargetPinNames &&
+        cable.multiTargetPinNames.length > 1
+      );
+
+      const isSourceBreakout = Boolean(
+        cable.isBreakout &&
+        cable.multiSourcePinNames &&
+        cable.multiSourcePinNames.length > 1
+      );
+
+      const targetPinPoints = isTargetBreakout && cable.multiTargetPinNames
+        ? cable.multiTargetPinNames.map((pName) => {
+            const pinDef = targetPins.find((p) => p.fullName === pName);
+            const offset = pinDef ? pinDef.localOffset : tOffset;
+            return computePinWorldPosition(targetInst, offset, targetMesh);
+          })
+        : [];
+
+      const sourcePinPoints = isSourceBreakout && cable.multiSourcePinNames
+        ? cable.multiSourcePinNames.map((pName) => {
+            const pinDef = sourcePins.find((p) => p.fullName === pName);
+            const offset = pinDef ? pinDef.localOffset : sOffset;
+            return computePinWorldPosition(sourceInst, offset, sourceMesh);
+          })
+        : [];
+
       if (isRibbonCable && strandCount > 1) {
-        // Render 3D Ribbon / Flat Multi-Strand Cable with distinct strand colors
+        // Render 3D Ribbon / Flat Multi-Strand Cable with distinct strand colors (or 1-to-N / N-to-1 / N-to-N Breakout)
         const numDivisions = Math.max(48, controlPoints.length * 20);
-        const frenetFrames = curve.computeFrenetFrames(numDivisions, false);
         const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);
         const strandRadius =
           Math.max(0.65, (cable.thicknessMm || 2.8) * 0.38) * (isSelectedCable ? 1.2 : 1.0);
@@ -2239,50 +2327,106 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         const strandCurves: THREE.CatmullRomCurve3[] = [];
 
+        // Breakout branching happens ONLY near the ends (within 35mm or 18% of length)
+        const breakoutTaper = Math.min(0.18, 35 / Math.max(1, totalLength));
+        const uSourceBreakout = breakoutTaper;
+        const uTargetBreakout = 1 - breakoutTaper;
+
         for (let sIdx = 0; sIdx < strandCount; sIdx++) {
           const rawOffset = (sIdx - (strandCount - 1) / 2) * pitch;
           const strandPts: THREE.Vector3[] = [];
+          const specificSourcePt = isSourceBreakout && sourcePinPoints[sIdx] ? sourcePinPoints[sIdx] : null;
+          const specificTargetPt = isTargetBreakout && targetPinPoints[sIdx] ? targetPinPoints[sIdx] : null;
 
           for (let step = 0; step <= numDivisions; step++) {
             const u = step / numDivisions;
             const pt = curve.getPointAt(u);
-            const binormal = frenetFrames.binormals[step] || new THREE.Vector3(0, 1, 0);
-            // Smooth taper at pin connections (so wires meet cleanly at the pin)
-            const endTaper = Math.min(1, Math.min(u, 1 - u) * 7);
-            const effectiveOffset = rawOffset * (0.35 + 0.65 * endTaper);
+            const tangent = curve.getTangentAt(u);
+            const worldUp = Math.abs(tangent.y) > 0.95 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
+            const binormal = new THREE.Vector3().crossVectors(tangent, worldUp).normalize();
 
-            const strandPoint = pt.clone().addScaledVector(binormal, effectiveOffset);
-            strandPts.push(strandPoint);
+            if (specificSourcePt && u < uSourceBreakout) {
+              // Smooth branching towards specific source pin near connector
+              const branchBlend = (uSourceBreakout - u) / uSourceBreakout;
+              const easedBlend = branchBlend * branchBlend * (3 - 2 * branchBlend);
+              const branchPoint = new THREE.Vector3().lerpVectors(pt, specificSourcePt, easedBlend);
+              strandPts.push(branchPoint);
+            } else if (specificTargetPt && u > uTargetBreakout) {
+              // Smooth branching towards specific target pin near connector
+              const branchBlend = (u - uTargetBreakout) / breakoutTaper;
+              const easedBlend = branchBlend * branchBlend * (3 - 2 * branchBlend);
+              const branchPoint = new THREE.Vector3().lerpVectors(pt, specificTargetPt, easedBlend);
+              strandPts.push(branchPoint);
+            } else {
+              // Smooth taper at pin connections (so wires meet cleanly at non-branching port)
+              const endTaper = Math.min(1, Math.min(u, 1 - u) * 8);
+              const effectiveOffset = rawOffset * (0.4 + 0.6 * endTaper);
+              const strandPoint = pt.clone().addScaledVector(binormal, effectiveOffset);
+              strandPts.push(strandPoint);
+            }
           }
 
-          const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "catmullrom", tension);
+          const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "centripetal", tension);
           strandCurves.push(strandCurve);
 
           const strandGeo = new THREE.TubeGeometry(
             strandCurve,
             Math.floor(numDivisions * 0.8),
             strandRadius,
-            6,
+            isTransparentCable ? 10 : 6,
             false
           );
-          const strandColorHex = strandColors[sIdx] || cable.color || "#00e5ff";
+          const strandColorHex = strandColors[sIdx] || cable.color || (isTransparentCable ? "#e0f2fe" : "#00e5ff");
 
           const strandMat = new THREE.MeshStandardMaterial({
             color: isCableDimmed ? 0x334155 : (isSelectedCable ? 0x38bdf8 : strandColorHex),
-            roughness: 0.35,
-            metalness: 0.25,
-            opacity: isCableDimmed ? 0.12 : 1.0,
-            transparent: isCableDimmed,
+            roughness: isTransparentCable ? 0.15 : 0.35,
+            metalness: isTransparentCable ? 0.05 : 0.25,
+            opacity: isTransparentCable ? tubeOpacity : (isCableDimmed ? 0.12 : 1.0),
+            transparent: isTransparentCable || isCableDimmed,
             depthTest: true,
-            depthWrite: false,
-            emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : strandColorHex),
-            emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
+            depthWrite: !isTransparentCable && !isCableDimmed,
+            emissive: isCableDimmed
+              ? 0x000000
+              : (isSelectedCable ? 0x0284c7 : (isTransparentCable ? 0xbae6fd : strandColorHex)),
+            emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : (isTransparentCable ? 0.10 : 0.15)),
           });
 
           const strandMesh = new THREE.Mesh(strandGeo, strandMat);
           strandMesh.name = `cable_${cable.id}_strand_${sIdx}`;
           strandMesh.userData = { cableId: cable.id, isCableMesh: true, strandIndex: sIdx };
+          if (isTransparentCable) {
+            strandMesh.renderOrder = 4;
+          }
           ribbonGroup.add(strandMesh);
+
+          // Inner air lumen for transparent silicone hose (revealing hollow pneumatic tube)
+          if (isTransparentCable) {
+            const innerRadius = Math.max(0.35, strandRadius * 0.58);
+            const innerGeo = new THREE.TubeGeometry(
+              strandCurve,
+              Math.floor(numDivisions * 0.7),
+              innerRadius,
+              8,
+              false
+            );
+            const innerMat = new THREE.MeshStandardMaterial({
+              color: cable.tubeInnerColor || (sIdx === 0 ? 0x38bdf8 : 0x06b6d4),
+              roughness: 0.2,
+              metalness: 0.1,
+              opacity: isCableDimmed ? 0.04 : 0.25,
+              transparent: true,
+              depthTest: true,
+              depthWrite: false,
+              emissive: sIdx === 0 ? 0x0284c7 : 0x0891b2,
+              emissiveIntensity: 0.12,
+            });
+            const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+            innerMesh.name = `cable_${cable.id}_strand_${sIdx}_lumen`;
+            innerMesh.userData = { cableId: cable.id, isCableMesh: true, isLumen: true };
+            innerMesh.renderOrder = 3;
+            ribbonGroup.add(innerMesh);
+          }
         }
 
         cablesGroup.add(ribbonGroup);
@@ -2292,7 +2436,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             cableId: cable.id,
             sourceInstanceId: cable.sourceInstanceId,
             targetInstanceId: cable.targetInstanceId,
-            flowDirection: cable.flowDirection || "forward",
+            sourceComponentId: sourceInst.componentId,
+            sourceLabel: sourceInst.customLabel || sourceInst.name,
+            targetComponentId: targetInst.componentId,
+            targetLabel: targetInst.customLabel || targetInst.name,
+            flowDirection: cable.flowDirection || "smart",
             curve,
             totalLength,
             isPower: isCablePower(cable),
@@ -2300,6 +2448,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             strandCurves,
             cableRadius: strandRadius,
             strandLabels: cable.strandLabels,
+            isTransparent: isTransparentCable,
+            transparencyOpacity: cable.transparencyOpacity,
+            isTubing: cable.isTubing,
+            tubeInnerColor: cable.tubeInnerColor,
           });
         }
       } else {
@@ -2309,35 +2461,78 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           ? ((cable.thicknessMm || 3.0) / 2) * 1.25
           : (cable.thicknessMm || 2.8) / 2;
 
-        const tubeGeometry = new THREE.TubeGeometry(curve, tubularSegments, radius, 8, false);
+        const tubeGeometry = new THREE.TubeGeometry(
+          curve,
+          tubularSegments,
+          radius,
+          isTransparentCable ? 10 : 8,
+          false
+        );
+        const tubeColorHex = cable.color || (isTransparentCable ? 0xe0f2fe : 0x00e5ff);
         const tubeMaterial = new THREE.MeshStandardMaterial({
-          color: isCableDimmed ? 0x334155 : (isSelectedCable ? 0x38bdf8 : (cable.color || 0x00e5ff)),
-          roughness: 0.35,
-          metalness: 0.25,
-          opacity: isCableDimmed ? 0.12 : 1.0,
-          transparent: isCableDimmed,
+          color: isCableDimmed ? 0x334155 : (isSelectedCable ? 0x38bdf8 : tubeColorHex),
+          roughness: isTransparentCable ? 0.15 : 0.35,
+          metalness: isTransparentCable ? 0.05 : 0.25,
+          opacity: isTransparentCable ? tubeOpacity : (isCableDimmed ? 0.12 : 1.0),
+          transparent: isTransparentCable || isCableDimmed,
           depthTest: true,
-          depthWrite: false,
-          emissive: isCableDimmed ? 0x000000 : (isSelectedCable ? 0x0284c7 : (cable.color || 0x00e5ff)),
-          emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : 0.15),
+          depthWrite: !isTransparentCable && !isCableDimmed,
+          emissive: isCableDimmed
+            ? 0x000000
+            : (isSelectedCable ? 0x0284c7 : (isTransparentCable ? 0xbae6fd : tubeColorHex)),
+          emissiveIntensity: isCableDimmed ? 0 : (isSelectedCable ? 0.45 : (isTransparentCable ? 0.10 : 0.15)),
         });
 
         const cableMesh = new THREE.Mesh(tubeGeometry, tubeMaterial);
         cableMesh.name = `cable_${cable.id}`;
         cableMesh.userData = { cableId: cable.id, isCableMesh: true };
+        if (isTransparentCable) {
+          cableMesh.renderOrder = 4;
+        }
         cablesGroup.add(cableMesh);
+
+        // Inner air lumen for single transparent silicone hose
+        if (isTransparentCable) {
+          const innerRadius = Math.max(0.45, radius * 0.58);
+          const innerGeo = new THREE.TubeGeometry(curve, tubularSegments, innerRadius, 8, false);
+          const innerMat = new THREE.MeshStandardMaterial({
+            color: cable.tubeInnerColor || 0x38bdf8,
+            roughness: 0.2,
+            metalness: 0.1,
+            opacity: isCableDimmed ? 0.04 : 0.25,
+            transparent: true,
+            depthTest: true,
+            depthWrite: false,
+            emissive: 0x0284c7,
+            emissiveIntensity: 0.12,
+          });
+          const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+          innerMesh.name = `cable_${cable.id}_lumen`;
+          innerMesh.userData = { cableId: cable.id, isCableMesh: true, isLumen: true };
+          innerMesh.renderOrder = 3;
+          cablesGroup.add(innerMesh);
+        }
 
         if (!isCableDimmed) {
           gatheredFlowItems.push({
             cableId: cable.id,
             sourceInstanceId: cable.sourceInstanceId,
             targetInstanceId: cable.targetInstanceId,
-            flowDirection: cable.flowDirection || "forward",
+            sourceComponentId: sourceInst.componentId,
+            sourceLabel: sourceInst.customLabel || sourceInst.name,
+            targetComponentId: targetInst.componentId,
+            targetLabel: targetInst.customLabel || targetInst.name,
+            flowDirection: cable.flowDirection || "smart",
             curve,
             totalLength,
             isPower: isCablePower(cable),
             color: cable.color || "#00e5ff",
             cableRadius: radius,
+            strandLabels: cable.cableType ? [cable.cableType] : undefined,
+            isTransparent: isTransparentCable,
+            transparencyOpacity: cable.transparencyOpacity,
+            isTubing: cable.isTubing,
+            tubeInnerColor: cable.tubeInnerColor,
           });
         }
       }
@@ -2472,7 +2667,11 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       cableId: string;
       sourceInstanceId: string;
       targetInstanceId: string;
-      flowDirection?: "forward" | "reverse" | "bidirectional";
+      sourceComponentId?: string;
+      sourceLabel?: string;
+      targetComponentId?: string;
+      targetLabel?: string;
+      flowDirection?: "forward" | "reverse" | "bidirectional" | "smart";
       curve: THREE.CatmullRomCurve3;
       totalLength: number;
       isPower: boolean;
@@ -2480,6 +2679,10 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       strandCurves?: THREE.CatmullRomCurve3[];
       cableRadius?: number;
       strandLabels?: string[];
+      isTransparent?: boolean;
+      transparencyOpacity?: number;
+      isTubing?: boolean;
+      tubeInnerColor?: string;
     }>
   ) => {
     const flowGroup = cableFlowGroupRef.current;
@@ -2492,110 +2695,305 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
     // High-polygon smooth sphere for 360-degree roundness and uniform appearance from every camera angle
     const baseSphereGeo = new THREE.SphereGeometry(1, 16, 12);
 
+    const createPulse = (params: {
+      curve: THREE.CatmullRomCurve3;
+      dirSign: 1 | -1;
+      isPower: boolean;
+      baseOffset: number;
+      cableRadius: number;
+      curveLength: number;
+      cableId: string;
+      sourceInstanceId: string;
+      targetInstanceId: string;
+      flowDirection: "forward" | "reverse" | "bidirectional" | "smart";
+      flowRole?: string;
+    }) => {
+      const {
+        curve,
+        dirSign,
+        isPower,
+        baseOffset,
+        cableRadius,
+        curveLength,
+        cableId,
+        sourceInstanceId,
+        targetInstanceId,
+        flowDirection,
+        flowRole = "standard",
+      } = params;
+
+      const isReversePulse = dirSign === -1;
+      const isActuallyPower = Boolean(
+        isPower ||
+        flowRole === "power_supply" ||
+        flowRole === "power" ||
+        currentFlowType === "power"
+      );
+      const coreRadius = Math.max(cableRadius * 1.6, cableRadius + 1.25);
+      const auraRadius = Math.max(cableRadius * 2.3, cableRadius + 2.35);
+
+      // Core & Aura materials:
+      // Power supply: Laser red (0xff1744) / aura (0xff3366) — Barcha quvvat oqimlari (to'g'ri, teskari, 2-tomonlama) to'liq qizil
+      // Sensor data (TX/CAN/measurements): High-intensity electric blue (0x0080ff) / aura (0x00d4ff)
+      // Config/RTK commands (RX/commands): Emerald green (0x10b981) / aura (0x34d399)
+      // Pneumatic Air pressure: Dynamic (0x38bdf8 / 0xbae6fd), Static (0x06b6d4 / 0x7dd3fc)
+      let coreColor: number;
+      let auraColor: number;
+
+      if (isActuallyPower) {
+        // Barcha quvvat oqimlari (Power pulses) qat'iy yorqin QIZIL
+        coreColor = 0xff1744;
+        auraColor = 0xff3366;
+      } else {
+        if (flowRole === "pneumatic_dynamic") {
+          coreColor = 0x38bdf8;
+          auraColor = 0xbae6fd;
+        } else if (flowRole === "pneumatic_static") {
+          coreColor = 0x06b6d4;
+          auraColor = 0x7dd3fc;
+        } else if (flowRole === "i2c_clock") {
+          coreColor = 0xeab308; // SCL Master Clock: Oltin sariq
+          auraColor = 0xfef08a;
+        } else if (flowRole === "i2c_data") {
+          coreColor = 0x06b6d4; // SDA Ma'lumot signali: Sian / Aqua
+          auraColor = 0x67e8f9;
+        } else if (flowRole === "config_command") {
+          coreColor = 0x10b981;
+          auraColor = 0x34d399;
+        } else if (flowRole === "sensor_data") {
+          coreColor = 0x0080ff;
+          auraColor = 0x00d4ff;
+        } else {
+          coreColor = isReversePulse ? 0x10b981 : 0x0080ff;
+          auraColor = isReversePulse ? 0x34d399 : 0x00d4ff;
+        }
+      }
+
+      const coreMat = new THREE.MeshBasicMaterial({
+        color: coreColor,
+        transparent: true,
+        opacity: 0.96,
+        depthTest: true,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+
+      const auraMat = new THREE.MeshBasicMaterial({
+        color: auraColor,
+        transparent: true,
+        opacity: 0.65,
+        depthTest: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+      });
+
+      const coreMesh = new THREE.Mesh(baseSphereGeo, coreMat);
+      coreMesh.scale.set(coreRadius, coreRadius, coreRadius * 1.5);
+      coreMesh.renderOrder = 10;
+      flowGroup.add(coreMesh);
+
+      const auraMesh = new THREE.Mesh(baseSphereGeo, auraMat);
+      auraMesh.scale.set(auraRadius, auraRadius, auraRadius * 1.5);
+      auraMesh.renderOrder = 10;
+      flowGroup.add(auraMesh);
+
+      const physicalSpeedMmPerSec = isActuallyPower ? 95 : (flowRole?.startsWith("pneumatic") ? 135 : 125);
+      const speed = physicalSpeedMmPerSec / curveLength;
+
+      flowParticlesRef.current.push({
+        mesh: coreMesh,
+        auraMesh,
+        curve,
+        baseOffset,
+        speed,
+        isPower: isActuallyPower,
+        material: coreMat,
+        auraMaterial: auraMat,
+        cableId,
+        sourceInstanceId,
+        targetInstanceId,
+        flowDirection,
+        directionSign: dirSign,
+      });
+    };
+
     items.forEach((item) => {
       const curveLength = Math.max(item.totalLength, 15);
       // Evenly spaced pulse count along length (1 pulse every ~60mm)
       const numPulses = Math.max(1, Math.min(14, Math.round(curveLength / 60)));
-      const curvesToAnimate =
-        item.strandCurves && item.strandCurves.length > 0
-          ? item.strandCurves
-          : [item.curve];
+      const cableR = item.cableRadius || 1.5;
 
-      curvesToAnimate.forEach((c, cIdx) => {
-        let isStrandPower = item.isPower;
-        if (item.strandLabels && item.strandLabels[cIdx]) {
-          const lbl = item.strandLabels[cIdx].toLowerCase();
-          if (
-            lbl.includes("vcc") ||
-            lbl.includes("bat") ||
-            lbl.includes("5v") ||
-            lbl.includes("pwr") ||
-            lbl.includes("12v") ||
-            lbl.includes("+")
-          ) {
-            isStrandPower = true;
-          } else if (
-            lbl.includes("signal") ||
-            lbl.includes("tx") ||
-            lbl.includes("rx") ||
-            lbl.includes("pwm") ||
-            lbl.includes("data") ||
-            lbl.includes("clk") ||
-            lbl.includes("scl") ||
-            lbl.includes("sda")
-          ) {
-            isStrandPower = false;
+      const isRibbonCable = Boolean(item.strandCurves && item.strandCurves.length > 0);
+      const srcIsSensor = isSensorComponent(item.sourceComponentId, item.sourceLabel);
+      const tgtIsSensor = isSensorComponent(item.targetComponentId, item.targetLabel);
+      const srcIsHost = isPowerProviderComponent(item.sourceComponentId, item.sourceLabel);
+      const tgtIsHost = isPowerProviderComponent(item.targetComponentId, item.targetLabel);
+      const isSensorHostConnection = (srcIsSensor && tgtIsHost) || (tgtIsSensor && srcIsHost);
+
+      if (isRibbonCable && item.strandCurves) {
+        // Multi-strand ribbon cable (e.g. GPS 4-6 pin ribbon, servo 3-pin, UART 4-pin)
+        item.strandCurves.forEach((c, cIdx) => {
+          const strandLabel =
+            item.strandLabels?.[cIdx] ||
+            (cIdx === 0 ? "vcc" : cIdx === 1 ? "txd" : cIdx === 2 ? "rxd" : "gnd");
+          const resolved = resolveStrandPhysicalDirection({
+            strandLabel,
+            sourceComponentId: item.sourceComponentId,
+            sourceLabel: item.sourceLabel,
+            targetComponentId: item.targetComponentId,
+            targetLabel: item.targetLabel,
+            cableFlowDirection: item.flowDirection || "smart",
+            strandIndex: cIdx,
+          });
+
+          // Filter by active view mode (All, Power only, Signal only)
+          if (currentFlowType === "power" && !resolved.isPower) return;
+          if (currentFlowType === "signal" && resolved.isPower) return;
+
+          for (let pIdx = 0; pIdx < numPulses; pIdx++) {
+            const baseOffset = (pIdx / numPulses + cIdx * 0.07) % 1.0;
+            createPulse({
+              curve: c,
+              dirSign: resolved.dirSign,
+              isPower: resolved.isPower,
+              baseOffset,
+              cableRadius: cableR,
+              curveLength,
+              cableId: item.cableId,
+              sourceInstanceId: item.sourceInstanceId,
+              targetInstanceId: item.targetInstanceId,
+              flowDirection: item.flowDirection || "smart",
+              flowRole: resolved.flowRole,
+            });
+          }
+        });
+      } else {
+        // Single round cable
+        const isPitotConnection =
+          Boolean(item.isTransparent || item.isTubing) ||
+          isPneumaticOrPitotConnection(
+            item.sourceComponentId,
+            item.sourceLabel,
+            undefined,
+            item.targetComponentId,
+            item.targetLabel
+          );
+
+        if (isPitotConnection) {
+          if (currentFlowType === "power") return; // air pressure is pneumatic, not electrical power!
+
+          const srcIsPitot = isPitotComponent(item.sourceComponentId, item.sourceLabel);
+          const tgtIsPitot = isPitotComponent(item.targetComponentId, item.targetLabel);
+          // Airflow naturally flows from Pitot tube (ram air entrance) into the sensor/transducer
+          let airDirSign: 1 | -1 = 1;
+          if (tgtIsPitot && !srcIsPitot) {
+            airDirSign = -1;
+          } else if (item.flowDirection === "reverse") {
+            airDirSign = -1;
+          } else if (item.flowDirection === "forward") {
+            airDirSign = 1;
+          }
+
+          for (let pIdx = 0; pIdx < numPulses; pIdx++) {
+            const baseOffset = (pIdx / numPulses) % 1.0;
+            createPulse({
+              curve: item.curve,
+              dirSign: airDirSign,
+              isPower: false,
+              baseOffset,
+              cableRadius: cableR,
+              curveLength,
+              cableId: item.cableId,
+              sourceInstanceId: item.sourceInstanceId,
+              targetInstanceId: item.targetInstanceId,
+              flowDirection: item.flowDirection || "smart",
+              flowRole: "pneumatic_dynamic",
+            });
+          }
+        } else if (
+          isSensorHostConnection &&
+          (item.flowDirection === "smart" || item.flowDirection === "bidirectional" || !item.flowDirection)
+        ) {
+          // Mixed Power + Sensor Telemetry simultaneously on the same cable!
+          // Host supplies power to Sensor (FC -> GPS)
+          const powerDirSign: 1 | -1 = srcIsHost && tgtIsSensor ? 1 : -1;
+          // Sensor sends navigation telemetry to Host (GPS -> FC)
+          const dataDirSign: 1 | -1 = srcIsSensor && tgtIsHost ? 1 : -1;
+
+          // Stream 1: Power supply pulses (flowing from Host INTO Sensor)
+          if (currentFlowType !== "signal") {
+            for (let pIdx = 0; pIdx < numPulses; pIdx++) {
+              const baseOffset = (pIdx / numPulses) % 1.0;
+              createPulse({
+                curve: item.curve,
+                dirSign: powerDirSign,
+                isPower: true,
+                baseOffset,
+                cableRadius: cableR,
+                curveLength,
+                cableId: item.cableId,
+                sourceInstanceId: item.sourceInstanceId,
+                targetInstanceId: item.targetInstanceId,
+                flowDirection: "smart",
+                flowRole: "power_supply",
+              });
+            }
+          }
+
+          // Stream 2: Sensor telemetry pulses (flowing from Sensor INTO Host)
+          if (currentFlowType !== "power") {
+            for (let pIdx = 0; pIdx < numPulses; pIdx++) {
+              const baseOffset = ((pIdx + 0.5) / numPulses) % 1.0;
+              createPulse({
+                curve: item.curve,
+                dirSign: dataDirSign,
+                isPower: false,
+                baseOffset,
+                cableRadius: cableR,
+                curveLength,
+                cableId: item.cableId,
+                sourceInstanceId: item.sourceInstanceId,
+                targetInstanceId: item.targetInstanceId,
+                flowDirection: "smart",
+                flowRole: "sensor_data",
+              });
+            }
+          }
+        } else {
+          // Standard single cable (pure power, pure signal, or manual override)
+          const isStrandPower = item.isPower;
+          if (currentFlowType === "power" && !isStrandPower) return;
+          if (currentFlowType === "signal" && isStrandPower) return;
+
+          const isBidirectional = item.flowDirection === "bidirectional";
+          const effectivePulses = isBidirectional ? Math.max(2, numPulses) : numPulses;
+
+          for (let pIdx = 0; pIdx < effectivePulses; pIdx++) {
+            let dirSign: 1 | -1 = 1;
+            if (isBidirectional) {
+              dirSign = pIdx % 2 === 0 ? 1 : -1;
+            } else if (item.flowDirection === "reverse") {
+              dirSign = -1;
+            }
+
+            const baseOffset = (pIdx / effectivePulses) % 1.0;
+            createPulse({
+              curve: item.curve,
+              dirSign,
+              isPower: isStrandPower,
+              baseOffset,
+              cableRadius: cableR,
+              curveLength,
+              cableId: item.cableId,
+              sourceInstanceId: item.sourceInstanceId,
+              targetInstanceId: item.targetInstanceId,
+              flowDirection: item.flowDirection || "forward",
+              flowRole: isStrandPower ? "power_supply" : "standard",
+            });
           }
         }
-
-        // Apply flowType filter
-        if (currentFlowType === "power" && !isStrandPower) return;
-        if (currentFlowType === "signal" && isStrandPower) return;
-
-        // Radius calculation: must sit visibly outside the cable cylinder on all sides (360°)
-        const cableR = item.cableRadius || 1.5;
-        const coreRadius = Math.max(cableR * 1.6, cableR + 1.25);
-        const auraRadius = Math.max(cableR * 2.3, cableR + 2.35);
-
-        // Core pulse material:
-        // Signal: High-intensity electric blue (0x0080ff)
-        // Power: High-intensity laser red (0xff1744)
-        // depthTest: true ensures flow is occluded by internal avionics components (battery, FC, ESC, etc.)
-        // Drone airframe has depthWrite: false and renderOrder: 950, so flow remains fully visible through drone frame!
-        const coreMat = new THREE.MeshBasicMaterial({
-          color: isStrandPower ? 0xff1744 : 0x0080ff,
-          transparent: true,
-          opacity: 0.96,
-          depthTest: true,
-          depthWrite: false,
-          side: THREE.DoubleSide,
-        });
-
-        // Aura glow material:
-        // Signal: Luminous cyan-blue aura
-        // Power: Luminous bright red aura
-        const auraMat = new THREE.MeshBasicMaterial({
-          color: isStrandPower ? 0xff3366 : 0x00d4ff,
-          transparent: true,
-          opacity: 0.62,
-          depthTest: true,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-          side: THREE.DoubleSide,
-        });
-
-        for (let pIdx = 0; pIdx < numPulses; pIdx++) {
-          const coreMesh = new THREE.Mesh(baseSphereGeo, coreMat);
-          coreMesh.scale.set(coreRadius, coreRadius, coreRadius * 1.5);
-          coreMesh.renderOrder = 2;
-          flowGroup.add(coreMesh);
-
-          const auraMesh = new THREE.Mesh(baseSphereGeo, auraMat);
-          auraMesh.scale.set(auraRadius, auraRadius, auraRadius * 1.5);
-          auraMesh.renderOrder = 2;
-          flowGroup.add(auraMesh);
-
-          const baseOffset = pIdx / numPulses + cIdx * 0.07;
-          // Constant physical flow speed in mm per second (identical linear speed across short & long cables!)
-          const physicalSpeedMmPerSec = isStrandPower ? 95 : 125;
-          const speed = physicalSpeedMmPerSec / curveLength;
-
-          flowParticlesRef.current.push({
-            mesh: coreMesh,
-            auraMesh,
-            curve: c,
-            baseOffset: baseOffset % 1.0,
-            speed,
-            isPower: isStrandPower,
-            material: coreMat,
-            auraMaterial: auraMat,
-            cableId: item.cableId,
-            sourceInstanceId: item.sourceInstanceId,
-            targetInstanceId: item.targetInstanceId,
-            flowDirection: item.flowDirection || "forward",
-          });
-        }
-      });
+      }
     });
 
     rebuildFlowParticlesRef.current = rebuildFlowParticles;
@@ -2799,9 +3197,44 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
               type="button"
               onClick={() => onSwapCableEnds(selectedCable.id)}
               className="viewport-banner-btn"
-              title="Kabel oqim yo‘nalishini teskarisiga almashtirish (Manba ⇄ Qabul qiluvchi)"
+              title="Kabel uchlarini teskarisiga almashtirish (Manba ⇄ Qabul qiluvchi)"
             >
-              ⇄ Oqim (A ⇄ B)
+              Uchlarini almashtirish
+            </button>
+          )}
+          {onUpdateCable && (
+            <button
+              type="button"
+              onClick={() => {
+                const current = selectedCable.flowDirection || "smart";
+                const next =
+                  current === "smart"
+                    ? "forward"
+                    : current === "forward"
+                    ? "bidirectional"
+                    : current === "bidirectional"
+                    ? "reverse"
+                    : "smart";
+                onUpdateCable(selectedCable.id, { flowDirection: next });
+              }}
+              className={`viewport-banner-btn ${
+                selectedCable.flowDirection === "smart" || !selectedCable.flowDirection
+                  ? "bg-violet-950 text-violet-200 border-violet-500 font-semibold shadow-sm"
+                  : selectedCable.flowDirection === "bidirectional"
+                  ? "bg-emerald-900 text-emerald-200 border-emerald-500 font-semibold"
+                  : selectedCable.flowDirection === "reverse"
+                  ? "bg-amber-950 text-amber-200 border-amber-500"
+                  : "bg-cyan-950 text-cyan-200 border-cyan-500"
+              }`}
+              title="Kabel oqim rejimini almashtirish (Aqlli Datchik, To‘g‘ri 1➔2, Ikki tomonlama 1⇄2, Teskari 2➔1)"
+            >
+              {selectedCable.flowDirection === "smart" || !selectedCable.flowDirection
+                ? "⚡📡 Aqlli Datchik (Smart)"
+                : selectedCable.flowDirection === "bidirectional"
+                ? "⇄ Ikki tomonlama (1⇄2)"
+                : selectedCable.flowDirection === "reverse"
+                ? "⬅ Teskari (2➔1)"
+                : "➔ To‘g‘ri (1➔2)"}
             </button>
           )}
           <button

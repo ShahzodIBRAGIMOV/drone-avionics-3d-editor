@@ -14,6 +14,7 @@ export type PinType =
   | "pwm"
   | "can"
   | "uart"
+  | "i2c"
   | "usb"
   | "ethernet"
   | "hdmi"
@@ -193,7 +194,7 @@ export type CableConnection = {
   targetInstanceId: string;
   targetPinName: string; // e.g. "03.can.port"
   color: string; // hex color for 3D visual
-  cableType: "CAN" | "Power" | "UART" | "PWM" | "Ethernet" | "Airspeed" | "Other" | string;
+  cableType: "CAN" | "Power" | "UART" | "PWM" | "I2C" | "Ethernet" | "Airspeed" | "Other" | string;
   wireGauge?: string;
   // Ribbon / Multi-strand cable fields (Lentali shleyf kabel):
   isRibbon?: boolean; // Whether flat ribbon / multi-strand cable
@@ -240,7 +241,18 @@ export type CableConnection = {
   estimatedVoltageDropV?: number;
   currentRatingA?: number;
   ampacityStatus?: "ok" | "exceeded" | "engineering_data_required";
-  flowDirection?: "forward" | "reverse" | "bidirectional"; // Cable energy/signal flow direction
+  flowDirection?: "forward" | "reverse" | "bidirectional" | "smart"; // Cable energy/signal flow direction: forward, reverse, bidirectional, or smart sensor
+  // Transparent Silicone Pneumatic Hose (Shaffof silikon pnevmo shlang - Pitot/Airspeed):
+  isTransparent?: boolean; // Whether cable/tube has transparent/translucent silicone material
+  transparencyOpacity?: number; // Visual opacity (0.15 to 0.90, e.g. 0.42 for clear silicone)
+  isTubing?: boolean; // Pneumatic hose (hollow tube for dynamic/static air)
+  tubeInnerColor?: string; // Fluid/air tint inside the tube
+  // Breakout / Y-Splitter / Multi-Pin Branching (1-to-N, N-to-1, N-to-N ajraluvchi kabel):
+  isBreakout?: boolean; // True if cable branches between single/multiple pins (2-10 pins)
+  breakoutType?: "1-to-N" | "N-to-1" | "N-to-N" | "1-to-3" | "1-to-2" | string;
+  breakoutMode?: "1-to-N" | "N-to-1" | "N-to-N"; // Which side has multiple pins (1-to-N, N-to-1, or N-to-N)
+  multiTargetPinNames?: string[]; // Array of destination pin fullNames (up to 10 pins)
+  multiSourcePinNames?: string[]; // Array of source pin fullNames (up to 10 pins)
 };
 
 export type TransformMode = "translate" | "rotate" | "scale";

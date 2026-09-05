@@ -41,6 +41,7 @@ import {
   saveProjectToCloud,
   loadProjectFromCloud,
   subscribeToMainProject,
+  isCloudQuotaExhausted,
 } from "./services/cloudProjectService";
 import { AlertTriangle, CheckCircle2, PanelLeft, PanelRight, Undo2, Redo2, Keyboard } from "lucide-react";
 import { modelManager } from "./services/modelManager";
@@ -369,10 +370,29 @@ export default function App() {
   const autoSaveLocalTimerRef = React.useRef<any>(null);
   const autoSaveCloudTimerRef = React.useRef<any>(null);
   const clientIdRef = React.useRef<string>(
-    "client_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now()
+    (() => {
+      try {
+        let stored = localStorage.getItem("drone_avionics_client_id");
+        if (!stored) {
+          stored = "client_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
+          localStorage.setItem("drone_avionics_client_id", stored);
+        }
+        return stored;
+      } catch {
+        return "client_" + Math.random().toString(36).substring(2, 9) + "_" + Date.now();
+      }
+    })()
   );
   const hasLocalModificationsRef = React.useRef<boolean>(false);
   const lastLocalActionTimeRef = React.useRef<number>(0);
+
+  // Synchronized state references accessible by all event callbacks without stale closures
+  const instancesRef = React.useRef<PhysicalInstance[]>(instances);
+  instancesRef.current = instances;
+  const cablesRef = React.useRef<CableConnection[]>(cables);
+  cablesRef.current = cables;
+  const selectedInstanceIdsRef = React.useRef<string[]>(selectedInstanceIds);
+  selectedInstanceIdsRef.current = selectedInstanceIds;
 
   // Load Manifest CSV & Restore previous scene state
   useEffect(() => {
@@ -576,7 +596,7 @@ export default function App() {
         
         let localParsed: any = null;
         try {
-          const savedData = localStorage.getItem(STORAGE_KEY);
+          const savedData = localStorage.getItem(STORAGE_KEY) || sessionStorage.getItem("drone_avionics_backup_v1");
           if (savedData) {
             localParsed = JSON.parse(savedData);
           }
@@ -604,20 +624,22 @@ export default function App() {
             if (cloudHasPlaced && localHasPlaced) {
               const cloudTime = new Date(cloudProj?.updatedAt || 0).getTime();
               const localTime = new Date(localParsed.timestamp || localParsed.updatedAt || 0).getTime();
-              if (cloudTime >= localTime) {
-                chosenSource = "cloud";
-              } else {
+              const cloudPlacedCount = (cloudProj?.instances || []).filter((i: any) => i.placed).length;
+              const localPlacedCount = (localParsed?.instances || []).filter((i: any) => i.placed).length;
+
+              if (localTime >= cloudTime || (localPlacedCount > 0 && cloudPlacedCount === 0)) {
                 chosenSource = "local";
+              } else {
+                chosenSource = "cloud";
               }
-            } else if (cloudHasPlaced) {
-              // Cross-browser case: Another browser already placed components and saved them to Cloud!
-              chosenSource = "cloud";
             } else if (localHasPlaced) {
               chosenSource = "local";
-            } else if (cloudProj) {
+            } else if (cloudHasPlaced) {
               chosenSource = "cloud";
             } else if (localParsed) {
               chosenSource = "local";
+            } else if (cloudProj) {
+              chosenSource = "cloud";
             }
 
             if (chosenSource === "cloud" && cloudProj) {
@@ -640,14 +662,22 @@ export default function App() {
               // Synchronize to localStorage so local storage is also fresh
               setTimeout(() => performLocalSave(), 200);
             } else if (chosenSource === "local" && localParsed) {
-              if (cloudProj?.updatedAt) {
-                lastKnownRemoteUpdateRef.current = cloudProj.updatedAt;
-              }
+              const localTs = localParsed.timestamp || localParsed.updatedAt || new Date().toISOString();
+              const cloudTs = cloudProj?.updatedAt;
+              lastKnownRemoteUpdateRef.current = cloudTs && new Date(cloudTs).getTime() > new Date(localTs).getTime()
+                ? cloudTs
+                : localTs;
+              lastLocalActionTimeRef.current = new Date(localTs).getTime();
               restoreFromData(localParsed);
               showToast("Loyiha xotiradan yuklandi");
-              // Backup local work to Cloud Firestore so other browsers can see it
+              // Backup local work to Cloud Firestore only if quota not exhausted and local is actually newer
               setTimeout(() => {
-                if (localParsed.instances && localParsed.instances.some((i: any) => i.placed)) {
+                if (
+                  !isCloudQuotaExhausted() &&
+                  localParsed &&
+                  localParsed.instances &&
+                  localParsed.instances.some((i: any) => i.placed)
+                ) {
                   saveProjectToCloud({
                     id: "main-project",
                     name: "3.5M Twin-Motor UAV Avionics",
@@ -666,6 +696,7 @@ export default function App() {
                   }).then((savedProj: CloudProjectData) => {
                     setCurrentCloudProject(savedProj);
                     setCloudCode(savedProj.cloudCode);
+                    lastKnownRemoteUpdateRef.current = savedProj.updatedAt;
                     localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
                     setLastCloudSavedAt(savedProj.updatedAt);
                   }).catch((err) => {
@@ -680,7 +711,11 @@ export default function App() {
           .catch((err: unknown) => {
             console.warn("Could not load from cloud, fallback to local:", err);
             if (localParsed) {
+              const localTs = localParsed.timestamp || localParsed.updatedAt || new Date().toISOString();
+              lastKnownRemoteUpdateRef.current = localTs;
+              lastLocalActionTimeRef.current = new Date(localTs).getTime();
               restoreFromData(localParsed);
+              showToast("Loyiha xotiradan yuklandi");
             } else {
               setInstances(baseInstances);
             }
@@ -716,89 +751,143 @@ export default function App() {
   }, []);
 
   // Serialize and synchronously save full scene state to LocalStorage
-  const performLocalSave = useCallback(() => {
-    if (!isInitializedRef.current || instances.length === 0) return;
-    try {
-      const nowStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      const dataToSave = {
-        version: "3.5",
-        timestamp: new Date().toISOString(),
-        lastSavedFormatted: nowStr,
-        droneColor,
-        droneOpacity,
-        droneWireframe,
-        droneVisible,
-        sceneTheme,
-        cameraViewMode,
-        transformMode,
-        transformSpace,
-        showPins,
-        showCables,
-        showGrid,
-        isLeftPanelOpen,
-        isRightPanelOpen,
-        selectedInstanceIds,
-        historyPast: pastRef.current.slice(-25),
-        historyFuture: futureRef.current.slice(0, 10),
-        instances: instances.map((inst) => ({
-          instanceId: inst.instanceId,
-          componentId: inst.componentId,
-          instanceIndex: inst.instanceIndex,
-          name: inst.name,
-          isAirframe: inst.isAirframe,
-          placed: inst.placed,
-          locked: inst.locked,
-          visible: inst.visible,
-          position: inst.position,
-          rotation: inst.rotation,
-          scale: inst.scale,
-          colorHint: inst.colorHint,
-          customColor: inst.customColor,
-          customLabel: inst.customLabel,
-          customPins: inst.customPins,
-          attachedToDrone: inst.attachedToDrone,
-          droneRelativePos: inst.droneRelativePos,
-          droneRelativeRot: inst.droneRelativeRot,
-        })),
-        cables: (cables && cables.length > 0) ? cables : (cablesRef.current || []),
-        customManifest: manifest.filter(
-          (m) => Number(m.id) > 21 || m.id.startsWith("custom")
-        ),
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-      setLastSavedTimeText(nowStr);
-      setAutoSaveStatus("saved");
-    } catch (e) {
-      console.warn("Could not save to localStorage:", e);
-    }
-  }, [
-    instances,
-    manifest,
-    cables,
-    droneColor,
-    droneOpacity,
-    droneWireframe,
-    droneVisible,
-    sceneTheme,
-    cameraViewMode,
-    transformMode,
-    transformSpace,
-    showPins,
-    showCables,
-    showGrid,
-    isLeftPanelOpen,
-    isRightPanelOpen,
-    selectedInstanceIds,
-  ]);
+  const performLocalSave = useCallback(
+    (overrideInstances?: PhysicalInstance[], overrideCables?: CableConnection[]) => {
+      const activeInstances = overrideInstances || instancesRef.current || instances;
+      const activeCables = overrideCables || cablesRef.current || cables;
 
-  // Window beforeunload flush save: guarantees zero data loss on browser close / refresh
+      if (!isInitializedRef.current || activeInstances.length === 0) return;
+      try {
+        const now = new Date();
+        const nowIso = now.toISOString();
+        const nowStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        const dataToSave = {
+          version: "3.5",
+          timestamp: nowIso,
+          lastSavedFormatted: nowStr,
+          droneColor,
+          droneOpacity,
+          droneWireframe,
+          droneVisible,
+          sceneTheme,
+          cameraViewMode,
+          transformMode,
+          transformSpace,
+          showPins,
+          showCables,
+          showGrid,
+          isLeftPanelOpen,
+          isRightPanelOpen,
+          selectedInstanceIds,
+          historyPast: pastRef.current.slice(-25),
+          historyFuture: futureRef.current.slice(0, 10),
+          instances: activeInstances.map((inst) => ({
+            instanceId: inst.instanceId,
+            componentId: inst.componentId,
+            instanceIndex: inst.instanceIndex,
+            name: inst.name,
+            isAirframe: inst.isAirframe,
+            placed: inst.placed,
+            locked: inst.locked,
+            visible: inst.visible,
+            position: inst.position,
+            rotation: inst.rotation,
+            scale: inst.scale,
+            colorHint: inst.colorHint,
+            customColor: inst.customColor,
+            customLabel: inst.customLabel,
+            customPins: inst.customPins,
+            attachedToDrone: inst.attachedToDrone,
+            droneRelativePos: inst.droneRelativePos,
+            droneRelativeRot: inst.droneRelativeRot,
+          })),
+          cables: activeCables,
+          customManifest: manifest.filter(
+            (m) => Number(m.id) > 21 || m.id.startsWith("custom")
+          ),
+        };
+        const serialized = JSON.stringify(dataToSave);
+        localStorage.setItem(STORAGE_KEY, serialized);
+        try {
+          sessionStorage.setItem("drone_avionics_backup_v1", serialized);
+        } catch {}
+        lastLocalActionTimeRef.current = Date.now();
+        lastKnownRemoteUpdateRef.current = nowIso;
+        setLastSavedTimeText(nowStr);
+        setAutoSaveStatus("saved");
+      } catch (e) {
+        console.warn("Could not save to localStorage, attempting compact save:", e);
+        try {
+          const now = new Date();
+          const nowIso = now.toISOString();
+          const nowStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+          const compactData = {
+            version: "3.5",
+            timestamp: nowIso,
+            lastSavedFormatted: nowStr,
+            instances: activeInstances.map((inst) => ({
+              instanceId: inst.instanceId,
+              componentId: inst.componentId,
+              placed: inst.placed,
+              position: inst.position,
+              rotation: inst.rotation,
+              scale: inst.scale,
+            })),
+            cables: activeCables,
+          };
+          const compactSerialized = JSON.stringify(compactData);
+          localStorage.setItem(STORAGE_KEY, compactSerialized);
+          try {
+            sessionStorage.setItem("drone_avionics_backup_v1", compactSerialized);
+          } catch {}
+          lastLocalActionTimeRef.current = Date.now();
+          lastKnownRemoteUpdateRef.current = nowIso;
+          setLastSavedTimeText(nowStr);
+          setAutoSaveStatus("saved");
+        } catch (innerErr) {
+          console.warn("Storage compact save error:", innerErr);
+          setAutoSaveStatus("saved");
+        }
+      }
+    },
+    [
+      instances,
+      manifest,
+      cables,
+      droneColor,
+      droneOpacity,
+      droneWireframe,
+      droneVisible,
+      sceneTheme,
+      cameraViewMode,
+      transformMode,
+      transformSpace,
+      showPins,
+      showCables,
+      showGrid,
+      isLeftPanelOpen,
+      isRightPanelOpen,
+      selectedInstanceIds,
+    ]
+  );
+
+  // Window beforeunload / pagehide / visibilitychange flush save: guarantees zero data loss on browser close / refresh
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleFlushSave = () => {
       performLocalSave();
     };
-    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("beforeunload", handleFlushSave);
+    window.addEventListener("pagehide", handleFlushSave);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        handleFlushSave();
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleFlushSave);
+      window.removeEventListener("pagehide", handleFlushSave);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [performLocalSave]);
 
@@ -841,15 +930,21 @@ export default function App() {
     performLocalSave,
   ]);
 
-  // Automatic Cloud Firestore Persistence (debounced 800ms background sync)
+  // Automatic Cloud Firestore Persistence (debounced 15s background sync, skips if quota reached)
   useEffect(() => {
     if (!isInitializedRef.current || instances.length === 0) return;
     // Guard: Only auto-save to cloud if user made modifications in this session
     if (!hasLocalModificationsRef.current) return;
+    if (isCloudQuotaExhausted()) return;
 
     if (autoSaveCloudTimerRef.current) clearTimeout(autoSaveCloudTimerRef.current);
 
     autoSaveCloudTimerRef.current = setTimeout(() => {
+      if (isCloudQuotaExhausted()) {
+        setIsCloudSaving(false);
+        setAutoSaveStatus("saved");
+        return;
+      }
       const activeCloudCode = cloudCode || localStorage.getItem("drone_avionics_cloud_code") || undefined;
       setIsCloudSaving(true);
       saveProjectToCloud({
@@ -873,6 +968,7 @@ export default function App() {
         .then((savedProj) => {
           setCurrentCloudProject(savedProj);
           setCloudCode(savedProj.cloudCode);
+          lastKnownRemoteUpdateRef.current = savedProj.updatedAt;
           localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
           setLastCloudSavedAt(savedProj.updatedAt);
           setAutoSaveStatus("saved");
@@ -886,7 +982,7 @@ export default function App() {
         .finally(() => {
           setIsCloudSaving(false);
         });
-    }, 800);
+    }, 12000);
 
     return () => {
       if (autoSaveCloudTimerRef.current) clearTimeout(autoSaveCloudTimerRef.current);
@@ -906,10 +1002,12 @@ export default function App() {
   // Real-time multi-browser live synchronization via Firestore listener
   useEffect(() => {
     if (!isAppReady) return;
+    if (isCloudQuotaExhausted()) return;
 
     console.log("Subscribing to real-time project updates from Firestore...");
-    const unsubscribe = subscribeToMainProject((remoteData, metadata) => {
-      if (!remoteData || !isInitializedRef.current) return;
+    const unsubscribe = subscribeToMainProject(
+      (remoteData, metadata) => {
+        if (!remoteData || !isInitializedRef.current) return;
 
       // 1. Ignore if this is an uncommitted local write by this client
       if (metadata && metadata.hasPendingWrites) {
@@ -928,6 +1026,30 @@ export default function App() {
 
       // 4. Must have valid instances array
       if (!Array.isArray(remoteData.instances) || remoteData.instances.length === 0) {
+        return;
+      }
+
+      // 4.2. STALE REMOTE GUARD: If the remote update timestamp is older than or equal to
+      // the local modifications or local storage timestamp, ignore it!
+      const remoteTime = new Date(remoteData.updatedAt || 0).getTime();
+      let localLatestTime = lastLocalActionTimeRef.current;
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEY);
+        if (rawLocal) {
+          const p = JSON.parse(rawLocal);
+          const t = new Date(p.timestamp || p.updatedAt || 0).getTime();
+          if (t > localLatestTime) localLatestTime = t;
+        }
+      } catch {}
+
+      if (remoteTime > 0 && localLatestTime > 0 && remoteTime <= localLatestTime) {
+        return;
+      }
+
+      // 4.3. Empty remote guard: if remote has 0 placed components while we have placed components locally, don't wipe!
+      const remotePlacedCount = (remoteData.instances || []).filter((i: any) => i.placed).length;
+      const localPlacedCount = (instancesRef.current || []).filter((i: any) => i.placed).length;
+      if (remotePlacedCount === 0 && localPlacedCount > 0) {
         return;
       }
 
@@ -1020,40 +1142,40 @@ export default function App() {
       }
 
       showToast(`Loyiha boshqa brauzerdan saqlandi va barcha ekranlarda yangilandi! (Kod: ${remoteData.cloudCode})`);
+    }, (err) => {
+      console.warn("Real-time project subscription paused:", err);
     });
 
     return () => {
-      unsubscribe();
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
     };
   }, [isAppReady, sceneTheme, showToast]);
 
-  // Sync references for history callbacks
-  const instancesRef = React.useRef<PhysicalInstance[]>(instances);
-  useEffect(() => {
-    instancesRef.current = instances;
-  }, [instances]);
-
-  const cablesRef = React.useRef<CableConnection[]>(cables);
-  useEffect(() => {
-    cablesRef.current = cables;
-  }, [cables]);
-
-  const selectedInstanceIdsRef = React.useRef<string[]>(selectedInstanceIds);
-  useEffect(() => {
-    selectedInstanceIdsRef.current = selectedInstanceIds;
-  }, [selectedInstanceIds]);
-
   // Manual Save Trigger: Saves immediately to LocalStorage and Firestore Cloud, updating timestamp and synchronizing
   const handleManualSave = useCallback(async () => {
-    setIsCloudSaving(true);
-    setAutoSaveStatus("saving");
-
     // 1. Immediately persist full project snapshot to LocalStorage
     performLocalSave();
     hasLocalModificationsRef.current = true;
     lastLocalActionTimeRef.current = Date.now();
+    setAutoSaveStatus("saved");
 
-    // 2. Immediately persist and broadcast to Firebase Cloud Firestore
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLastSavedTimeText(timeStr);
+
+    // If cloud quota is exhausted, skip cloud network call and show clear instant message
+    if (isCloudQuotaExhausted()) {
+      setIsCloudSaving(false);
+      setAutoSaveStatus("saved");
+      showToast("✓ Loyiha brauzer xotirasida (LocalStorage) to‘liq saqlandi! [Ctrl+S]");
+      return;
+    }
+
+    setIsCloudSaving(true);
+
+    // 2. Persist to Firebase Cloud Firestore
     try {
       const savedProj = await saveProjectToCloud({
         id: "main-project",
@@ -1081,19 +1203,20 @@ export default function App() {
       setCloudCode(savedProj.cloudCode);
       localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
       setLastCloudSavedAt(savedProj.updatedAt);
-
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-      setLastSavedTimeText(timeStr);
       setAutoSaveStatus("saved");
 
-      showToast(`Loyiha barcha brauzerlar uchun saqlandi va yangilandi! (Kod: ${savedProj.cloudCode})`);
+      if (isCloudQuotaExhausted()) {
+        showToast("✓ Loyiha xotirada saqlandi! (Bulut kunlik limiti to‘lganligi sababli xotirada saqlandi)");
+      } else {
+        showToast(`✓ Loyiha muvaffaqiyatli saqlandi va yangilandi! (Kod: ${savedProj.cloudCode})`);
+      }
     } catch (err) {
       console.warn("Manual save cloud notice:", err);
       setAutoSaveStatus("saved");
-      showToast("Loyiha xotirada saqlandi va yangilandi!");
+      showToast("✓ Loyiha brauzer xotirasida saqlandi!");
     } finally {
       setIsCloudSaving(false);
+      setAutoSaveStatus("saved");
     }
   }, [
     performLocalSave,
@@ -1191,6 +1314,13 @@ export default function App() {
     recordSnapshot("3D ko‘chirish / aylantirish");
   }, [recordSnapshot]);
 
+  // Transform commit callback when gizmo dragging ends or transform completes
+  const handleCommitTransform = useCallback(() => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    performLocalSave();
+  }, [performLocalSave]);
+
   // Handlers
   const handleSelectInstance = useCallback(
     (instanceId: string | null, isShift: boolean = false) => {
@@ -1215,32 +1345,40 @@ export default function App() {
   );
 
   const handlePlaceInstance = (instanceId: string) => {
-    setInstances((prev) =>
-      prev.map((inst) =>
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setInstances((prev) => {
+      const next = prev.map((inst) =>
         inst.instanceId === instanceId ? { ...inst, placed: true } : inst
-      )
-    );
+      );
+      performLocalSave(next);
+      return next;
+    });
     setSelectedInstanceIds([instanceId]);
     setSelectedPinFullName(null);
   };
 
   const handleAutoPlaceAll = () => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
     const baseDefaults = generateInitialInstances(manifest);
     const defaultMap = new Map(baseDefaults.map((d) => [d.instanceId, d]));
 
     setInstances((prev) => {
       const sourceList = prev.length > 0 ? prev : baseDefaults;
-      return sourceList.map((inst) => {
+      const next: PhysicalInstance[] = sourceList.map((inst) => {
         const def = defaultMap.get(inst.instanceId);
         return {
           ...inst,
           placed: true,
           position: def ? def.position : inst.position,
-          rotation: def ? def.rotation : [0, 0, 0],
-          scale: [1, 1, 1],
+          rotation: (def ? def.rotation : [0, 0, 0]) as [number, number, number],
+          scale: [1, 1, 1] as [number, number, number],
           visible: true,
         };
       });
+      performLocalSave(next);
+      return next;
     });
 
     setSelectedInstanceIds([]);
@@ -1249,17 +1387,23 @@ export default function App() {
   };
 
   const handleRemoveFromScene = (instanceId: string) => {
-    setInstances((prev) =>
-      prev.map((inst) =>
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    let nextInstances: PhysicalInstance[] = [];
+    setInstances((prev) => {
+      nextInstances = prev.map((inst) =>
         inst.instanceId === instanceId ? { ...inst, placed: false } : inst
-      )
-    );
+      );
+      return nextInstances;
+    });
     // Remove attached cables
-    setCables((prev) =>
-      prev.filter(
+    setCables((prev) => {
+      const nextCables = prev.filter(
         (c) => c.sourceInstanceId !== instanceId && c.targetInstanceId !== instanceId
-      )
-    );
+      );
+      performLocalSave(nextInstances, nextCables);
+      return nextCables;
+    });
     setSelectedInstanceIds((prev) => prev.filter((id) => id !== instanceId));
     setSelectedPinFullName(null);
   };
@@ -1359,6 +1503,8 @@ export default function App() {
     rot: [number, number, number],
     scale: [number, number, number]
   ) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
     setInstances((prev) => {
       const isAirframe = prev.some(
         (i) => i.instanceId === instanceId && (i.isAirframe || i.componentId === "01")
@@ -1396,6 +1542,8 @@ export default function App() {
         scale: [number, number, number];
       }>
     ) => {
+      hasLocalModificationsRef.current = true;
+      lastLocalActionTimeRef.current = Date.now();
       setInstances((prev) => {
         const updateMap = new Map(updates.map((u) => [u.instanceId, u]));
         const airframeBefore = prev.find((i) => i.isAirframe || i.componentId === "01");
@@ -1510,21 +1658,27 @@ export default function App() {
   }, []);
 
   const handleBatchRemoveFromScene = useCallback((instanceIds: string[]) => {
-    setInstances((prev) =>
-      prev.map((inst) =>
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    let nextInstances: PhysicalInstance[] = [];
+    setInstances((prev) => {
+      nextInstances = prev.map((inst) =>
         instanceIds.includes(inst.instanceId) ? { ...inst, placed: false } : inst
-      )
-    );
-    setCables((prev) =>
-      prev.filter(
+      );
+      return nextInstances;
+    });
+    setCables((prev) => {
+      const nextCables = prev.filter(
         (c) =>
           !instanceIds.includes(c.sourceInstanceId) &&
           !instanceIds.includes(c.targetInstanceId)
-      )
-    );
+      );
+      performLocalSave(nextInstances, nextCables);
+      return nextCables;
+    });
     setSelectedInstanceIds((prev) => prev.filter((id) => !instanceIds.includes(id)));
     showToast(`${instanceIds.length} ta element sahnadan olindi.`);
-  }, []);
+  }, [performLocalSave, showToast]);
 
   const handleBatchToggleLock = useCallback((instanceIds: string[]) => {
     setInstances((prev) => {
@@ -1664,7 +1818,13 @@ export default function App() {
 
     pasteOffsetStepRef.current += 1;
 
-    setInstances((prev) => [...prev, ...newInstances]);
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setInstances((prev) => {
+      const next = [...prev, ...newInstances];
+      performLocalSave(next);
+      return next;
+    });
     setSelectedInstanceIds(newInstances.map((n) => n.instanceId));
     setIsRightPanelOpen(true);
     showToast(
@@ -1672,7 +1832,7 @@ export default function App() {
         ? `📋 Yangi "${newInstances[0].customLabel || newInstances[0].name}" joylashtirildi (Ctrl+V)`
         : `📋 ${newInstances.length} ta yangi nusxa joylashtirildi (Ctrl+V)`
     );
-  }, [clipboard, instances]);
+  }, [clipboard, instances, performLocalSave, showToast]);
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedInstanceIds.length === 0) return;
@@ -1690,28 +1850,35 @@ export default function App() {
     // Save history snapshot before deletion
     recordSnapshot(`Elementlar sahnadan olindi (${unlockedIds.length} ta)`);
 
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+
     // Unplace unlocked items
-    setInstances((prev) =>
-      prev.map((inst) =>
+    let nextInstances: PhysicalInstance[] = [];
+    setInstances((prev) => {
+      nextInstances = prev.map((inst) =>
         unlockedIds.includes(inst.instanceId) ? { ...inst, placed: false } : inst
-      )
-    );
+      );
+      return nextInstances;
+    });
 
     // Disconnect cables
-    setCables((prev) =>
-      prev.filter(
+    setCables((prev) => {
+      const nextCables = prev.filter(
         (c) =>
           !unlockedIds.includes(c.sourceInstanceId) &&
           !unlockedIds.includes(c.targetInstanceId)
-      )
-    );
+      );
+      performLocalSave(nextInstances, nextCables);
+      return nextCables;
+    });
 
     setSelectedInstanceIds((prev) => prev.filter((id) => !unlockedIds.includes(id)));
     setSelectedPinFullName(null);
 
     const extraNotice = lockedCount > 0 ? ` (${lockedCount} ta qulflangan element saqlandi)` : "";
     showToast(`🗑️ ${unlockedIds.length} ta element sahnadan olindi (Delete)${extraNotice}`);
-  }, [selectedInstanceIds, instances, recordSnapshot, showToast]);
+  }, [selectedInstanceIds, instances, recordSnapshot, showToast, performLocalSave]);
 
   // 180° Flip Handler (Horizontal / Vertical / Roll)
   const handleFlipSelected = useCallback(
@@ -2403,14 +2570,22 @@ export default function App() {
       thicknessMm: 3.0,
       routePoints: [],
     };
-    setCables((prev) => [...prev, newCable]);
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    const nextCables = [...cablesRef.current, newCable];
+    setCables(nextCables);
+    performLocalSave(undefined, nextCables);
     setSelectedCableId(newCable.id);
     setIsRightPanelOpen(true);
     showToast(`Kabel ulandi: ${newCable.name}`);
   };
 
   const handleDeleteCable = (cableId: string) => {
-    setCables((prev) => prev.filter((c) => c.id !== cableId));
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    const nextCables = cablesRef.current.filter((c) => c.id !== cableId);
+    setCables(nextCables);
+    performLocalSave(undefined, nextCables);
     if (selectedCableId === cableId) {
       setSelectedCableId(null);
     }
@@ -2418,9 +2593,13 @@ export default function App() {
   };
 
   const handleUpdateCableColor = (cableId: string, color: string) => {
-    setCables((prev) =>
-      prev.map((c) => (c.id === cableId ? { ...c, color } : c))
-    );
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) => (c.id === cableId ? { ...c, color } : c));
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
   };
 
   const handleSelectCable = (cableId: string | null) => {
@@ -2431,14 +2610,20 @@ export default function App() {
   };
 
   const handleUpdateCable = (cableId: string, updated: Partial<CableConnection>) => {
-    setCables((prev) =>
-      prev.map((c) => (c.id === cableId ? { ...c, ...updated } : c))
-    );
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) => (c.id === cableId ? { ...c, ...updated } : c));
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
   };
 
   const handleSwapCableEnds = (cableId: string) => {
-    setCables((prev) =>
-      prev.map((c) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) => {
         if (c.id !== cableId) return c;
         const reversedRoutePoints = c.routePoints
           ? [...c.routePoints].reverse()
@@ -2458,8 +2643,10 @@ export default function App() {
               }
             : undefined,
         };
-      })
-    );
+      });
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
     recordSnapshot("Kabel oqim yo‘nalishi almashtirildi");
     showToast("Kabel oqim yo‘nalishi va uchlari almashtirildi (A ⇄ B)");
   };
@@ -2481,9 +2668,11 @@ export default function App() {
   };
 
   const handleAddCableRoutePoint = (cableId: string, customPoint?: Partial<CableRoutePoint>) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
     recordSnapshot("Kabelga burilish nuqtasi qo‘shildi");
-    setCables((prev) =>
-      prev.map((c) => {
+    setCables((prev) => {
+      const nextCables = prev.map((c) => {
         if (c.id !== cableId) return c;
         const pts = c.routePoints ? [...c.routePoints] : [];
 
@@ -2565,7 +2754,7 @@ export default function App() {
           newPoint = {
             id: `pt_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
             x: Math.round(((segA.x + segB.x) / 2) * 10) / 10,
-            y: Math.round((((segA.y + segB.y) / 2) + 20) * 10) / 10,
+            y: Math.round(((segA.y + segB.y) / 2) * 10) / 10,
             z: Math.round(((segA.z + segB.z) / 2) * 10) / 10,
             type: "waypoint",
           };
@@ -2575,8 +2764,10 @@ export default function App() {
         const updatedRoutePoints = [...pts];
         updatedRoutePoints.splice(insertionIndex, 0, newPoint);
         return { ...c, routePoints: updatedRoutePoints };
-      })
-    );
+      });
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
     showToast("Kabelga burilish nuqtasi qo‘shildi");
   };
 
@@ -2585,8 +2776,10 @@ export default function App() {
     pointId: string,
     coords: { x: number; y: number; z: number }
   ) => {
-    setCables((prev) =>
-      prev.map((c) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) => {
         if (c.id !== cableId) return c;
         return {
           ...c,
@@ -2594,29 +2787,39 @@ export default function App() {
             pt.id === pointId ? { ...pt, ...coords } : pt
           ),
         };
-      })
-    );
+      });
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
   };
 
   const handleDeleteCableRoutePoint = (cableId: string, pointId: string) => {
-    setCables((prev) =>
-      prev.map((c) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) => {
         if (c.id !== cableId) return c;
         return {
           ...c,
           routePoints: (c.routePoints || []).filter((pt) => pt.id !== pointId),
         };
-      })
-    );
+      });
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
     showToast("Burilish nuqtasi o‘chirildi");
   };
 
   const handleStraightenCable = (cableId: string) => {
-    setCables((prev) =>
-      prev.map((c) =>
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setCables((prev) => {
+      const nextCables = prev.map((c) =>
         c.id === cableId ? { ...c, routePoints: [], slackMm: 0, curveTension: 0.5 } : c
-      )
-    );
+      );
+      performLocalSave(undefined, nextCables);
+      return nextCables;
+    });
     showToast("Kabel tekislandi (burilishlar tozalandi)");
   };
 
@@ -3146,6 +3349,7 @@ export default function App() {
                 onSelectPin={(pin) => setSelectedPinFullName(pin)}
                 onUpdateTransform={handleUpdateTransform}
                 onUpdateMultipleTransforms={handleUpdateMultipleTransforms}
+                onCommitTransform={handleCommitTransform}
                 registerCaptureFn={(fn) => {
                   captureFnRef.current = fn;
                 }}

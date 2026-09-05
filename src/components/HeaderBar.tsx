@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { TransformMode, TransformSpace, SceneTheme } from "../types";
 import { prefetchAndCacheAllModels, getModelCacheInfo } from "../modelAssetLoader";
+import { useLanguage, LanguageSelector } from "../i18n/LanguageContext";
 
 interface HeaderBarProps {
   viewLayoutMode?: "split" | "3d" | "2d";
@@ -173,6 +174,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   dimUnselected = false,
   onToggleDimUnselected,
 }) => {
+  const { t, language, setLanguage } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const fileMenuDropdownRef = useRef<HTMLDivElement>(null);
@@ -347,17 +349,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="header-title-group">
             <div className="telemetry-badge">
               <Radio className="badge-icon-spin" size={11} />
-              <span>3.5M UAV</span>
+              <span>{t("header.telemetry")}</span>
             </div>
-            <h1 className="header-title">Dron Avionika 3D</h1>
+            <h1 className="header-title">{t("header.title")}</h1>
           </div>
 
           <div
             className="inventory-stat-pill"
             id="inventory-telemetry-pill"
-            title={`Sahnada: ${placedCount} / ${totalCount} dona (${Math.round((placedCount / totalCount) * 100)}%)`}
+            title={`${t("header.onStage")}: ${placedCount} / ${totalCount} dona (${Math.round((placedCount / totalCount) * 100)}%)`}
           >
-            <span className="stat-label">Sahnada:</span>
+            <span className="stat-label">{t("header.onStage")}:</span>
             <span className="stat-value highlight">
               {placedCount}/{totalCount}
             </span>
@@ -410,28 +412,28 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="btn-mode-translate"
               className={`tool-btn ${transformMode === "translate" ? "active" : ""}`}
               onClick={() => setTransformMode("translate")}
-              title="Ko‘chirish rejimi [W] (Translate)"
+              title={`${t("header.modeTranslate")} [W]`}
             >
               <Move size={14} />
-              <span className="hidden xl:inline">Ko‘chirish</span>
+              <span className="hidden xl:inline">{t("header.modeTranslate")}</span>
             </button>
             <button
               id="btn-mode-rotate"
               className={`tool-btn ${transformMode === "rotate" ? "active" : ""}`}
               onClick={() => setTransformMode("rotate")}
-              title="Aylantirish rejimi [E] (Rotate)"
+              title={`${t("header.modeRotate")} [E]`}
             >
               <RotateCw size={14} />
-              <span className="hidden xl:inline">Aylantirish</span>
+              <span className="hidden xl:inline">{t("header.modeRotate")}</span>
             </button>
             <button
               id="btn-mode-scale"
               className={`tool-btn ${transformMode === "scale" ? "active" : ""}`}
               onClick={() => setTransformMode("scale")}
-              title="Masshtablash rejimi [R] (Scale)"
+              title={`${t("header.modeScale")} [R]`}
             >
               <Maximize2 size={14} />
-              <span className="hidden xl:inline">Masshtab</span>
+              <span className="hidden xl:inline">{t("header.modeScale")}</span>
             </button>
           </div>
 
@@ -439,10 +441,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="btn-transform-space"
             className="tool-btn toggle-subtle shrink-0"
             onClick={() => setTransformSpace(transformSpace === "world" ? "local" : "world")}
-            title={`Koordinata tizimi: ${transformSpace === "world" ? "Dunyo (World)" : "Lokal (Local)"}`}
+            title={`${t("header.coordTooltip")}: ${transformSpace === "world" ? t("header.coordWorld") : t("header.coordLocal")}`}
           >
             <Globe size={13} />
-            <span>{transformSpace === "world" ? "World" : "Local"}</span>
+            <span>{transformSpace === "world" ? t("header.coordWorld") : t("header.coordLocal")}</span>
           </button>
 
           {onAutoPlaceAll && (
@@ -450,10 +452,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="btn-header-auto-place-all"
               className="tool-btn-pill flex items-center gap-1.5 px-2.5 py-1 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-cyan-100 border border-cyan-500/40 hover:border-cyan-400 rounded-md text-xs transition-all font-medium shadow-sm shrink-0"
               onClick={onAutoPlaceAll}
-              title="Barcha 32 ta avionika komponentini dron ichiga muhandislik koordinatalari bo‘yicha avtomatik joylashtirish"
+              title={t("inventory.autoPlaceSub")}
             >
               <Sparkles size={13} className="text-cyan-400" />
-              <span className="hidden md:inline">Auto joylash</span>
+              <span className="hidden md:inline">{t("header.autoPlaceAll")}</span>
               <span className="md:hidden">Auto</span>
             </button>
           )}
@@ -628,15 +630,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               className="toolbar-btn text-xs gap-1.5 px-3 py-1.5 bg-cyan-950/70 hover:bg-cyan-900/80 text-cyan-300 hover:text-white border border-cyan-700/70 rounded-lg transition-all shadow-sm shrink-0 flex items-center font-medium cursor-pointer"
               onClick={() => onOpenModelImport()}
-              title="Istalgan 3D modelni (.glb, .stl, .obj) tanlash, fayldan yuklash yoki almashtirish"
+              title={t("models.title")}
             >
               <Box size={14} className="text-cyan-400" />
-              <span className="font-semibold text-cyan-200">Model tanlash</span>
+              <span className="font-semibold text-cyan-200">{t("header.selectModel")}</span>
             </button>
           )}
 
           {/* Scene Theme Selector */}
-          <div className="scene-theme-selector shrink-0" id="scene-theme-selector" title="3D Sahna mavzusi">
+          <div className="scene-theme-selector shrink-0" id="scene-theme-selector" title={t("header.sceneTheme")}>
             <Layers size={13} className="theme-selector-icon" />
             <select
               id="select-scene-theme"
@@ -658,28 +660,28 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="btn-toggle-pins"
               className={`tool-btn-pill ${showPins ? "active" : ""}`}
               onClick={() => setShowPins(!showPins)}
-              title="Port va pin nuqtalarini ko‘rsatish/yashirish"
+              title={t("header.pins")}
             >
               <Zap size={13} />
-              <span className="hidden sm:inline">Pinlar</span>
+              <span className="hidden sm:inline">{t("header.pins")}</span>
             </button>
             <button
               id="btn-toggle-cables"
               className={`tool-btn-pill ${showCables ? "active" : ""}`}
               onClick={() => setShowCables(!showCables)}
-              title="Ulanish kabellarini ko‘rsatish/yashirish"
+              title={t("header.cables")}
             >
               <Cable size={13} />
-              <span className="hidden sm:inline">Kabellar</span>
+              <span className="hidden sm:inline">{t("header.cables")}</span>
             </button>
             <button
               id="btn-toggle-grid"
               className={`tool-btn-pill ${showGrid ? "active" : ""}`}
               onClick={() => setShowGrid(!showGrid)}
-              title="3D Koordinata to‘rini ko‘rsatish"
+              title={t("header.grid")}
             >
               <Grid size={13} />
-              <span className="hidden sm:inline">Setka</span>
+              <span className="hidden sm:inline">{t("header.grid")}</span>
             </button>
             {onToggleDimUnselected && (
               <button
@@ -797,7 +799,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               title="Klaviatura tezkor tugmalari ro‘yxati [Klaviatura: ? yoki F1]"
             >
               <Keyboard size={13} className="text-cyan-400" />
-              <span className="hidden lg:inline">Tugmalar</span>
+              <span className="hidden lg:inline">{t("header.shortcuts")}</span>
               <kbd className="hidden sm:inline bg-slate-800 text-[10px] px-1 py-0.2 rounded border border-slate-700 text-slate-400 font-mono">
                 ?
               </kbd>
@@ -809,28 +811,28 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <button
               id="btn-manual-save"
               className={`action-btn flex items-center gap-1.5 px-3 py-1 font-semibold text-xs rounded transition-all shadow-sm shrink-0 ${
-                autoSaveStatus === "saving" || isCloudSaving
-                  ? "bg-amber-600/90 hover:bg-amber-600 text-white border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)] cursor-wait"
-                  : isJustSaved
+                isJustSaved
                   ? "bg-emerald-600 text-white border-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.35)]"
+                  : autoSaveStatus === "saving" || isCloudSaving
+                  ? "bg-amber-600/90 hover:bg-amber-600 text-white border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)] cursor-wait"
                   : "bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.25)] active:scale-95"
               }`}
               onClick={handleManualSaveClick}
-              title="Loyihani saqlash va bulutda yangilash (Tezkor tugma: Ctrl+S yoki Cmd+S)"
+              title={`${t("common.save")} (Ctrl+S)`}
             >
-              {autoSaveStatus === "saving" || isCloudSaving ? (
-                <RefreshCw size={13} className="animate-spin text-white" />
-              ) : isJustSaved ? (
+              {isJustSaved ? (
                 <Check size={13} className="text-white" />
+              ) : autoSaveStatus === "saving" || isCloudSaving ? (
+                <RefreshCw size={13} className="animate-spin text-white" />
               ) : (
                 <Save size={13} className="text-white" />
               )}
               <span className="font-semibold tracking-wide">
-                {autoSaveStatus === "saving" || isCloudSaving
-                  ? "Saqlanmoqda..."
-                  : isJustSaved
-                  ? "Saqlandi!"
-                  : "Saqlash"}
+                {isJustSaved
+                  ? t("common.saved")
+                  : autoSaveStatus === "saving" || isCloudSaving
+                  ? t("common.saving")
+                  : t("header.saveBtn")}
               </span>
               <kbd className="hidden md:inline-block text-[9px] bg-emerald-950/80 text-emerald-200 px-1 py-0.2 rounded border border-emerald-400/40 font-mono ml-0.5">
                 Ctrl+S
@@ -850,9 +852,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   : "text-sky-400 hover:text-sky-300 border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50"
               }`}
               onClick={onOpenCloudModal}
-              title={`Avtomatik saqlash: ${
-                autoSaveStatus === "saving" || isCloudSaving ? "Saqlanmoqda..." : "Faol (barcha amallar saqlangan)"
-              }. Oxirgi saqlash: ${lastSavedAtText || "hozirgina"}. Bulut kodi: ${cloudCode || "main-project"}`}
+              title={`Cloud: ${cloudCode || "main-project"}`}
             >
               {autoSaveStatus === "saving" || isCloudSaving ? (
                 <RefreshCw size={13} className="animate-spin text-amber-400" />
@@ -866,10 +866,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               )}
               <span className="font-medium text-xs">
                 {autoSaveStatus === "saving" || isCloudSaving ? (
-                  "Saqlanmoqda..."
+                  t("common.saving")
                 ) : (
                   <>
-                    <span>Avto-saqlandi</span>
+                    <span>{t("header.autoSaved")}</span>
                     {lastSavedAtText && (
                       <span className="hidden xl:inline text-[10px] text-emerald-400/80 font-mono ml-1">
                         {lastSavedAtText}
@@ -886,6 +886,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
           )}
 
+          {/* Language Selector (UZ, TR, EN) */}
+          <LanguageSelector className="shrink-0" />
+
           {/* Consolidated File & Export Dropdown Menu */}
           <div className="relative inline-block shrink-0">
             <button
@@ -893,10 +896,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="btn-file-export-menu"
               className={`action-btn flex items-center gap-1.5 ${isFileMenuOpen ? "active" : ""}`}
               onClick={toggleFileMenu}
-              title="Fayl va eksport amallari"
+              title={t("header.fileMenu")}
             >
               <FolderDown size={13} />
-              <span>Fayl / Eksport</span>
+              <span>{t("header.fileMenu")}</span>
               <ChevronDown
                 size={12}
                 className={`transition-transform duration-200 ${isFileMenuOpen ? "rotate-180" : ""}`}
@@ -1050,6 +1053,51 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
               <div className="file-menu-divider" />
 
+              {/* Language Selection Row inside dropdown */}
+              <div className="px-3 py-2 flex items-center justify-between text-xs text-slate-300 bg-slate-950/60 rounded-lg mx-1 my-1 border border-slate-800">
+                <span className="flex items-center gap-1.5 font-medium text-slate-300">
+                  <Globe size={13} className="text-cyan-400" />
+                  <span>{t("header.menuLanguage")}:</span>
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("uz")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                      language === "uz"
+                        ? "bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    }`}
+                  >
+                    🇺🇿 UZ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("tr")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                      language === "tr"
+                        ? "bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    }`}
+                  >
+                    🇹🇷 TR
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLanguage("en")}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                      language === "en"
+                        ? "bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    }`}
+                  >
+                    🇬🇧 EN
+                  </button>
+                </div>
+              </div>
+
+              <div className="file-menu-divider" />
+
               <button
                 id="btn-reset-all"
                 className="file-menu-item danger"
@@ -1057,10 +1105,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   setIsFileMenuOpen(false);
                   onResetAll();
                 }}
-                title="Barcha komponentlarni boshlang‘ich holatga qaytarish"
+                title={t("header.menuResetAll")}
               >
                 <RotateCcw size={14} />
-                <span>Hammasini qaytarish (Reset)</span>
+                <span>{t("header.menuResetAll")}</span>
               </button>
             </div>
           )}
