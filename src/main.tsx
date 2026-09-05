@@ -11,7 +11,8 @@ async function seedDefaultLayout() {
   try {
     if (localStorage.getItem(DEFAULT_LAYOUT_SEEDED_KEY) === "1") return;
 
-    const response = await fetch("/data/default-layout.bundle.json", { cache: "no-cache" });
+    const base = import.meta.env.BASE_URL || "./";
+    const response = await fetch(`${base}data/default-layout.bundle.json`, { cache: "no-cache" });
     if (!response.ok) return;
 
     const bundle = await response.json();
@@ -27,7 +28,6 @@ async function seedDefaultLayout() {
 
     if (!layout || !Array.isArray(layout.instances)) return;
 
-    // Make the exported scene compatible with App.tsx restore logic.
     layout.timestamp = new Date().toISOString();
     layout.updatedAt = layout.timestamp;
     layout.cameraViewMode = layout.cameraViewMode || "perspective";
