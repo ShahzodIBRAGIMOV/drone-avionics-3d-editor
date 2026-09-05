@@ -7,6 +7,33 @@
     <meta name="description" content="3.8 M Twin-Motor UAV uchun 3D avionika komponentlarini joylashtirish va tahrirlash muharriri" />
     <meta property="og:title" content="Dron Avionika 3D Editor" />
     <meta property="og:description" content="3.8 M Twin-Motor UAV uchun 3D avionika komponentlarini joylashtirish va tahrirlash muharriri" />
+    <script>
+      // The app historically uses root-relative runtime fetch paths (/data, /models,
+      // /model-parts). On a GitHub Pages project site those assets live below the
+      // repository path, so transparently prefix same-origin root requests.
+      (() => {
+        const repoBase = location.hostname.endsWith("github.io")
+          ? "/drone-avionics-3d-editor"
+          : "";
+        if (!repoBase) return;
+
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = (input, init) => {
+          if (typeof input === "string" && input.startsWith("/") && !input.startsWith(repoBase + "/")) {
+            input = repoBase + input;
+          }
+          return originalFetch(input, init);
+        };
+
+        const originalOpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+          if (typeof url === "string" && url.startsWith("/") && !url.startsWith(repoBase + "/")) {
+            url = repoBase + url;
+          }
+          return originalOpen.call(this, method, url, ...rest);
+        };
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
