@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   Link2,
@@ -142,9 +142,10 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
 
   // Source pins retrieval and selection
   const sourcePins: PinDefinition[] = sourceInstance
-    ? sourceInstance.customPins && sourceInstance.customPins.length > 0
-      ? sourceInstance.customPins
-      : COMPONENT_PINS[sourceInstance.componentId] || []
+    ? [
+        ...(COMPONENT_PINS[sourceInstance.componentId] || []),
+        ...(sourceInstance.customPins || []),
+      ]
     : [];
   const [selectedSourcePinFullName, setSelectedSourcePinFullName] = useState<string>(sourcePin.fullName);
 
@@ -165,12 +166,39 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
   ]);
 
   const targetPins: PinDefinition[] = targetInstance
-    ? targetInstance.customPins && targetInstance.customPins.length > 0
-      ? targetInstance.customPins
-      : COMPONENT_PINS[targetInstance.componentId] || []
+    ? [
+        ...(COMPONENT_PINS[targetInstance.componentId] || []),
+        ...(targetInstance.customPins || []),
+      ]
     : [];
 
   const targetPin = targetPins.find((p) => p.fullName === targetPinFullName);
+
+  // Automatically ensure breakoutTargetPins has distinct target pins when target changes or count changes
+  useEffect(() => {
+    if (!targetInstance || targetPins.length === 0) return;
+    setBreakoutTargetPins((prev) => {
+      const next = [...prev];
+      const count = Math.max(2, breakoutCount);
+      const used = new Set<string>();
+
+      for (let i = 0; i < count; i++) {
+        const current = next[i];
+        if (current && targetPins.some((p) => p.fullName === current) && !used.has(current)) {
+          used.add(current);
+        } else {
+          const available = targetPins.find((p) => !used.has(p.fullName));
+          if (available) {
+            next[i] = available.fullName;
+            used.add(available.fullName);
+          } else {
+            next[i] = targetPins[i % targetPins.length]?.fullName || "";
+          }
+        }
+      }
+      return next.slice(0, count);
+    });
+  }, [targetInstanceId, targetPins.length, breakoutCount]);
 
   // Dynamic pin count updater (2 tadan 10 tagacha)
   const handleSetBreakoutCount = (newCount: number) => {
@@ -180,20 +208,34 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
 
     setBreakoutTargetPins((prev) => {
       const next = [...prev];
+      const used = new Set<string>(next.filter(Boolean));
       while (next.length < clamped) {
-        const nextIdx = next.length;
-        const autoPin = targetPins[nextIdx % Math.max(1, targetPins.length)]?.fullName || "";
-        next.push(autoPin);
+        const available = targetPins.find((p) => !used.has(p.fullName));
+        if (available) {
+          next.push(available.fullName);
+          used.add(available.fullName);
+        } else {
+          const nextIdx = next.length;
+          const autoPin = targetPins[nextIdx % Math.max(1, targetPins.length)]?.fullName || "";
+          next.push(autoPin);
+        }
       }
       return next.slice(0, clamped);
     });
 
     setBreakoutSourcePins((prev) => {
       const next = [...prev];
+      const used = new Set<string>(next.filter(Boolean));
       while (next.length < clamped) {
-        const nextIdx = next.length;
-        const autoPin = sourcePins[nextIdx % Math.max(1, sourcePins.length)]?.fullName || sourcePin.fullName;
-        next.push(autoPin);
+        const available = sourcePins.find((p) => !used.has(p.fullName));
+        if (available) {
+          next.push(available.fullName);
+          used.add(available.fullName);
+        } else {
+          const nextIdx = next.length;
+          const autoPin = sourcePins[nextIdx % Math.max(1, sourcePins.length)]?.fullName || sourcePin.fullName;
+          next.push(autoPin);
+        }
       }
       return next.slice(0, clamped);
     });
@@ -439,13 +481,49 @@ export const CableConnectModal: React.FC<CableConnectModalProps> = ({
 
     if (!finalTargetPin || !finalSourcePin) return;
 
-    const validTargetPins = isBreakout && (breakoutMode === "1-to-N" || breakoutMode === "N-to-N")
-      ? breakoutTargetPins.slice(0, breakoutCount).map((p, idx) => p || targetPins[idx % Math.max(1, targetPins.length)]?.fullName || "")
-      : undefined;
+    let validTargetPins: string[] | undefined = undefined;
+    if (isBreakout && (breakoutMode === "1-to-N" || breakoutMode === "N-to-N")) {
+      const assigned: string[] = [];
+      for (let idx = 0; idx < breakoutCount; idx++) {
+        const preferred = breakoutTargetPins[idx];
+        if (preferred && targetPins.some(p => p.fullName === preferred) && !assigned.includes(preferred)) {
+          assigned.push(preferred);
+        } else if (preferred && targetPins.some(p => p.fullName === preferred)) {
+          const unassigned = targetPins.find(p => !assigned.includes(p.fullName));
+          assigned.push(unassigned ? unassigned.fullName : preferred);
+        } else {
+          const unassigned = targetPins.find(p => !assigned.includes(p.fullName));
+          if (unassigned) {
+            assigned.push(unassigned.fullName);
+          } else {
+            assigned.push(targetPins[idx % Math.max(1, targetPins.length)]?.fullName || finalTargetPin);
+          }
+        }
+      }
+      validTargetPins = assigned;
+    }
 
-    const validSourcePins = isBreakout && (breakoutMode === "N-to-1" || breakoutMode === "N-to-N")
-      ? breakoutSourcePins.slice(0, breakoutCount).map((p, idx) => p || sourcePins[idx % Math.max(1, sourcePins.length)]?.fullName || "")
-      : undefined;
+    let validSourcePins: string[] | undefined = undefined;
+    if (isBreakout && (breakoutMode === "N-to-1" || breakoutMode === "N-to-N")) {
+      const assigned: string[] = [];
+      for (let idx = 0; idx < breakoutCount; idx++) {
+        const preferred = breakoutSourcePins[idx];
+        if (preferred && sourcePins.some(p => p.fullName === preferred) && !assigned.includes(preferred)) {
+          assigned.push(preferred);
+        } else if (preferred && sourcePins.some(p => p.fullName === preferred)) {
+          const unassigned = sourcePins.find(p => !assigned.includes(p.fullName));
+          assigned.push(unassigned ? unassigned.fullName : preferred);
+        } else {
+          const unassigned = sourcePins.find(p => !assigned.includes(p.fullName));
+          if (unassigned) {
+            assigned.push(unassigned.fullName);
+          } else {
+            assigned.push(sourcePins[idx % Math.max(1, sourcePins.length)]?.fullName || finalSourcePin);
+          }
+        }
+      }
+      validSourcePins = assigned;
+    }
 
     const finalStrandColors = isBreakout
       ? strandColors.slice(0, breakoutCount)

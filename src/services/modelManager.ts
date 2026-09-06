@@ -11,6 +11,7 @@ export interface CustomModelRecord {
   format?: "obj" | "stl" | "glb" | "gltf";
   scaleMultiplier?: number;
   fileName?: string;
+  fileUrl?: string;
   sourceUrl?: string;
   presetKey?: string;
   updatedAt: number;
@@ -38,6 +39,12 @@ export const COMPONENT_ID_TO_ASSET_KEY: Record<string, string> = {
   "19": "jetson-p3737",
   "20": "siyi-bec",
   "21": "foldable-omni-antenna",
+  "22": "radiomaster-dbr4",
+  "23": "ls1005g-switch",
+  "24": "gigablox-switch",
+  "25": "ubec-12v-pro",
+  "26": "ubec-12v-aux",
+  "27": "ubec-12v-servo",
 };
 
 export type LoadingProgressCallback = (loaded: number, total: number, currentItem: string) => void;
@@ -219,6 +226,54 @@ export const PRESET_3D_MODELS: Preset3DModel[] = [
     description: "Yuqori xavfsizlikli mexanik elektr uzgich",
     format: "glb",
     dimensionsMm: [36, 36, 42],
+  },
+  {
+    assetKey: "radiomaster-dbr4",
+    name: "RadioMaster DBR4 Qabul qiluvchi",
+    category: "rf",
+    description: "Ikkita chastotali telemetriya va boshqaruv qabul qilgichi",
+    format: "glb",
+    dimensionsMm: [32, 21, 9],
+  },
+  {
+    assetKey: "ls1005g-switch",
+    name: "LS1005G 5-Port RJ45 Ethernet Switch",
+    category: "computing",
+    description: "5 ta RJ45 portli gigabit kommutator moduli",
+    format: "glb",
+    dimensionsMm: [70, 50, 20],
+  },
+  {
+    assetKey: "gigablox-switch",
+    name: "GigaBlox RevC Gigabit Switch",
+    category: "computing",
+    description: "Kichik o'lchamli yuqori tezlikdagi bort kommutatori",
+    format: "glb",
+    dimensionsMm: [55, 45, 18],
+  },
+  {
+    assetKey: "ubec-12v-pro",
+    name: "UBEC 12V 8A PRO",
+    category: "power",
+    description: "12V 8A maxsus kuchlanish stabilizatori",
+    format: "glb",
+    dimensionsMm: [48, 26, 12],
+  },
+  {
+    assetKey: "ubec-12v-aux",
+    name: "UBEC 12V 8A AUX",
+    category: "power",
+    description: "Qo'shimcha qurilmalar uchun 12V regulyator",
+    format: "glb",
+    dimensionsMm: [48, 26, 12],
+  },
+  {
+    assetKey: "ubec-12v-servo",
+    name: "UBEC 12V 8A Servo",
+    category: "power",
+    description: "Servoprivodlar quvvat ta'minoti regulyatori",
+    format: "glb",
+    dimensionsMm: [48, 26, 12],
   },
 ];
 
@@ -406,6 +461,42 @@ class ModelManager {
           metalness: 0.3,
         });
 
+      case "22": // RadioMaster DBR4 receiver (Compact dark polycarbonate case)
+        return new THREE.MeshStandardMaterial({
+          color: 0x181a1d,
+          roughness: 0.35,
+          metalness: 0.4,
+        });
+
+      case "23": // LS1005G Switch (Industrial metal gray/blue housing)
+        return new THREE.MeshStandardMaterial({
+          color: 0x243242,
+          roughness: 0.3,
+          metalness: 0.6,
+        });
+
+      case "24": // GigaBlox Gigabit Switch (Rugged matte black anodized aluminum)
+        return new THREE.MeshStandardMaterial({
+          color: 0x141618,
+          roughness: 0.25,
+          metalness: 0.75,
+        });
+
+      case "25": // UBEC 12S PRO (CNC anodized teal/dark cyan aluminum casing)
+        return new THREE.MeshStandardMaterial({
+          color: 0x124559,
+          roughness: 0.3,
+          metalness: 0.7,
+        });
+
+      case "26": // Auxiliary 12V UBEC (Anodized dark red aluminum)
+      case "27": // Servo Power 12V UBEC (Anodized dark red aluminum)
+        return new THREE.MeshStandardMaterial({
+          color: 0x8a1c1c,
+          roughness: 0.3,
+          metalness: 0.65,
+        });
+
       default:
         return new THREE.MeshStandardMaterial({
           color: 0x5a6872,
@@ -415,22 +506,156 @@ class ModelManager {
     }
   }
 
+  // Create a high-detail procedural avionics module enclosure when no 3D asset exists or network fails
+  createProceduralFallbackTemplate(componentId: string, assetKey: string): THREE.Group {
+    const group = new THREE.Group();
+    group.name = `template_${assetKey}`;
+
+    const dimsMap: Record<string, [number, number, number]> = {
+      "22": [28, 11, 18],
+      "23": [90, 23, 72],
+      "24": [50, 15, 50],
+      "25": [60, 14, 28],
+      "26": [48, 12, 24],
+      "27": [48, 12, 24],
+    };
+    const [dimX, dimY, dimZ] = dimsMap[componentId] || [50, 16, 32];
+
+    const bodyMat = this.getAviationMaterial(componentId, assetKey);
+    const bodyGeom = new THREE.BoxGeometry(dimX, dimY, dimZ);
+    const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+    bodyMesh.castShadow = true;
+    bodyMesh.receiveShadow = true;
+    group.add(bodyMesh);
+
+    // Beveled / contrast top heatsink or cover plate
+    const topPlateGeom = new THREE.BoxGeometry(dimX * 0.92, Math.max(1, dimY * 0.08), dimZ * 0.92);
+    const topPlateMat = new THREE.MeshStandardMaterial({
+      color: 0x222a33,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    const topPlate = new THREE.Mesh(topPlateGeom, topPlateMat);
+    topPlate.position.y = dimY / 2 + Math.max(0.5, dimY * 0.04);
+    group.add(topPlate);
+
+    // Subtle power/status LED dot on corner
+    const ledGeom = new THREE.CylinderGeometry(
+      Math.min(dimX, dimZ) * 0.035,
+      Math.min(dimX, dimZ) * 0.035,
+      1,
+      12
+    );
+    const ledMat = new THREE.MeshBasicMaterial({ color: 0x00e676 });
+    const led = new THREE.Mesh(ledGeom, ledMat);
+    led.position.set(-dimX * 0.38, dimY / 2 + 0.8, -dimZ * 0.38);
+    group.add(led);
+
+    return group;
+  }
+
   async loadModelTemplate(componentId: string, forceReload = false): Promise<THREE.Object3D> {
-    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId];
-    if (!assetKey) {
-      throw new Error(`Noma'lum komponent ID: ${componentId}`);
+    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || `comp_${componentId}`;
+    this.registerCustomComponent(componentId, assetKey);
+
+    if (!forceReload) {
+      const cached =
+        this.templateCache.get(assetKey) ||
+        this.templateCache.get(componentId) ||
+        this.templateCache.get(`custom_${componentId}`);
+      if (cached) {
+        return cached;
+      }
     }
 
-    if (!forceReload && this.templateCache.has(assetKey)) {
-      return this.templateCache.get(assetKey)!;
-    }
-
-    if (!forceReload && this.loadingPromises.has(assetKey)) {
-      return this.loadingPromises.get(assetKey)!;
+    if (!forceReload && (this.loadingPromises.has(assetKey) || this.loadingPromises.has(componentId))) {
+      return (this.loadingPromises.get(assetKey) || this.loadingPromises.get(componentId))!;
     }
 
     const loadPromise = (async () => {
       try {
+        // 1. FIRST: Check if this component has a custom model record (from user upload or repo manifest)
+        const customRecord = this.getCustomModelRegistry()[componentId];
+        if (customRecord) {
+          try {
+            let customObject: THREE.Object3D | null = null;
+            if (customRecord.sourceType === "preset" && customRecord.presetKey) {
+              customObject = await this.assignPresetModel(componentId, customRecord.presetKey, false);
+            } else {
+              // Helper to detect corrupt HTML responses
+              const isBufferCorrupt = (buf: ArrayBuffer | null | undefined): boolean => {
+                if (!buf || buf.byteLength < 50) return true;
+                const slice = new Uint8Array(buf.slice(0, 16));
+                const str = String.fromCharCode(...slice).toLowerCase();
+                return str.includes("<!do") || str.includes("<html") || str.includes("<?xml");
+              };
+
+              // 1.1 Priority A: Check local indexedDB buffer (holds user's uploaded binary files)
+              const bufferKey = `custom_model_buffer_${componentId}`;
+              let buffer = await getCachedBuffer(bufferKey);
+              if (buffer && isBufferCorrupt(buffer)) {
+                buffer = null;
+                await setCachedBuffer(bufferKey, new ArrayBuffer(0)).catch(() => {});
+              }
+
+              // 1.2 Priority B: If no buffer in local storage, fetch from fileUrl or /models/custom/...
+              if (!buffer || buffer.byteLength === 0) {
+                const targetPath =
+                  customRecord.fileUrl ||
+                  (customRecord.fileName ? `/models/custom/${customRecord.fileName}` : undefined);
+                if (targetPath) {
+                  try {
+                    const cacheBusterParam = `t=${customRecord.updatedAt || this.cacheBuster || Date.now()}`;
+                    const fullUrl = targetPath.includes("?")
+                      ? `${targetPath}&${cacheBusterParam}`
+                      : `${targetPath}?${cacheBusterParam}`;
+                    const res = await fetch(fullUrl);
+                    if (res.ok) {
+                      const fetched = await res.arrayBuffer();
+                      if (fetched && !isBufferCorrupt(fetched)) {
+                        buffer = fetched;
+                        await setCachedBuffer(bufferKey, buffer);
+                      }
+                    }
+                  } catch (fetchErr) {
+                    console.warn(`Could not fetch custom model for ${componentId}:`, fetchErr);
+                  }
+                }
+              }
+
+              if (buffer && buffer.byteLength > 0) {
+                let fmt = customRecord.format;
+                if (!fmt) {
+                  const fname = (customRecord.fileName || customRecord.fileUrl || "").split("?")[0].toLowerCase();
+                  if (fname.endsWith(".stl")) fmt = "stl";
+                  else if (fname.endsWith(".glb")) fmt = "glb";
+                  else if (fname.endsWith(".gltf")) fmt = "gltf";
+                  else fmt = "obj";
+                }
+                customObject = await this.loadCustomModel(
+                  componentId,
+                  buffer,
+                  fmt,
+                  customRecord.scaleMultiplier || 1.0,
+                  customRecord.fileName,
+                  false
+                );
+              }
+            }
+            if (customObject) {
+              this.templateCache.set(assetKey, customObject);
+              this.templateCache.set(componentId, customObject);
+              this.templateCache.set(`custom_${componentId}`, customObject);
+              this.loadErrors.delete(assetKey);
+              this.loadErrors.delete(componentId);
+              return customObject;
+            }
+          } catch (custErr) {
+            console.warn(`Custom model load failed for ${componentId}, falling back to built-in/procedural:`, custErr);
+          }
+        }
+
+        // 2. Otherwise load built-in asset from index
         const index = await this.getIndex(forceReload);
         let asset = index[assetKey];
         if (!asset && componentId === "07") {
@@ -439,7 +664,13 @@ class ModelManager {
           asset = index[assetKey];
         }
         if (!asset) {
-          throw new Error(`Asset topilmadi: ${assetKey}`);
+          const fallback = this.createProceduralFallbackTemplate(componentId, assetKey);
+          this.templateCache.set(assetKey, fallback);
+          this.templateCache.set(componentId, fallback);
+          this.templateCache.set(`custom_${componentId}`, fallback);
+          this.loadErrors.delete(assetKey);
+          this.loadErrors.delete(componentId);
+          return fallback;
         }
 
         const arrayBuffer = await loadModelAsset(
@@ -598,18 +829,28 @@ class ModelManager {
         wrapper.name = `template_${assetKey}`;
 
         this.templateCache.set(assetKey, wrapper);
+        this.templateCache.set(componentId, wrapper);
+        this.templateCache.set(`custom_${componentId}`, wrapper);
         this.loadErrors.delete(assetKey);
+        this.loadErrors.delete(componentId);
         return wrapper;
       } catch (err: any) {
-        const errorMsg = err?.message || `${assetKey} yuklanmadi`;
-        this.loadErrors.set(assetKey, errorMsg);
-        throw new Error(errorMsg);
+        console.warn(`Model loading error for ${componentId} (${assetKey}):`, err);
+        const fallback = this.createProceduralFallbackTemplate(componentId, assetKey);
+        this.templateCache.set(assetKey, fallback);
+        this.templateCache.set(componentId, fallback);
+        this.templateCache.set(`custom_${componentId}`, fallback);
+        this.loadErrors.delete(assetKey);
+        this.loadErrors.delete(componentId);
+        return fallback;
       } finally {
         this.loadingPromises.delete(assetKey);
+        this.loadingPromises.delete(componentId);
       }
     })();
 
     this.loadingPromises.set(assetKey, loadPromise);
+    this.loadingPromises.set(componentId, loadPromise);
     return loadPromise;
   }
 
@@ -638,13 +879,19 @@ class ModelManager {
   }
 
   createInstanceMesh(componentId: string, instanceId: string, customMaterial?: THREE.Material): THREE.Group {
-    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId];
-    let template = this.templateCache.get(assetKey);
+    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
+    let template =
+      this.templateCache.get(assetKey) ||
+      this.templateCache.get(componentId) ||
+      this.templateCache.get(`custom_${componentId}`);
     if (!template && componentId === "07") {
       template = this.templateCache.get("pm02d") || this.templateCache.get("pm07");
     }
     if (!template) {
-      throw new Error(`Shablon hali yuklanmagan: ${componentId}`);
+      template = this.createProceduralFallbackTemplate(componentId, assetKey);
+      this.templateCache.set(assetKey, template);
+      this.templateCache.set(componentId, template);
+      this.templateCache.set(`custom_${componentId}`, template);
     }
 
     const clone = template.clone(true) as THREE.Group;
@@ -700,10 +947,16 @@ class ModelManager {
     const assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
     this.cacheBuster = Date.now();
     this.loadErrors.delete(assetKey);
+    this.loadErrors.delete(componentId);
     this.templateCache.delete(assetKey);
+    this.templateCache.delete(componentId);
+    this.templateCache.delete(`custom_${componentId}`);
     this.loadingPromises.delete(assetKey);
+    this.loadingPromises.delete(componentId);
 
-    await clearSingleModelCache(assetKey);
+    // Only clear built-in caches, NEVER delete custom_model_buffer_
+    await clearSingleModelCache(assetKey, false);
+    await clearSingleModelCache(componentId, false);
 
     // Invalidate index cache so latest metadata is fetched
     this.indexCache = null;
@@ -712,8 +965,11 @@ class ModelManager {
   }
 
   getTemplateDimensions(componentId: string): [number, number, number] | null {
-    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId];
-    let template = this.templateCache.get(assetKey);
+    let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
+    let template =
+      this.templateCache.get(assetKey) ||
+      this.templateCache.get(componentId) ||
+      this.templateCache.get(`custom_${componentId}`);
     if (!template && componentId === "07") {
       template = this.templateCache.get("pm02d") || this.templateCache.get("pm07");
     }
@@ -760,8 +1016,15 @@ class ModelManager {
     if (typeof localStorage === "undefined") return;
     try {
       const current = this.getCustomModelRegistry();
+      const assetKey = current[componentId]?.assetKey || COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
       delete current[componentId];
       localStorage.setItem(this.customRegistryKey, JSON.stringify(current));
+
+      this.templateCache.delete(assetKey);
+      this.templateCache.delete(componentId);
+      this.templateCache.delete(`custom_${componentId}`);
+      this.loadingPromises.delete(assetKey);
+      this.loadingPromises.delete(componentId);
     } catch (e) {
       console.warn("Could not remove custom model record:", e);
     }
@@ -781,6 +1044,13 @@ class ModelManager {
     const targetAssetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
     this.registerCustomComponent(componentId, targetAssetKey);
 
+    // Invalidate old template caches
+    this.templateCache.delete(targetAssetKey);
+    this.templateCache.delete(componentId);
+    this.templateCache.delete(`custom_${componentId}`);
+    this.loadingPromises.delete(targetAssetKey);
+    this.loadingPromises.delete(componentId);
+
     // Ensure source model template is loaded
     await this.loadModelAssetByKey(sourceAssetKey);
     const sourceTemplate = this.templateCache.get(sourceAssetKey);
@@ -791,7 +1061,10 @@ class ModelManager {
     const cloned = sourceTemplate.clone(true) as THREE.Group;
     cloned.name = `template_${targetAssetKey}`;
     this.templateCache.set(targetAssetKey, cloned);
+    this.templateCache.set(componentId, cloned);
+    this.templateCache.set(`custom_${componentId}`, cloned);
     this.loadErrors.delete(targetAssetKey);
+    this.loadErrors.delete(componentId);
 
     if (persist) {
       this.saveCustomModelRecord({
@@ -859,6 +1132,27 @@ class ModelManager {
   ): Promise<THREE.Object3D> {
     let assetKey = COMPONENT_ID_TO_ASSET_KEY[componentId] || componentId;
     this.registerCustomComponent(componentId, assetKey);
+
+    if (!arrayBuffer || arrayBuffer.byteLength < 50) {
+      throw new Error(`Keltirilgan 3D fayl bo'sh yoki noto'g'ri (hajm: ${arrayBuffer?.byteLength || 0})`);
+    }
+
+    // Guard against corrupt HTML responses (e.g. 404/Vite index.html returned instead of binary)
+    const magic = new Uint8Array(arrayBuffer.slice(0, 16));
+    const magicStr = String.fromCharCode(...magic).toLowerCase();
+    if (magicStr.includes("<!do") || magicStr.includes("<html") || magicStr.includes("<?xml")) {
+      throw new Error(`Fayl haqiqiy 3D model emas, HTML xato sahifasi yuklandi`);
+    }
+
+    // Invalidate old template caches so the new 3D model takes effect immediately
+    this.templateCache.delete(assetKey);
+    this.templateCache.delete(componentId);
+    this.templateCache.delete(`custom_${componentId}`);
+    this.loadingPromises.delete(assetKey);
+    this.loadingPromises.delete(componentId);
+    await clearSingleModelCache(assetKey);
+    await clearSingleModelCache(componentId);
+
     let object: THREE.Object3D;
 
     if (format === "stl") {
@@ -927,7 +1221,10 @@ class ModelManager {
     wrapper.name = `template_${assetKey}`;
 
     this.templateCache.set(assetKey, wrapper);
+    this.templateCache.set(componentId, wrapper);
+    this.templateCache.set(`custom_${componentId}`, wrapper);
     this.loadErrors.delete(assetKey);
+    this.loadErrors.delete(componentId);
 
     if (persist) {
       try {
@@ -940,6 +1237,7 @@ class ModelManager {
           format,
           scaleMultiplier,
           fileName,
+          fileUrl: fileName ? `/models/custom/${fileName}` : undefined,
           updatedAt: Date.now(),
         });
       } catch (err) {
@@ -955,7 +1253,8 @@ class ModelManager {
     componentId: string,
     rawUrl: string,
     scaleMultiplier = 1.0,
-    persist = true
+    persist = true,
+    specifiedFormat?: "obj" | "stl" | "glb" | "gltf"
   ): Promise<THREE.Object3D> {
     // Transform standard GitHub blob URLs into raw URLs
     let fetchUrl = rawUrl.trim();
@@ -971,18 +1270,22 @@ class ModelManager {
     }
 
     const arrayBuffer = await res.arrayBuffer();
-    const lower = fetchUrl.toLowerCase();
-    let format: "obj" | "stl" | "glb" | "gltf" = "obj";
-    if (lower.endsWith(".stl")) format = "stl";
-    else if (lower.endsWith(".glb")) format = "glb";
-    else if (lower.endsWith(".gltf")) format = "gltf";
+    const cleanUrl = fetchUrl.split("?")[0].split("#")[0].toLowerCase();
+    let format: "obj" | "stl" | "glb" | "gltf" = specifiedFormat || "glb";
+    if (!specifiedFormat) {
+      if (cleanUrl.endsWith(".stl")) format = "stl";
+      else if (cleanUrl.endsWith(".glb")) format = "glb";
+      else if (cleanUrl.endsWith(".gltf")) format = "gltf";
+      else if (cleanUrl.endsWith(".obj")) format = "obj";
+    }
 
+    const cleanFileName = fetchUrl.split("?")[0].split("#")[0].split("/").pop();
     const wrapper = await this.loadCustomModel(
       componentId,
       arrayBuffer,
       format,
       scaleMultiplier,
-      fetchUrl.split("/").pop(),
+      cleanFileName,
       false
     );
 
@@ -997,7 +1300,7 @@ class ModelManager {
           format,
           scaleMultiplier,
           sourceUrl: rawUrl,
-          fileName: fetchUrl.split("/").pop(),
+          fileName: cleanFileName,
           updatedAt: Date.now(),
         });
       } catch (err) {
@@ -1008,10 +1311,50 @@ class ModelManager {
     return wrapper;
   }
 
-  // Automatically restore all custom models, assigned presets, and uploaded files from storage
+  // Automatically restore all custom models, assigned presets, and uploaded files from storage or repo manifest
   async restoreCustomModelsFromStorage(): Promise<string[]> {
     const registry = this.getCustomModelRegistry();
     const restoredComponentIds: string[] = [];
+
+    // Also check for repo-persisted custom models from public/data/custom_models_manifest.json
+    try {
+      const res = await fetch(`/data/custom_models_manifest.json?t=${Date.now()}`);
+      if (res.ok) {
+        const repoModels = await res.json();
+        if (Array.isArray(repoModels)) {
+          for (const m of repoModels) {
+            if (m && m.componentId) {
+              const existing = registry[m.componentId];
+              const isUpdated =
+                !existing ||
+                existing.fileName !== m.fileName ||
+                (m.updatedAt && m.updatedAt > (existing.updatedAt || 0));
+
+              if (isUpdated) {
+                registry[m.componentId] = {
+                  componentId: m.componentId,
+                  assetKey: m.assetKey || COMPONENT_ID_TO_ASSET_KEY[m.componentId] || `custom_${m.componentId}`,
+                  sourceType: m.sourceType || "file",
+                  format: m.format || "glb",
+                  scaleMultiplier: m.scaleMultiplier || 1.0,
+                  fileName: m.fileName,
+                  fileUrl: m.fileUrl || (m.fileName ? `/models/custom/${m.fileName}` : undefined),
+                  updatedAt: m.updatedAt || Date.now(),
+                };
+                this.saveCustomModelRecord(registry[m.componentId]);
+                const aKey = registry[m.componentId].assetKey;
+                this.templateCache.delete(aKey);
+                this.templateCache.delete(m.componentId);
+                this.templateCache.delete(`custom_${m.componentId}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Could not check repo custom_models_manifest.json:", err);
+    }
+
     const keys = Object.keys(registry);
     if (keys.length === 0) return restoredComponentIds;
 
@@ -1021,38 +1364,66 @@ class ModelManager {
         if (record.sourceType === "preset" && record.presetKey) {
           await this.assignPresetModel(compId, record.presetKey, false);
           restoredComponentIds.push(compId);
-        } else if (record.sourceType === "file" && record.format) {
+        } else {
+          // Helper to detect corrupt HTML responses
+          const isBufferCorrupt = (buf: ArrayBuffer | null | undefined): boolean => {
+            if (!buf || buf.byteLength < 50) return true;
+            const slice = new Uint8Array(buf.slice(0, 16));
+            const str = String.fromCharCode(...slice).toLowerCase();
+            return str.includes("<!do") || str.includes("<html") || str.includes("<?xml");
+          };
+
+          // 1. Check local buffer in IndexedDB/CacheStorage first
           const bufferKey = `custom_model_buffer_${compId}`;
-          const buffer = await getCachedBuffer(bufferKey);
-          if (buffer && buffer.byteLength > 0) {
-            await this.loadCustomModel(
-              compId,
-              buffer,
-              record.format,
-              record.scaleMultiplier || 1.0,
-              record.fileName,
-              false
-            );
-            restoredComponentIds.push(compId);
+          let buffer = await getCachedBuffer(bufferKey);
+          if (buffer && isBufferCorrupt(buffer)) {
+            // Discard corrupt HTML buffer stored in cache
+            buffer = null;
+            await setCachedBuffer(bufferKey, new ArrayBuffer(0)).catch(() => {});
           }
-        } else if (record.sourceType === "url") {
-          const bufferKey = `custom_model_buffer_${compId}`;
-          const buffer = await getCachedBuffer(bufferKey);
-          if (buffer && buffer.byteLength > 0 && record.format) {
+
+          // 2. If no local buffer, fetch from fileUrl / repository filesystem
+          if (!buffer || buffer.byteLength === 0) {
+            const fetchPath =
+              record.fileUrl ||
+              (record.fileName ? `/models/custom/${record.fileName}` : record.sourceUrl);
+            if (fetchPath) {
+              try {
+                const cacheBusterParam = `t=${record.updatedAt || Date.now()}`;
+                const fullUrl = fetchPath.includes("?")
+                  ? `${fetchPath}&${cacheBusterParam}`
+                  : `${fetchPath}?${cacheBusterParam}`;
+                const res = await fetch(fullUrl);
+                if (res.ok) {
+                  const fetchedBuf = await res.arrayBuffer();
+                  if (fetchedBuf && fetchedBuf.byteLength > 50 && !isBufferCorrupt(fetchedBuf)) {
+                    buffer = fetchedBuf;
+                    await setCachedBuffer(bufferKey, buffer);
+                  }
+                }
+              } catch (fErr) {
+                console.warn(`Could not fetch custom model for ${compId} from ${fetchPath}:`, fErr);
+              }
+            }
+          }
+
+          if (buffer && buffer.byteLength > 0) {
+            let format = record.format;
+            if (!format) {
+              const fname = (record.fileName || record.fileUrl || record.sourceUrl || "")
+                .split("?")[0]
+                .toLowerCase();
+              if (fname.endsWith(".stl")) format = "stl";
+              else if (fname.endsWith(".glb")) format = "glb";
+              else if (fname.endsWith(".gltf")) format = "gltf";
+              else format = "obj";
+            }
             await this.loadCustomModel(
               compId,
               buffer,
-              record.format,
+              format,
               record.scaleMultiplier || 1.0,
               record.fileName,
-              false
-            );
-            restoredComponentIds.push(compId);
-          } else if (record.sourceUrl) {
-            await this.loadCustomModelFromUrl(
-              compId,
-              record.sourceUrl,
-              record.scaleMultiplier || 1.0,
               false
             );
             restoredComponentIds.push(compId);

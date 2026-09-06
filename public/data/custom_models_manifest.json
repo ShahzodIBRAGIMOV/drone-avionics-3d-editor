@@ -1,0 +1,93 @@
+[
+  {
+    "componentId": "18",
+    "componentName": "Hobbywing_UBEC_25A_50A_MAX_colored.glb",
+    "assetKey": "custom_18",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "Hobbywing_UBEC_25A_50A_MAX_colored.glb",
+    "fileUrl": "/models/custom/Hobbywing_UBEC_25A_50A_MAX_colored.glb",
+    "category": "Boshqa",
+    "fileSize": 182652,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "22",
+    "componentName": "RadioMaster_DBR4_colored.glb",
+    "assetKey": "custom_22",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "RadioMaster_DBR4_colored.glb",
+    "fileUrl": "/models/custom/RadioMaster_DBR4_colored.glb",
+    "category": "Boshqa",
+    "fileSize": 1504772,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "23",
+    "componentName": "Ethernet_Switch_5Port_RJ45_Colored.glb",
+    "assetKey": "custom_23",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "Ethernet_Switch_5Port_RJ45_Colored__1_.glb",
+    "fileUrl": "/models/custom/Ethernet_Switch_5Port_RJ45_Colored__1_.glb",
+    "category": "Boshqa",
+    "fileSize": 3258740,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "24",
+    "componentName": "GigaBlox_RevC_Colored.glb",
+    "assetKey": "custom_24",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "GigaBlox_RevC_Colored.glb",
+    "fileUrl": "/models/custom/GigaBlox_RevC_Colored.glb",
+    "category": "Boshqa",
+    "fileSize": 3258740,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "25",
+    "componentName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "assetKey": "custom_25",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+    "category": "Boshqa",
+    "fileSize": 73920,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "26",
+    "componentName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "assetKey": "custom_26",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+    "category": "Boshqa",
+    "fileSize": 73920,
+    "updatedAt": 1788689000000
+  },
+  {
+    "componentId": "27",
+    "componentName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "assetKey": "custom_27",
+    "sourceType": "file",
+    "format": "glb",
+    "scaleMultiplier": 1,
+    "fileName": "UBEC_12_PRO_12V_8A_colored.glb",
+    "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+    "category": "Boshqa",
+    "fileSize": 73920,
+    "updatedAt": 1788689000000
+  }
+]

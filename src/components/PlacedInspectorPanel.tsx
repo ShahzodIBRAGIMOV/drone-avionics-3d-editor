@@ -46,6 +46,7 @@ import {
   ArrowLeft,
   Activity,
   Droplets,
+  GitBranch,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, CableRoutePoint, PinDefinition } from "../types";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -126,7 +127,9 @@ interface PlacedInspectorPanelProps {
 }
 
 const PRESET_COMPONENT_COLORS = [
+  { name: "Cube Orange", hex: "#ff6600" },
   { name: "Qizil", hex: "#ef4444" },
+  { name: "Moviy", hex: "#0284c7" },
   { name: "Sian", hex: "#00d2eb" },
   { name: "Yashil", hex: "#10b981" },
   { name: "Sariq", hex: "#eab308" },
@@ -134,7 +137,7 @@ const PRESET_COMPONENT_COLORS = [
   { name: "Binafsha", hex: "#a855f7" },
   { name: "Oq", hex: "#f8fafc" },
   { name: "Grafit", hex: "#475569" },
-  { name: "Qora", hex: "#0f172a" },
+  { name: "To'q Qora", hex: "#0f172a" },
 ];
 
 const PRESET_DRONE_COLORS = [
@@ -150,6 +153,7 @@ const PRESET_DRONE_COLORS = [
 interface CableItemCardProps {
   cable: CableConnection;
   isSelected: boolean;
+  instances?: PhysicalInstance[];
   onSelectCable?: (cableId: string | null) => void;
   onUpdateCableColor: (cableId: string, color: string) => void;
   onDeleteCable: (cableId: string) => void;
@@ -164,6 +168,7 @@ interface CableItemCardProps {
 const CableItemCard: React.FC<CableItemCardProps> = ({
   cable,
   isSelected,
+  instances = [],
   onSelectCable,
   onUpdateCableColor,
   onDeleteCable,
@@ -751,6 +756,260 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
                           {(cable.strandPitchMm || 2.0).toFixed(1)} mm
                         </span>
                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Breakout / Multi-Strand Pin Mapping Section */}
+          {(() => {
+            const targetInst = instances.find((i) => i.instanceId === cable.targetInstanceId);
+            const sourceInst = instances.find((i) => i.instanceId === cable.sourceInstanceId);
+
+            const allTargetPins: PinDefinition[] = targetInst
+              ? [
+                  ...(COMPONENT_PINS[targetInst.componentId] || []),
+                  ...(targetInst.customPins || []),
+                ]
+              : [];
+
+            const allSourcePins: PinDefinition[] = sourceInst
+              ? [
+                  ...(COMPONENT_PINS[sourceInst.componentId] || []),
+                  ...(sourceInst.customPins || []),
+                ]
+              : [];
+
+            const isRibbon = Boolean(cable.isRibbon);
+            const isBreakout = Boolean(cable.isBreakout);
+            const strandCount = cable.strandCount || (isRibbon ? 3 : 1);
+            const effectiveStrands = Math.max(
+              strandCount,
+              cable.multiTargetPinNames?.length || 1,
+              cable.multiSourcePinNames?.length || 1
+            );
+
+            const isMultiPin = isBreakout || (effectiveStrands > 1);
+
+            return (
+              <div className="p-2.5 bg-slate-900/90 rounded-lg border border-amber-500/30 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-400 flex items-center gap-1.5">
+                    <GitBranch size={13} className="text-amber-400" />
+                    <span>Ko‘p tarmoqli Pinlar taqsimoti (Breakout):</span>
+                  </span>
+                  <label className="inline-flex items-center cursor-pointer gap-1.5 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      checked={isBreakout}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const count = checked ? Math.max(effectiveStrands, 2) : 1;
+                        const mode = cable.breakoutMode || "1-to-N";
+                        const isTargetSide = mode !== "N-to-1";
+                        const candidatePins = isTargetSide ? allTargetPins : allSourcePins;
+
+                        const autoPins: string[] = [];
+                        if (checked && candidatePins.length > 0) {
+                          const used = new Set<string>();
+                          for (let i = 0; i < count; i++) {
+                            const avail = candidatePins.find((p) => !used.has(p.fullName));
+                            if (avail) {
+                              autoPins.push(avail.fullName);
+                              used.add(avail.fullName);
+                            } else {
+                              autoPins.push(candidatePins[i % candidatePins.length]?.fullName || "");
+                            }
+                          }
+                        }
+
+                        onUpdateCable?.(cable.id, {
+                          isBreakout: checked,
+                          strandCount: checked ? count : 1,
+                          isRibbon: checked ? true : cable.isRibbon,
+                          ...(checked && autoPins.length > 0
+                            ? (isTargetSide
+                                ? { multiTargetPinNames: autoPins, targetPinName: autoPins[0] || cable.targetPinName }
+                                : { multiSourcePinNames: autoPins, sourcePinName: autoPins[0] || cable.sourcePinName })
+                            : {}),
+                        });
+                      }}
+                      className="w-4 h-4 accent-amber-400 cursor-pointer"
+                    />
+                    <span className={isBreakout ? "text-amber-300 font-semibold" : "text-slate-400"}>
+                      {isBreakout ? "Yoqilgan" : "Oddiy"}
+                    </span>
+                  </label>
+                </div>
+
+                {isMultiPin && (
+                  <div className="space-y-2.5 pt-1 border-t border-slate-800">
+                    {/* Mode Selector */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-400 text-[10px]">Tarmoqlanish rejimi:</span>
+                      <div className="grid grid-cols-3 gap-1">
+                        {(["1-to-N", "N-to-1", "N-to-N"] as const).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => {
+                              const isTargetSide = mode !== "N-to-1";
+                              const candidatePins = isTargetSide ? allTargetPins : allSourcePins;
+                              const autoPins: string[] = [];
+                              if (candidatePins.length > 0) {
+                                const used = new Set<string>();
+                                for (let i = 0; i < effectiveStrands; i++) {
+                                  const avail = candidatePins.find((p) => !used.has(p.fullName));
+                                  if (avail) {
+                                    autoPins.push(avail.fullName);
+                                    used.add(avail.fullName);
+                                  } else {
+                                    autoPins.push(candidatePins[i % candidatePins.length]?.fullName || "");
+                                  }
+                                }
+                              }
+                              onUpdateCable?.(cable.id, {
+                                breakoutMode: mode,
+                                ...(autoPins.length > 0
+                                  ? (isTargetSide
+                                      ? { multiTargetPinNames: autoPins, targetPinName: autoPins[0] || cable.targetPinName }
+                                      : { multiSourcePinNames: autoPins, sourcePinName: autoPins[0] || cable.sourcePinName })
+                                  : {}),
+                              });
+                            }}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold transition-all ${
+                              (cable.breakoutMode || "1-to-N") === mode
+                                ? "bg-amber-600 text-white shadow-sm"
+                                : "bg-slate-800 text-slate-400 hover:text-slate-200"
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Auto Distribute Button */}
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] text-slate-400">
+                        {cable.breakoutMode === "N-to-1" ? "Manba pinlari:" : "Maqsad pinlari:"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const isTargetSide = cable.breakoutMode !== "N-to-1";
+                          const candidatePins = isTargetSide ? allTargetPins : allSourcePins;
+                          if (candidatePins.length === 0) return;
+
+                          const newPinNames: string[] = [];
+                          const used = new Set<string>();
+                          for (let i = 0; i < effectiveStrands; i++) {
+                            const avail = candidatePins.find((p) => !used.has(p.fullName));
+                            if (avail) {
+                              newPinNames.push(avail.fullName);
+                              used.add(avail.fullName);
+                            } else {
+                              newPinNames.push(candidatePins[i % candidatePins.length]?.fullName || "");
+                            }
+                          }
+
+                          if (isTargetSide) {
+                            onUpdateCable?.(cable.id, {
+                              multiTargetPinNames: newPinNames,
+                              targetPinName: newPinNames[0] || cable.targetPinName,
+                            });
+                          } else {
+                            onUpdateCable?.(cable.id, {
+                              multiSourcePinNames: newPinNames,
+                              sourcePinName: newPinNames[0] || cable.sourcePinName,
+                            });
+                          }
+                        }}
+                        className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded text-[9px] font-medium flex items-center gap-1 transition-all"
+                        title="Har bir tomirga alohida pin biriktirish"
+                      >
+                        ⚡ Alohida pinlarni avtomatik biriktirish
+                      </button>
+                    </div>
+
+                    {/* Strand by Strand Pin Pickers */}
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {Array.from({ length: effectiveStrands }).map((_, sIdx) => {
+                        const sColor = cable.strandColors?.[sIdx] || "#38bdf8";
+                        const sLabel = cable.strandLabels?.[sIdx] || `Tomir #${sIdx + 1}`;
+                        const isTargetSide = cable.breakoutMode !== "N-to-1";
+                        const candidatePins = isTargetSide ? allTargetPins : allSourcePins;
+                        const currentPin = isTargetSide
+                          ? (cable.multiTargetPinNames?.[sIdx] || (sIdx === 0 ? cable.targetPinName : candidatePins[sIdx % Math.max(1, candidatePins.length)]?.fullName || ""))
+                          : (cable.multiSourcePinNames?.[sIdx] || (sIdx === 0 ? cable.sourcePinName : candidatePins[sIdx % Math.max(1, candidatePins.length)]?.fullName || ""));
+
+                        return (
+                          <div
+                            key={sIdx}
+                            className="flex items-center gap-1.5 p-1.5 rounded bg-slate-800/80 border border-slate-700/60 text-xs"
+                          >
+                            <div
+                              className="w-3.5 h-3.5 rounded-full border border-black/40 flex-shrink-0"
+                              style={{ backgroundColor: sColor }}
+                              title={sLabel}
+                            />
+                            <span className="font-mono text-[10px] text-slate-300 w-12 truncate" title={sLabel}>
+                              #{sIdx + 1}
+                            </span>
+                            <span className="text-[10px] text-amber-400 font-bold">➔</span>
+                            <select
+                              value={currentPin}
+                              onChange={(e) => {
+                                const selectedVal = e.target.value;
+                                if (isTargetSide) {
+                                  const nextPins = [
+                                    ...(cable.multiTargetPinNames ||
+                                      Array.from({ length: effectiveStrands }, (_, i) =>
+                                        allTargetPins[i % Math.max(1, allTargetPins.length)]?.fullName || ""
+                                      )),
+                                  ];
+                                  while (nextPins.length < effectiveStrands) {
+                                    nextPins.push("");
+                                  }
+                                  nextPins[sIdx] = selectedVal;
+                                  onUpdateCable?.(cable.id, {
+                                    multiTargetPinNames: nextPins,
+                                    targetPinName: nextPins[0] || cable.targetPinName,
+                                  });
+                                } else {
+                                  const nextPins = [
+                                    ...(cable.multiSourcePinNames ||
+                                      Array.from({ length: effectiveStrands }, (_, i) =>
+                                        allSourcePins[i % Math.max(1, allSourcePins.length)]?.fullName || ""
+                                      )),
+                                  ];
+                                  while (nextPins.length < effectiveStrands) {
+                                    nextPins.push("");
+                                  }
+                                  nextPins[sIdx] = selectedVal;
+                                  onUpdateCable?.(cable.id, {
+                                    multiSourcePinNames: nextPins,
+                                    sourcePinName: nextPins[0] || cable.sourcePinName,
+                                  });
+                                }
+                              }}
+                              className="flex-1 bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-[10px] text-amber-200 font-mono focus:border-amber-400 focus:outline-none"
+                            >
+                              {candidatePins.length === 0 ? (
+                                <option value="">Pinlar mavjud emas</option>
+                              ) : (
+                                candidatePins.map((p) => (
+                                  <option key={p.fullName} value={p.fullName}>
+                                    {p.fullName} ({p.label} - {p.type || "SIG"})
+                                  </option>
+                                ))
+                              )}
+                            </select>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2829,6 +3088,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                           key={cable.id}
                           cable={cable}
                           isSelected={selectedCableId === cable.id}
+                          instances={instances}
                           onSelectCable={onSelectCable}
                           onUpdateCableColor={onUpdateCableColor}
                           onDeleteCable={onDeleteCable}
@@ -2874,6 +3134,7 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                           key={cable.id}
                           cable={cable}
                           isSelected={selectedCableId === cable.id}
+                          instances={instances}
                           onSelectCable={onSelectCable}
                           onUpdateCableColor={onUpdateCableColor}
                           onDeleteCable={onDeleteCable}

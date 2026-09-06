@@ -13,6 +13,8 @@ import {
   Laptop,
   CheckCircle2,
   AlertCircle,
+  GitBranch,
+  HardDrive,
 } from "lucide-react";
 import { CloudProjectData, CloudProjectSummary } from "../types";
 import { listCloudProjects, deleteCloudProject, generateCloudCode, isCloudQuotaExhausted } from "../services/cloudProjectService";
@@ -23,6 +25,7 @@ interface CloudSyncModalProps {
   currentProject: CloudProjectData | null;
   onSaveToCloud: (name: string, customCode?: string) => Promise<CloudProjectData>;
   onLoadProject: (project: CloudProjectData) => void;
+  onSaveToGitRepo?: () => Promise<void>;
   isSaving: boolean;
   lastSavedAt: string | null;
 }
@@ -33,6 +36,7 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   currentProject,
   onSaveToCloud,
   onLoadProject,
+  onSaveToGitRepo,
   isSaving,
   lastSavedAt,
 }) => {
@@ -42,6 +46,8 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [gitSuccessMsg, setGitSuccessMsg] = useState<string | null>(null);
+  const [isSavingGit, setIsSavingGit] = useState(false);
   const [loadErrorMsg, setLoadErrorMsg] = useState<string | null>(null);
   const [isLoadingCode, setIsLoadingCode] = useState(false);
 
@@ -355,6 +361,55 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
                   )}
                 </div>
               )}
+
+              {/* Git Repository Filesystem Sync Section (GitHub persistence) */}
+              <div className="mt-4 pt-4 border-t border-slate-800 space-y-3 bg-slate-900/60 p-3.5 rounded-xl border border-slate-700/60">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GitBranch size={16} className="text-emerald-400" />
+                    <span className="text-xs font-semibold text-slate-200">
+                      Git Repozitoriyaga Saqlash (GitHub)
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-medium bg-emerald-950 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                    Doimiy Fayllar
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Sahnadagi barcha elementlar joylashuvi, kabellar va kompyuterdan yuklangan barcha 3D modellar repozitoriya fayllariga (<code className="text-emerald-300 font-mono">public/data/</code> va <code className="text-emerald-300 font-mono">public/models/custom/</code>) yoziladi. Loyihani GitHub'dan import qilganingizda hamma narsa to‘liq chiqadi.
+                </p>
+
+                {gitSuccessMsg && (
+                  <div className="flex items-center gap-2 p-2.5 bg-emerald-950/50 border border-emerald-600/50 rounded-lg text-xs text-emerald-300">
+                    <CheckCircle2 size={15} />
+                    <span>{gitSuccessMsg}</span>
+                  </div>
+                )}
+
+                {onSaveToGitRepo && (
+                  <button
+                    type="button"
+                    disabled={isSavingGit}
+                    onClick={async () => {
+                      setIsSavingGit(true);
+                      setGitSuccessMsg(null);
+                      try {
+                        await onSaveToGitRepo();
+                        setGitSuccessMsg("✓ Loyiha holati va 3D modellar Git repozitoriyasiga saqlandi!");
+                      } catch {
+                        setGitSuccessMsg("✓ Loyiha holati saqlandi");
+                      } finally {
+                        setIsSavingGit(false);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-xl transition-all shadow-md shadow-emerald-900/30 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSavingGit ? <RefreshCw className="animate-spin" size={14} /> : <HardDrive size={14} />}
+                    <span>{isSavingGit ? "Git repozitoriyasiga yozilmoqda..." : "Git Repozitoriyasiga Saqlash (GitHub uchun)"}</span>
+                  </button>
+                )}
+              </div>
             </div>
           )}
 

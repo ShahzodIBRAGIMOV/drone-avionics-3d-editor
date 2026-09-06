@@ -43,8 +43,15 @@ import {
   subscribeToMainProject,
   isCloudQuotaExhausted,
 } from "./services/cloudProjectService";
+import {
+  saveProjectToRepo,
+  loadProjectFromRepo,
+  syncBrowserModelsToRepo,
+  exportProjectAsJson,
+} from "./services/repoSyncService";
 import { AlertTriangle, CheckCircle2, PanelLeft, PanelRight, Undo2, Redo2, Keyboard } from "lucide-react";
 import { modelManager } from "./services/modelManager";
+import { exportProjectZipPackage, importProjectFromZipPackage } from "./services/zipPackageService";
 
 const STORAGE_KEY = "drone_avionics_state_v1";
 
@@ -369,6 +376,7 @@ export default function App() {
   const lastKnownRemoteUpdateRef = React.useRef<string>("");
   const autoSaveLocalTimerRef = React.useRef<any>(null);
   const autoSaveCloudTimerRef = React.useRef<any>(null);
+  const autoSaveRepoTimerRef = React.useRef<any>(null);
   const clientIdRef = React.useRef<string>(
     (() => {
       try {
@@ -604,8 +612,12 @@ export default function App() {
           console.warn("Could not read localStorage on startup:", e);
         }
 
-        loadProjectFromCloud(cloudIdentifier)
-          .then((cloudProj: CloudProjectData | null) => {
+        Promise.all([
+          loadProjectFromCloud(cloudIdentifier).catch(() => null),
+          loadProjectFromRepo().catch(() => null),
+          modelManager.restoreCustomModelsFromStorage().catch(() => []),
+        ])
+          .then(([cloudProj, repoProj, restoredIds]: [CloudProjectData | null, any | null, string[]]) => {
             const cloudHasPlaced = !!(
               cloudProj &&
               Array.isArray(cloudProj.instances) &&
@@ -618,8 +630,14 @@ export default function App() {
               (localParsed.instances.some((i: any) => i.placed) || (localParsed.cables && localParsed.cables.length > 0))
             );
 
+            const repoHasPlaced = !!(
+              repoProj &&
+              Array.isArray(repoProj.instances) &&
+              (repoProj.instances.some((i: any) => i.placed) || (repoProj.cables && repoProj.cables.length > 0))
+            );
+
             // Decision: Which one has the latest user work?
-            let chosenSource: "cloud" | "local" | "base" = "base";
+            let chosenSource: "cloud" | "local" | "repo" | "base" = "base";
 
             if (cloudHasPlaced && localHasPlaced) {
               const cloudTime = new Date(cloudProj?.updatedAt || 0).getTime();
@@ -636,10 +654,14 @@ export default function App() {
               chosenSource = "local";
             } else if (cloudHasPlaced) {
               chosenSource = "cloud";
+            } else if (repoHasPlaced) {
+              chosenSource = "repo";
             } else if (localParsed) {
               chosenSource = "local";
             } else if (cloudProj) {
               chosenSource = "cloud";
+            } else if (repoProj) {
+              chosenSource = "repo";
             }
 
             if (chosenSource === "cloud" && cloudProj) {
@@ -659,8 +681,11 @@ export default function App() {
               setLastCloudSavedAt(cloudProj.updatedAt);
               lastKnownRemoteUpdateRef.current = cloudProj.updatedAt || "";
               showToast(`Loyiha bulutdan yuklandi! (Kod: ${cloudProj.cloudCode})`);
-              // Synchronize to localStorage so local storage is also fresh
-              setTimeout(() => performLocalSave(), 200);
+              // Synchronize to localStorage and Git repo
+              setTimeout(() => {
+                performLocalSave();
+                saveProjectToRepo(cloudProj);
+              }, 200);
             } else if (chosenSource === "local" && localParsed) {
               const localTs = localParsed.timestamp || localParsed.updatedAt || new Date().toISOString();
               const cloudTs = cloudProj?.updatedAt;
@@ -670,6 +695,11 @@ export default function App() {
               lastLocalActionTimeRef.current = new Date(localTs).getTime();
               restoreFromData(localParsed);
               showToast("Loyiha xotiradan yuklandi");
+
+              // Immediately sync current local work to Git repository filesystem so it's ready for GitHub
+              saveProjectToRepo(localParsed);
+              syncBrowserModelsToRepo();
+
               // Backup local work to Cloud Firestore only if quota not exhausted and local is actually newer
               setTimeout(() => {
                 if (
@@ -704,12 +734,27 @@ export default function App() {
                   });
                 }
               }, 400);
+            } else if (chosenSource === "repo" && repoProj) {
+              restoreFromData(repoProj);
+              showToast("Loyiha Git repozitoriyasidan yuklandi (oxirgi saqlangan holat)");
+              setTimeout(() => performLocalSave(), 200);
             } else {
               setInstances(baseInstances);
             }
+
+            if (Array.isArray(restoredIds) && restoredIds.length > 0) {
+              const now = Date.now();
+              setInstances((prev) =>
+                prev.map((inst) =>
+                  restoredIds.includes(inst.componentId)
+                    ? { ...inst, modelVersion: now }
+                    : inst
+                )
+              );
+            }
           })
           .catch((err: unknown) => {
-            console.warn("Could not load from cloud, fallback to local:", err);
+            console.warn("Could not load from cloud/repo, fallback to local:", err);
             if (localParsed) {
               const localTs = localParsed.timestamp || localParsed.updatedAt || new Date().toISOString();
               lastKnownRemoteUpdateRef.current = localTs;
@@ -724,23 +769,7 @@ export default function App() {
             isInitializedRef.current = true;
             setIsAppReady(true);
             setAutoSaveStatus("saved");
-            modelManager
-              .restoreCustomModelsFromStorage()
-              .then((restoredIds) => {
-                if (restoredIds.length > 0) {
-                  const now = Date.now();
-                  setInstances((prev) =>
-                    prev.map((inst) =>
-                      restoredIds.includes(inst.componentId)
-                        ? { ...inst, modelVersion: now }
-                        : inst
-                    )
-                  );
-                }
-              })
-              .catch((err) => {
-                console.warn("Could not restore custom 3D models from storage:", err);
-              });
+            syncBrowserModelsToRepo().catch(() => {});
           });
       })
       .catch((err) => {
@@ -832,6 +861,7 @@ export default function App() {
               position: inst.position,
               rotation: inst.rotation,
               scale: inst.scale,
+              customColor: inst.customColor,
             })),
             cables: activeCables,
           };
@@ -907,8 +937,34 @@ export default function App() {
       performLocalSave();
     }, 120);
 
+    // Automatic Git Repository Disk Persistence (debounced 2s background sync)
+    if (autoSaveRepoTimerRef.current) clearTimeout(autoSaveRepoTimerRef.current);
+    autoSaveRepoTimerRef.current = setTimeout(() => {
+      if (!isInitializedRef.current || instances.length === 0) return;
+      saveProjectToRepo({
+        name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
+        instances,
+        cables: cablesRef.current || cables || [],
+        droneFrame: {
+          color: droneColor,
+          opacity: droneOpacity,
+          wireframe: droneWireframe,
+          visible: droneVisible,
+        },
+        droneColor,
+        droneOpacity,
+        droneWireframe,
+        droneVisible,
+        sceneTheme,
+        cameraViewMode,
+        customModels: modelManager.getCustomModelRegistry(),
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+      }).catch(() => {});
+    }, 2000);
+
     return () => {
       if (autoSaveLocalTimerRef.current) clearTimeout(autoSaveLocalTimerRef.current);
+      if (autoSaveRepoTimerRef.current) clearTimeout(autoSaveRepoTimerRef.current);
     };
   }, [
     instances,
@@ -1153,29 +1209,53 @@ export default function App() {
     };
   }, [isAppReady, sceneTheme, showToast]);
 
-  // Manual Save Trigger: Saves immediately to LocalStorage and Firestore Cloud, updating timestamp and synchronizing
+  // Manual Save Trigger: Saves immediately to LocalStorage, Git Repository, and Firestore Cloud
   const handleManualSave = useCallback(async () => {
     // 1. Immediately persist full project snapshot to LocalStorage
     performLocalSave();
     hasLocalModificationsRef.current = true;
     lastLocalActionTimeRef.current = Date.now();
-    setAutoSaveStatus("saved");
+    setAutoSaveStatus("saving");
 
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     setLastSavedTimeText(timeStr);
 
+    // 2. Persist to Git Repository Filesystem (public/data/default_project_state.json)
+    const repoPayload = {
+      name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
+      instances,
+      cables: (cables && cables.length > 0) ? cables : (cablesRef.current || []),
+      droneFrame: {
+        color: droneColor,
+        opacity: droneOpacity,
+        wireframe: droneWireframe,
+        visible: droneVisible,
+      },
+      droneColor,
+      droneOpacity,
+      droneWireframe,
+      droneVisible,
+      sceneTheme,
+      cameraViewMode,
+      customModels: modelManager.getCustomModelRegistry(),
+      customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+    };
+
+    saveProjectToRepo(repoPayload).catch((e) => console.warn("Repo save error:", e));
+    syncBrowserModelsToRepo().catch((e) => console.warn("Model sync error:", e));
+
     // If cloud quota is exhausted, skip cloud network call and show clear instant message
     if (isCloudQuotaExhausted()) {
       setIsCloudSaving(false);
       setAutoSaveStatus("saved");
-      showToast("✓ Loyiha brauzer xotirasida (LocalStorage) to‘liq saqlandi! [Ctrl+S]");
+      showToast("✓ Loyiha brauzer xotirasiga va Git repozitoriyasiga saqlandi! [Ctrl+S]");
       return;
     }
 
     setIsCloudSaving(true);
 
-    // 2. Persist to Firebase Cloud Firestore
+    // 3. Persist to Firebase Cloud Firestore
     try {
       const savedProj = await saveProjectToCloud({
         id: "main-project",
@@ -1205,15 +1285,11 @@ export default function App() {
       setLastCloudSavedAt(savedProj.updatedAt);
       setAutoSaveStatus("saved");
 
-      if (isCloudQuotaExhausted()) {
-        showToast("✓ Loyiha xotirada saqlandi! (Bulut kunlik limiti to‘lganligi sababli xotirada saqlandi)");
-      } else {
-        showToast(`✓ Loyiha muvaffaqiyatli saqlandi va yangilandi! (Kod: ${savedProj.cloudCode})`);
-      }
+      showToast(`✓ Loyiha xotiraga va Git repozitoriyasiga saqlandi! (Kod: ${savedProj.cloudCode})`);
     } catch (err) {
       console.warn("Manual save cloud notice:", err);
       setAutoSaveStatus("saved");
-      showToast("✓ Loyiha brauzer xotirasida saqlandi!");
+      showToast("✓ Loyiha brauzer xotirasiga va Git repozitoriyasiga saqlandi!");
     } finally {
       setIsCloudSaving(false);
       setAutoSaveStatus("saved");
@@ -1222,6 +1298,61 @@ export default function App() {
     performLocalSave,
     currentCloudProject,
     cloudCode,
+    instances,
+    cables,
+    droneColor,
+    droneOpacity,
+    droneWireframe,
+    droneVisible,
+    sceneTheme,
+    cameraViewMode,
+    manifest,
+    showToast,
+  ]);
+
+  // Dedicated Save to Git Repository Callback
+  const handleSaveToGitRepo = useCallback(async () => {
+    try {
+      performLocalSave();
+      hasLocalModificationsRef.current = true;
+      setAutoSaveStatus("saving");
+
+      const ok = await saveProjectToRepo({
+        name: currentCloudProject?.name || "3.5M Twin-Motor UAV Avionics",
+        instances,
+        cables: (cables && cables.length > 0) ? cables : (cablesRef.current || []),
+        droneFrame: {
+          color: droneColor,
+          opacity: droneOpacity,
+          wireframe: droneWireframe,
+          visible: droneVisible,
+        },
+        droneColor,
+        droneOpacity,
+        droneWireframe,
+        droneVisible,
+        sceneTheme,
+        cameraViewMode,
+        customModels: modelManager.getCustomModelRegistry(),
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+      });
+
+      const syncedCount = await syncBrowserModelsToRepo();
+      setAutoSaveStatus("saved");
+
+      if (ok) {
+        showToast(`✓ Loyiha holati va 3D modellar Git repozitoriyasiga saqlandi! (${syncedCount} ta model sinxronlandi)`);
+      } else {
+        showToast("✓ Loyiha holati xotirada saqlandi!");
+      }
+    } catch (err) {
+      console.warn("Git repo save error:", err);
+      setAutoSaveStatus("saved");
+      showToast("✓ Loyiha brauzer xotirasida saqlandi");
+    }
+  }, [
+    performLocalSave,
+    currentCloudProject,
     instances,
     cables,
     droneColor,
@@ -2337,27 +2468,37 @@ export default function App() {
   };
 
   const handleUpdateDroneColor = useCallback((color: string) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    recordSnapshot("Dron korpusi rangi o‘zgartirildi");
     setDroneColor(color);
-    setInstances((prev) =>
-      prev.map((inst) =>
+    setInstances((prev) => {
+      const next = prev.map((inst) =>
         inst.isAirframe || inst.componentId === "01"
           ? { ...inst, customColor: color === "original" ? undefined : color }
           : inst
-      )
-    );
-  }, []);
+      );
+      performLocalSave(next);
+      return next;
+    });
+  }, [performLocalSave, recordSnapshot]);
 
-  const handleUpdateInstanceColor = (instanceId: string, color: string | undefined) => {
-    setInstances((prev) =>
-      prev.map((inst) =>
+  const handleUpdateInstanceColor = useCallback((instanceId: string, color: string | undefined) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    recordSnapshot("Komponent rangi o‘zgartirildi");
+    setInstances((prev) => {
+      const next = prev.map((inst) =>
         inst.instanceId === instanceId ? { ...inst, customColor: color } : inst
-      )
-    );
+      );
+      performLocalSave(next);
+      return next;
+    });
     const target = instances.find((i) => i.instanceId === instanceId);
     if (target && (target.isAirframe || target.componentId === "01") && color) {
       setDroneColor(color);
     }
-  };
+  }, [instances, performLocalSave, recordSnapshot]);
 
   const isDronePlaced = useMemo(
     () => instances.some((i) => (i.isAirframe || i.componentId === "01") && i.placed),
@@ -2376,14 +2517,19 @@ export default function App() {
     }
   }, [instances]);
 
-  const handleApplyColorToAllInstances = (componentId: string, color: string | undefined) => {
-    setInstances((prev) =>
-      prev.map((inst) =>
+  const handleApplyColorToAllInstances = useCallback((componentId: string, color: string | undefined) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    recordSnapshot("Barcha nusxalarga rang qo‘llandi");
+    setInstances((prev) => {
+      const next = prev.map((inst) =>
         inst.componentId === componentId ? { ...inst, customColor: color } : inst
-      )
-    );
+      );
+      performLocalSave(next);
+      return next;
+    });
     showToast(`#${componentId} barcha nusxalariga rang o‘rnatildi`);
-  };
+  }, [performLocalSave, recordSnapshot, showToast]);
 
   const handlePinPlacedAtPoint = (instanceId: string, localOffset: [number, number, number]) => {
     const targetInst = instances.find((i) => i.instanceId === instanceId);
@@ -2903,6 +3049,91 @@ export default function App() {
     }
   };
 
+  // ZIP state & handlers for complete standalone export/import
+  const [zipProgress, setZipProgress] = useState<{ text: string; percent: number } | null>(null);
+  const [isExportingZip, setIsExportingZip] = useState(false);
+
+  // Export Full Standalone Offline ZIP Package
+  const handleExportZIP = async () => {
+    try {
+      setIsExportingZip(true);
+      setZipProgress({ text: "ZIP arxiv tayyorlanmoqda...", percent: 5 });
+      await exportProjectZipPackage({
+        instances,
+        cables,
+        droneParams: { width: 3800, length: 2400, height: 400, fuselageWidth: 260 },
+        customModels: modelManager.getCustomModelRegistry(),
+        droneOpacity,
+        droneColor,
+        droneWireframe,
+        onProgress: (text, percent) => {
+          setZipProgress({ text, percent });
+        },
+      });
+      showToast("To‘liq loyiha va 3D modellar ZIP arxivga muvaffaqiyatli saqlandi!");
+    } catch (err: any) {
+      console.error("ZIP eksport xatosi:", err);
+      showToast(`ZIP eksport xatosi: ${err?.message || err}`);
+    } finally {
+      setIsExportingZip(false);
+      setTimeout(() => setZipProgress(null), 1200);
+    }
+  };
+
+  // Import Full Standalone ZIP Package
+  const handleImportZIP = async (file: File) => {
+    try {
+      setIsExportingZip(false);
+      setZipProgress({ text: "ZIP arxiv o‘qilmoqda...", percent: 10 });
+      const res = await importProjectFromZipPackage(file, (text, percent) => {
+        setZipProgress({ text, percent });
+      });
+
+      if (res.instances && Array.isArray(res.instances) && res.instances.length > 0) {
+        setInstances((prev) => {
+          return prev.map((base) => {
+            const matching = res.instances.find(
+              (item: any) =>
+                item.componentId === base.componentId &&
+                item.instanceIndex === base.instanceIndex
+            );
+            if (matching) {
+              return {
+                ...base,
+                placed: !!matching.placed,
+                locked: !!matching.locked,
+                visible: matching.visible !== false,
+                position: Array.isArray(matching.position) ? matching.position : base.position,
+                rotation: Array.isArray(matching.rotation) ? matching.rotation : base.rotation,
+                scale: Array.isArray(matching.scale) ? matching.scale : base.scale,
+                customPins: Array.isArray((matching as any).customPins) ? (matching as any).customPins : base.customPins,
+              };
+            }
+            return base;
+          });
+        });
+      }
+
+      if (Array.isArray(res.cables)) {
+        setCables(res.cables);
+      }
+
+      if (res.customModels) {
+        Object.values(res.customModels).forEach((rec) => {
+          modelManager.saveCustomModelRecord(rec);
+        });
+      }
+
+      await modelManager.reloadAllModelsWithOriginalColors();
+      showToast("Loyiha va barcha 3D modellar ZIP arxivdan to‘liq tiklandi!");
+    } catch (err: any) {
+      console.error("ZIP import xatosi:", err);
+      showToast(`ZIP import xatosi: ${err?.message || err}`);
+    } finally {
+      setTimeout(() => setZipProgress(null), 1200);
+    }
+  };
+
   // Export CSV
   const handleExportCSV = () => {
     const headers = [
@@ -3247,6 +3478,10 @@ export default function App() {
         onToggleVideo={handleToggleVideo}
         dimUnselected={dimUnselected}
         onToggleDimUnselected={handleToggleDimUnselected}
+        onExportZIP={handleExportZIP}
+        onImportZIP={handleImportZIP}
+        isExportingZip={isExportingZip}
+        zipProgress={zipProgress}
       />
 
       {/* Main Workspace Body */}
@@ -3435,6 +3670,8 @@ export default function App() {
                   }}
                   dimUnselected={dimUnselected}
                   onToggleDimUnselected={handleToggleDimUnselected}
+                  selectedInstance={selectedInstance}
+                  onUpdateInstanceColor={handleUpdateInstanceColor}
                 />
               </div>
             </div>
@@ -3550,6 +3787,7 @@ export default function App() {
         currentProject={currentCloudProject}
         onSaveToCloud={handleSaveToCloud}
         onLoadProject={handleApplyCloudProject}
+        onSaveToGitRepo={handleSaveToGitRepo}
         isSaving={isCloudSaving}
         lastSavedAt={lastCloudSavedAt}
       />

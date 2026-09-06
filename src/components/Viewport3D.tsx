@@ -793,15 +793,17 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const sourceMesh = instanceMeshesRef.current.get(sourceInst.instanceId);
       const targetMesh = instanceMeshesRef.current.get(targetInst.instanceId);
 
-      const sourcePins = (sourceInst.customPins && sourceInst.customPins.length > 0)
-        ? sourceInst.customPins
-        : (COMPONENT_PINS[sourceInst.componentId] || []);
-      const targetPins = (targetInst.customPins && targetInst.customPins.length > 0)
-        ? targetInst.customPins
-        : (COMPONENT_PINS[targetInst.componentId] || []);
+      const sourcePins = [
+        ...(COMPONENT_PINS[sourceInst.componentId] || []),
+        ...(sourceInst.customPins || []),
+      ];
+      const targetPins = [
+        ...(COMPONENT_PINS[targetInst.componentId] || []),
+        ...(targetInst.customPins || []),
+      ];
 
-      const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName);
-      const tPin = targetPins.find((p) => p.fullName === cable.targetPinName);
+      const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName) || sourcePins[0];
+      const tPin = targetPins.find((p) => p.fullName === cable.targetPinName) || targetPins[0];
 
       const sOffset: [number, number, number] = sPin ? sPin.localOffset : [0, 0, 0];
       const tOffset: [number, number, number] = tPin ? tPin.localOffset : [0, 0, 0];
@@ -845,11 +847,71 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
           const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);
           const strandRadius = Math.max(0.65, (cable.thicknessMm || 2.8) * 0.38) * 1.2;
 
+          const isTargetBreakout = Boolean(
+            (cable.isBreakout && (cable.breakoutMode === "1-to-N" || cable.breakoutMode === "N-to-N" || !cable.breakoutMode)) ||
+            (cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1)
+          ) && strandCount > 1;
+
+          const isSourceBreakout = Boolean(
+            (cable.isBreakout && (cable.breakoutMode === "N-to-1" || cable.breakoutMode === "N-to-N")) ||
+            (cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1)
+          ) && strandCount > 1;
+
+          const targetPinPoints: THREE.Vector3[] = [];
+          if (isTargetBreakout) {
+            const configuredNames = cable.multiTargetPinNames || [];
+            const usedPinNames = new Set<string>();
+            for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+              let chosenPinDef: PinDefinition | undefined;
+              const pName = configuredNames[sIdx];
+              if (pName) chosenPinDef = targetPins.find((p) => p.fullName === pName);
+              if (!chosenPinDef || usedPinNames.has(chosenPinDef.fullName)) {
+                const alt = targetPins.find((p) => !usedPinNames.has(p.fullName));
+                if (alt) chosenPinDef = alt;
+              }
+              if (!chosenPinDef && targetPins.length > 0) chosenPinDef = targetPins[sIdx % targetPins.length];
+              if (chosenPinDef) {
+                usedPinNames.add(chosenPinDef.fullName);
+                targetPinPoints.push(computePinWorldPosition(targetInst, chosenPinDef.localOffset, targetMesh));
+              } else {
+                targetPinPoints.push(p2);
+              }
+            }
+          }
+
+          const sourcePinPoints: THREE.Vector3[] = [];
+          if (isSourceBreakout) {
+            const configuredNames = cable.multiSourcePinNames || [];
+            const usedPinNames = new Set<string>();
+            for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+              let chosenPinDef: PinDefinition | undefined;
+              const pName = configuredNames[sIdx];
+              if (pName) chosenPinDef = sourcePins.find((p) => p.fullName === pName);
+              if (!chosenPinDef || usedPinNames.has(chosenPinDef.fullName)) {
+                const alt = sourcePins.find((p) => !usedPinNames.has(p.fullName));
+                if (alt) chosenPinDef = alt;
+              }
+              if (!chosenPinDef && sourcePins.length > 0) chosenPinDef = sourcePins[sIdx % sourcePins.length];
+              if (chosenPinDef) {
+                usedPinNames.add(chosenPinDef.fullName);
+                sourcePinPoints.push(computePinWorldPosition(sourceInst, chosenPinDef.localOffset, sourceMesh));
+              } else {
+                sourcePinPoints.push(p1);
+              }
+            }
+          }
+
+          const breakoutTaper = Math.min(0.18, 35 / Math.max(1, totalLength));
+          const uSourceBreakout = breakoutTaper;
+          const uTargetBreakout = 1 - breakoutTaper;
+
           const updatedStrandCurves: THREE.CatmullRomCurve3[] = [];
 
           for (let sIdx = 0; sIdx < strandCount; sIdx++) {
             const rawOffset = (sIdx - (strandCount - 1) / 2) * pitch;
             const strandPts: THREE.Vector3[] = [];
+            const specificSourcePt = isSourceBreakout && sourcePinPoints[sIdx] ? sourcePinPoints[sIdx] : null;
+            const specificTargetPt = isTargetBreakout && targetPinPoints[sIdx] ? targetPinPoints[sIdx] : null;
 
             for (let step = 0; step <= numDivisions; step++) {
               const u = step / numDivisions;
@@ -857,9 +919,20 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
               const tangent = curve.getTangentAt(u);
               const worldUp = Math.abs(tangent.y) > 0.95 ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3(0, 1, 0);
               const binormal = new THREE.Vector3().crossVectors(tangent, worldUp).normalize();
-              const endTaper = Math.min(1, Math.min(u, 1 - u) * 8);
-              const effectiveOffset = rawOffset * (0.4 + 0.6 * endTaper);
-              strandPts.push(pt.clone().addScaledVector(binormal, effectiveOffset));
+
+              if (specificSourcePt && u < uSourceBreakout) {
+                const branchBlend = (uSourceBreakout - u) / uSourceBreakout;
+                const easedBlend = branchBlend * branchBlend * (3 - 2 * branchBlend);
+                strandPts.push(new THREE.Vector3().lerpVectors(pt, specificSourcePt, easedBlend));
+              } else if (specificTargetPt && u > uTargetBreakout) {
+                const branchBlend = (u - uTargetBreakout) / breakoutTaper;
+                const easedBlend = branchBlend * branchBlend * (3 - 2 * branchBlend);
+                strandPts.push(new THREE.Vector3().lerpVectors(pt, specificTargetPt, easedBlend));
+              } else {
+                const endTaper = Math.min(1, Math.min(u, 1 - u) * 8);
+                const effectiveOffset = rawOffset * (0.4 + 0.6 * endTaper);
+                strandPts.push(pt.clone().addScaledVector(binormal, effectiveOffset));
+              }
             }
 
             const strandCurve = new THREE.CatmullRomCurve3(strandPts, false, "centripetal", tension);
@@ -1967,15 +2040,18 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
               if (stdMat.color) {
                 if (isAirframeInst) {
                   if (inst.customColor) {
+                    stdMat.vertexColors = false;
                     stdMat.color.set(inst.customColor);
                   } else if (droneColor && droneColor !== "original" && droneColor !== "#cbd5e1") {
+                    stdMat.vertexColors = false;
                     stdMat.color.set(droneColor);
                   } else {
                     // Authentic original drone colors (fuselage navy, wings blue, tail accents)
-                    if (stdMat.vertexColors || stdMat.userData?.hasVertexColors || meshObj.geometry?.attributes?.color) {
+                    if (stdMat.userData?.hasVertexColors || meshObj.geometry?.attributes?.color) {
                       stdMat.vertexColors = true;
                       stdMat.color.setHex(0xffffff);
                     } else if (stdMat.userData?.origColor !== undefined) {
+                      stdMat.vertexColors = false;
                       stdMat.color.setHex(stdMat.userData.origColor);
                     }
                   }
@@ -1984,9 +2060,16 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
                   stdMat.color.setHex(0x334155);
                 } else {
                   if (inst.customColor) {
+                    stdMat.vertexColors = false;
                     stdMat.color.set(inst.customColor);
                   } else if (stdMat.userData?.origColor !== undefined) {
-                    stdMat.color.setHex(stdMat.userData.origColor);
+                    if (stdMat.userData?.hasVertexColors) {
+                      stdMat.vertexColors = true;
+                      stdMat.color.setHex(0xffffff);
+                    } else {
+                      stdMat.vertexColors = false;
+                      stdMat.color.setHex(stdMat.userData.origColor);
+                    }
                   }
                 }
               }
@@ -2222,15 +2305,17 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const sourceMesh = instanceMeshesRef.current.get(sourceInst.instanceId);
       const targetMesh = instanceMeshesRef.current.get(targetInst.instanceId);
 
-      const sourcePins = (sourceInst.customPins && sourceInst.customPins.length > 0)
-        ? sourceInst.customPins
-        : (COMPONENT_PINS[sourceInst.componentId] || []);
-      const targetPins = (targetInst.customPins && targetInst.customPins.length > 0)
-        ? targetInst.customPins
-        : (COMPONENT_PINS[targetInst.componentId] || []);
+      const sourcePins = [
+        ...(COMPONENT_PINS[sourceInst.componentId] || []),
+        ...(sourceInst.customPins || []),
+      ];
+      const targetPins = [
+        ...(COMPONENT_PINS[targetInst.componentId] || []),
+        ...(targetInst.customPins || []),
+      ];
 
-      const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName);
-      const tPin = targetPins.find((p) => p.fullName === cable.targetPinName);
+      const sPin = sourcePins.find((p) => p.fullName === cable.sourcePinName) || sourcePins[0];
+      const tPin = targetPins.find((p) => p.fullName === cable.targetPinName) || targetPins[0];
 
       const sOffset: [number, number, number] = sPin ? sPin.localOffset : [0, 0, 0];
       const tOffset: [number, number, number] = tPin ? tPin.localOffset : [0, 0, 0];
@@ -2274,12 +2359,27 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const totalLength = Math.round(curve.getLength());
       cable.calculatedLengthMm = totalLength;
 
-      const isRibbonCable = Boolean(cable.isRibbon && (cable.strandCount || 0) > 1);
-      const strandCount = isRibbonCable ? (cable.strandCount || 3) : 1;
+      const isMultiStrandCable = Boolean(
+        cable.isRibbon ||
+        cable.isBreakout ||
+        (cable.strandCount && cable.strandCount > 1) ||
+        (cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1) ||
+        (cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1)
+      );
+
+      const strandCount = isMultiStrandCable
+        ? Math.max(
+            cable.strandCount || 0,
+            cable.multiTargetPinNames?.length || 0,
+            cable.multiSourcePinNames?.length || 0,
+            cable.isBreakout ? 3 : 1
+          )
+        : 1;
+
       const strandColors =
         cable.strandColors && cable.strandColors.length >= strandCount
           ? cable.strandColors
-          : isRibbonCable
+          : isMultiStrandCable
           ? getDefaultStrandColors(cable.cableType, strandCount)
           : [cable.color || "#00e5ff"];
 
@@ -2287,34 +2387,96 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       const tubeOpacity = isCableDimmed ? 0.12 : (isSelectedCable ? 0.72 : (cable.transparencyOpacity ?? 0.45));
 
       const isTargetBreakout = Boolean(
-        cable.isBreakout &&
-        cable.multiTargetPinNames &&
-        cable.multiTargetPinNames.length > 1
-      );
+        (cable.isBreakout && (cable.breakoutMode === "1-to-N" || cable.breakoutMode === "N-to-N" || !cable.breakoutMode)) ||
+        (cable.multiTargetPinNames && cable.multiTargetPinNames.length > 1)
+      ) && strandCount > 1;
 
       const isSourceBreakout = Boolean(
-        cable.isBreakout &&
-        cable.multiSourcePinNames &&
-        cable.multiSourcePinNames.length > 1
-      );
+        (cable.isBreakout && (cable.breakoutMode === "N-to-1" || cable.breakoutMode === "N-to-N")) ||
+        (cable.multiSourcePinNames && cable.multiSourcePinNames.length > 1)
+      ) && strandCount > 1;
 
-      const targetPinPoints = isTargetBreakout && cable.multiTargetPinNames
-        ? cable.multiTargetPinNames.map((pName) => {
-            const pinDef = targetPins.find((p) => p.fullName === pName);
-            const offset = pinDef ? pinDef.localOffset : tOffset;
-            return computePinWorldPosition(targetInst, offset, targetMesh);
-          })
-        : [];
+      const targetPinPoints: THREE.Vector3[] = [];
+      if (isTargetBreakout) {
+        const configuredNames = cable.multiTargetPinNames || [];
+        const usedPinNames = new Set<string>();
 
-      const sourcePinPoints = isSourceBreakout && cable.multiSourcePinNames
-        ? cable.multiSourcePinNames.map((pName) => {
-            const pinDef = sourcePins.find((p) => p.fullName === pName);
-            const offset = pinDef ? pinDef.localOffset : sOffset;
-            return computePinWorldPosition(sourceInst, offset, sourceMesh);
-          })
-        : [];
+        for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+          let chosenPinDef: PinDefinition | undefined;
 
-      if (isRibbonCable && strandCount > 1) {
+          // 1. Check if user configured a specific pin name for this strand
+          const pName = configuredNames[sIdx];
+          if (pName) {
+            chosenPinDef = targetPins.find((p) => p.fullName === pName || p.label === pName);
+          }
+
+          // 2. If no pin or if already used by another strand, pick an unused distinct pin from target
+          if (!chosenPinDef || usedPinNames.has(chosenPinDef.fullName)) {
+            const alternative = targetPins.find((p) => !usedPinNames.has(p.fullName));
+            if (alternative) {
+              chosenPinDef = alternative;
+            }
+          }
+
+          // 3. Fallback to index-based pin from targetPins
+          if (!chosenPinDef && targetPins.length > 0) {
+            chosenPinDef = targetPins[sIdx % targetPins.length];
+          }
+
+          if (chosenPinDef) {
+            usedPinNames.add(chosenPinDef.fullName);
+            targetPinPoints.push(computePinWorldPosition(targetInst, chosenPinDef.localOffset, targetMesh));
+          } else {
+            // Fan out so strands do not collapse to a single point if component lacks multi-pins
+            const fanOffset: [number, number, number] = [
+              (sIdx - (strandCount - 1) / 2) * 5.0,
+              0,
+              0
+            ];
+            targetPinPoints.push(computePinWorldPosition(targetInst, fanOffset, targetMesh));
+          }
+        }
+      }
+
+      const sourcePinPoints: THREE.Vector3[] = [];
+      if (isSourceBreakout) {
+        const configuredNames = cable.multiSourcePinNames || [];
+        const usedPinNames = new Set<string>();
+
+        for (let sIdx = 0; sIdx < strandCount; sIdx++) {
+          let chosenPinDef: PinDefinition | undefined;
+
+          const pName = configuredNames[sIdx];
+          if (pName) {
+            chosenPinDef = sourcePins.find((p) => p.fullName === pName || p.label === pName);
+          }
+
+          if (!chosenPinDef || usedPinNames.has(chosenPinDef.fullName)) {
+            const alternative = sourcePins.find((p) => !usedPinNames.has(p.fullName));
+            if (alternative) {
+              chosenPinDef = alternative;
+            }
+          }
+
+          if (!chosenPinDef && sourcePins.length > 0) {
+            chosenPinDef = sourcePins[sIdx % sourcePins.length];
+          }
+
+          if (chosenPinDef) {
+            usedPinNames.add(chosenPinDef.fullName);
+            sourcePinPoints.push(computePinWorldPosition(sourceInst, chosenPinDef.localOffset, sourceMesh));
+          } else {
+            const fanOffset: [number, number, number] = [
+              (sIdx - (strandCount - 1) / 2) * 5.0,
+              0,
+              0
+            ];
+            sourcePinPoints.push(computePinWorldPosition(sourceInst, fanOffset, sourceMesh));
+          }
+        }
+      }
+
+      if (isMultiStrandCable && strandCount > 1) {
         // Render 3D Ribbon / Flat Multi-Strand Cable with distinct strand colors (or 1-to-N / N-to-1 / N-to-N Breakout)
         const numDivisions = Math.max(48, controlPoints.length * 20);
         const pitch = cable.strandPitchMm || Math.max(1.4, (cable.thicknessMm || 2.8) * 0.7);

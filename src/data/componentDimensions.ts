@@ -244,6 +244,72 @@ export const VERIFIED_COMPONENT_DIMENSIONS: Record<string, ComponentDimensionMet
     },
     datasheetRef: "UAV 2.4/5.8GHz Dual-Band Foldable Omni-Directional Antenna with SMA Male",
   },
+  "22": {
+    componentId: "22",
+    name: "RadioMaster DBR4 2.4GHz Qabul qiluvchi",
+    nominalMm: [28.0, 11.0, 18.0],
+    axisDescriptions: {
+      x: "Kenglik (X)",
+      y: "Qalinlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "RadioMaster DBR4 Dual-Band ELRS Receiver",
+  },
+  "23": {
+    componentId: "23",
+    name: "LS1005G 5-Port Gigabit Switch",
+    nominalMm: [90.0, 23.0, 72.0],
+    axisDescriptions: {
+      x: "Kenglik (X)",
+      y: "Balandlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "TP-Link LS1005G 5-Port Gigabit Desktop Switch Enclosure",
+  },
+  "24": {
+    componentId: "24",
+    name: "BotBlox GigaBlox RevC Gigabit Switch",
+    nominalMm: [50.0, 15.0, 50.0],
+    axisDescriptions: {
+      x: "Kenglik (X)",
+      y: "Balandlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "BotBlox GigaBlox RevC Rugged 1000Mbps Ethernet Switch",
+  },
+  "25": {
+    componentId: "25",
+    name: "Matek UBEC 12S PRO / 12V 8A",
+    nominalMm: [60.0, 14.0, 28.0],
+    axisDescriptions: {
+      x: "Plata kengligi (X)",
+      y: "Balandlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "Matek UBEC 12S PRO 12V 8A Voltage Regulator",
+  },
+  "26": {
+    componentId: "26",
+    name: "12V 5A UBEC Regulyator (Auxiliary)",
+    nominalMm: [48.0, 12.0, 24.0],
+    axisDescriptions: {
+      x: "Kenglik (X)",
+      y: "Balandlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "High Voltage Synchronous 12V Step-Down Converter",
+  },
+  "27": {
+    componentId: "27",
+    name: "12V 5A UBEC Regulyator (Servo Power)",
+    nominalMm: [48.0, 12.0, 24.0],
+    axisDescriptions: {
+      x: "Kenglik (X)",
+      y: "Balandlik (Y)",
+      z: "Uzunlik (Z)",
+    },
+    datasheetRef: "High Voltage Synchronous 12V Step-Down Converter",
+  },
 };
 
 /**

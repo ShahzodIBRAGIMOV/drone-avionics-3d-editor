@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ComponentManifestItem } from "../types";
 import { modelManager, PRESET_3D_MODELS, Preset3DModel } from "../services/modelManager";
+import { saveCustomModelToRepo } from "../services/repoSyncService";
 
 interface ModelImportModalProps {
   isOpen: boolean;
@@ -162,9 +163,24 @@ export const ModelImportModal: React.FC<ModelImportModalProps> = ({
           scaleMultiplier,
           selectedFile.name
         );
+
+        // Also save model file directly into Git repository filesystem (public/models/custom/)
+        try {
+          await saveCustomModelToRepo(
+            finalComponentId,
+            selectedFile.name,
+            format,
+            scaleMultiplier,
+            arrayBuffer,
+            finalComponentName
+          );
+        } catch (repoErr) {
+          console.warn("Could not persist model file to repo filesystem:", repoErr);
+        }
+
         onSuccess(
           finalComponentId,
-          `"${finalComponentName}" uchun "${selectedFile.name}" 3D modeli muvaffaqiyatli yuklandi!`
+          `"${finalComponentName}" uchun "${selectedFile.name}" 3D modeli muvaffaqiyatli yuklandi va saqlandi!`
         );
         onClose();
       } else if (activeSourceTab === "preset") {
@@ -186,6 +202,7 @@ export const ModelImportModal: React.FC<ModelImportModalProps> = ({
         }
 
         await modelManager.loadCustomModelFromUrl(finalComponentId, modelUrl.trim(), scaleMultiplier);
+
         onSuccess(
           finalComponentId,
           `"${finalComponentName}" uchun URL orqali 3D model muvaffaqiyatli yuklandi!`

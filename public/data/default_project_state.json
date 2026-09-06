@@ -1,0 +1,4806 @@
+{
+  "version": "1.0",
+  "name": "3.5M Twin-Motor UAV Avionics",
+  "updatedAt": "2026-09-06T11:04:10.253Z",
+  "timestamp": 1788692650253,
+  "instances": [
+    {
+      "instanceId": "01-1",
+      "componentId": "01",
+      "instanceIndex": 1,
+      "name": "Drone airframe",
+      "customLabel": "Dron korpusi (Airframe 3500mm)",
+      "isAirframe": true,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        0,
+        360.1,
+        0
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#475569",
+      "customPins": []
+    },
+    {
+      "instanceId": "02-1",
+      "componentId": "02",
+      "instanceIndex": 1,
+      "name": "CUBE Orange ADS-B",
+      "customLabel": "CUBE Orange ADS-B #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -12,
+        179,
+        814.9
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#ef4444",
+      "customPins": [
+        {
+          "label": "TELEM 1",
+          "connectorId": "port",
+          "pinId": "pin_1",
+          "type": "signal",
+          "localOffset": [
+            -31.6,
+            -29.6,
+            -13.5
+          ],
+          "voltage": "3.3V",
+          "fullName": "02-1.pin_1",
+          "verified": true
+        },
+        {
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "label": "TELEM 2]",
+          "voltage": "3.3V",
+          "type": "signal",
+          "verified": true,
+          "fullName": "02-1.pin_2",
+          "localOffset": [
+            -32.7,
+            -32.6,
+            -0.4
+          ]
+        },
+        {
+          "verified": true,
+          "fullName": "02-1.pin_3",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            27.6,
+            -25.1,
+            -10.7
+          ],
+          "label": "POWER 1",
+          "pinId": "pin_3"
+        },
+        {
+          "localOffset": [
+            -40,
+            -30.3,
+            -1.6
+          ],
+          "pinId": "pin_4",
+          "label": "CAN 1",
+          "voltage": "3.3V",
+          "type": "signal",
+          "verified": true,
+          "fullName": "02-1.pin_4",
+          "connectorId": "port"
+        },
+        {
+          "fullName": "02-1.pin_5",
+          "verified": true,
+          "localOffset": [
+            -22.7,
+            -30.3,
+            0.9
+          ],
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "label": "I2C 2",
+          "pinId": "pin_5"
+        },
+        {
+          "localOffset": [
+            45.1,
+            -27.5,
+            13.1
+          ],
+          "label": "OUT 3 S",
+          "fullName": "02-1.pin_6",
+          "verified": true,
+          "pinId": "pin_6",
+          "voltage": "3.3V",
+          "type": "signal",
+          "connectorId": "port"
+        },
+        {
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "type": "signal",
+          "pinId": "pin_7",
+          "localOffset": [
+            45.1,
+            -29.8,
+            13.2
+          ],
+          "label": "OUT 3 -",
+          "fullName": "02-1.pin_7",
+          "verified": true
+        },
+        {
+          "localOffset": [
+            45.1,
+            -32.2,
+            13
+          ],
+          "verified": true,
+          "fullName": "02-1.pin_8",
+          "voltage": "3.3V",
+          "type": "signal",
+          "pinId": "pin_8",
+          "connectorId": "port",
+          "label": "OUT 3 +"
+        },
+        {
+          "localOffset": [
+            44.8,
+            -27.7,
+            10.5
+          ],
+          "label": "OUT 4 S",
+          "pinId": "pin_9",
+          "type": "signal",
+          "fullName": "02-1.pin_9",
+          "verified": true,
+          "voltage": "3.3V",
+          "connectorId": "port"
+        },
+        {
+          "voltage": "3.3V",
+          "pinId": "pin_10",
+          "label": "OUT 4 -",
+          "verified": true,
+          "fullName": "02-1.pin_10",
+          "localOffset": [
+            45.1,
+            -30,
+            10.6
+          ],
+          "type": "signal",
+          "connectorId": "port"
+        },
+        {
+          "fullName": "02-1.pin_11",
+          "verified": true,
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "label": "OUT 4 +",
+          "pinId": "pin_11",
+          "localOffset": [
+            45.1,
+            -32.5,
+            10.6
+          ]
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        12,
+        -181.1,
+        -814.9
+      ],
+      "droneRelativeRot": [
+        180,
+        0,
+        180
+      ]
+    },
+    {
+      "instanceId": "03-1",
+      "componentId": "03",
+      "instanceIndex": 1,
+      "name": "Here3 GPS",
+      "customLabel": "Here3 GPS #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        298.7,
+        689.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#0f172a",
+      "customPins": [
+        {
+          "type": "signal",
+          "localOffset": [
+            0,
+            -7.8,
+            0.1
+          ],
+          "pinId": "pin_1",
+          "connectorId": "port",
+          "verified": true,
+          "label": "Pin #1 [0, -8, 0]",
+          "fullName": "03-1.pin_1",
+          "voltage": "3.3V"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        0,
+        -61.4,
+        -689.6
+      ],
+      "droneRelativeRot": [
+        180,
+        0,
+        180
+      ]
+    },
+    {
+      "instanceId": "04-1",
+      "componentId": "04",
+      "instanceIndex": 1,
+      "name": "MK32 HM30 Air Unit",
+      "customLabel": "MK32 HM30 Air Unit #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -2.7,
+        23.5,
+        790.8
+      ],
+      "rotation": [
+        90,
+        -358,
+        -89
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#0f172a",
+      "customPins": [
+        {
+          "connectorId": "port",
+          "localOffset": [
+            41.1,
+            19.6,
+            4.4
+          ],
+          "voltage": "3.3V",
+          "pinId": "pin_1",
+          "type": "signal",
+          "label": "Pin #1 [41, 20, 4]",
+          "fullName": "04-1.pin_1",
+          "verified": true
+        },
+        {
+          "label": "Pin #2 [17, -24, 7]",
+          "verified": true,
+          "fullName": "04-1.pin_2",
+          "localOffset": [
+            16.6,
+            -24.5,
+            7.2
+          ],
+          "pinId": "pin_2",
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        }
+      ]
+    },
+    {
+      "instanceId": "05-1",
+      "componentId": "05",
+      "instanceIndex": 1,
+      "name": "SIYI ZR10",
+      "customLabel": "SIYI ZR10 #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -3.4,
+        -32.8,
+        1058.8
+      ],
+      "rotation": [
+        -101.7,
+        -0.1,
+        86.1
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#0f172a",
+      "customPins": [
+        {
+          "label": "Pin #1 [-1, -1, 56]",
+          "type": "signal",
+          "pinId": "pin_1",
+          "localOffset": [
+            -0.7,
+            -0.6,
+            55.9
+          ],
+          "voltage": "3.3V",
+          "fullName": "05-1.pin_1",
+          "verified": true,
+          "connectorId": "port"
+        },
+        {
+          "localOffset": [
+            -3,
+            2.6,
+            55.5
+          ],
+          "voltage": "3.3V",
+          "verified": true,
+          "fullName": "05-1.pin_2",
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "type": "signal",
+          "label": "Pin #2 [-3, 3, 56]"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        3.4,
+        -392.9,
+        -1058.8
+      ],
+      "droneRelativeRot": [
+        -78.3,
+        0.1,
+        -93.9
+      ]
+    },
+    {
+      "instanceId": "06-1",
+      "componentId": "06",
+      "instanceIndex": 1,
+      "name": "Matek BEC12S PRO",
+      "customLabel": "Matek BEC12S PRO #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -8.4,
+        79.5,
+        796.8
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "localOffset": [
+            -15.6,
+            -1.1,
+            8.4
+          ],
+          "label": "OUT",
+          "pinId": "pin_1",
+          "fullName": "06-1.pin_1",
+          "type": "signal",
+          "verified": true,
+          "voltage": "3.3V",
+          "connectorId": "port"
+        },
+        {
+          "label": "IN",
+          "connectorId": "port",
+          "pinId": "pin_2",
+          "localOffset": [
+            -16.1,
+            -1.1,
+            -0.7
+          ],
+          "voltage": "3.3V",
+          "type": "signal",
+          "verified": true,
+          "fullName": "06-1.pin_2"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        8.4,
+        -280.6,
+        -796.8
+      ],
+      "droneRelativeRot": [
+        180,
+        0,
+        180
+      ]
+    },
+    {
+      "instanceId": "07-1",
+      "componentId": "07",
+      "instanceIndex": 1,
+      "name": "Holybro PM02 V3 12S",
+      "customLabel": "Holybro PM02 V3 12S #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -143.6,
+        162.8,
+        190
+      ],
+      "rotation": [
+        -65,
+        85.3,
+        -114.9
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "voltage": "3.3V",
+          "localOffset": [
+            -13.5,
+            4.1,
+            5
+          ],
+          "type": "signal",
+          "verified": true,
+          "fullName": "07-1.pin_1",
+          "connectorId": "port",
+          "label": "Pin #1 [-13, 4, 5]",
+          "pinId": "pin_1"
+        },
+        {
+          "fullName": "07-1.pin_2",
+          "verified": true,
+          "label": "Pin #2 [-78, 0, -9]",
+          "connectorId": "port",
+          "pinId": "pin_2",
+          "type": "signal",
+          "localOffset": [
+            -78,
+            -0.4,
+            -9.2
+          ],
+          "voltage": "3.3V"
+        },
+        {
+          "localOffset": [
+            74.3,
+            1.4,
+            -6.2
+          ],
+          "pinId": "pin_3",
+          "voltage": "3.3V",
+          "label": "Pin #3 [74, 1, -6]",
+          "type": "signal",
+          "verified": true,
+          "fullName": "07-1.pin_3",
+          "connectorId": "port"
+        }
+      ]
+    },
+    {
+      "instanceId": "08-1",
+      "componentId": "08",
+      "instanceIndex": 1,
+      "name": "TATTU 22000 mAh battery",
+      "customLabel": "TATTU 22000 mAh battery #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        168.9,
+        533.3
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        1.3,
+        0.9,
+        1.58
+      ],
+      "customColor": "#ef4444",
+      "customPins": [
+        {
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "fullName": "08-1.pin_1",
+          "verified": true,
+          "type": "signal",
+          "pinId": "pin_1",
+          "label": "GND",
+          "localOffset": [
+            -70.7,
+            20.4,
+            31.7
+          ]
+        },
+        {
+          "type": "signal",
+          "localOffset": [
+            -70.6,
+            11.8,
+            17.3
+          ],
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "label": "V +",
+          "fullName": "08-1.pin_2",
+          "verified": true,
+          "voltage": "3.3V"
+        }
+      ]
+    },
+    {
+      "instanceId": "09-1",
+      "componentId": "09",
+      "instanceIndex": 1,
+      "name": "4S avionics battery",
+      "customLabel": "4S avionics battery #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -46.3,
+        166.9,
+        264.9
+      ],
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "scale": [
+        1.9,
+        1.14,
+        2.19
+      ],
+      "customPins": [
+        {
+          "fullName": "09-1.pin_1",
+          "verified": true,
+          "localOffset": [
+            -18.2,
+            0.6,
+            -49
+          ],
+          "voltage": "3.3V",
+          "label": "Pin #1 [-18, 1, -49]",
+          "pinId": "pin_1",
+          "type": "signal",
+          "connectorId": "port"
+        }
+      ]
+    },
+    {
+      "instanceId": "10-1",
+      "componentId": "10",
+      "instanceIndex": 1,
+      "name": "SunnySky motor",
+      "customLabel": "Chap dvigatel (Left Motor)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -520,
+        231.9,
+        504.6
+      ],
+      "rotation": [
+        180,
+        0,
+        0
+      ],
+      "scale": [
+        3.273,
+        3.273,
+        3.273
+      ],
+      "customColor": "#0085eb",
+      "customPins": [
+        {
+          "voltage": "3.3V",
+          "pinId": "pin_1",
+          "label": "Pin #1 [-2, -20, -3]",
+          "type": "signal",
+          "connectorId": "port",
+          "localOffset": [
+            -2.5,
+            -20.3,
+            -3
+          ],
+          "fullName": "10-1.pin_1",
+          "verified": true
+        },
+        {
+          "fullName": "10-1.pin_2",
+          "localOffset": [
+            0.1,
+            -20.3,
+            -2.9
+          ],
+          "verified": true,
+          "label": "Pin #2 [0, -20, -3]",
+          "voltage": "3.3V",
+          "pinId": "pin_2",
+          "type": "signal",
+          "connectorId": "port"
+        },
+        {
+          "voltage": "3.3V",
+          "label": "Pin #3 [3, -20, -3]",
+          "connectorId": "port",
+          "pinId": "pin_3",
+          "verified": true,
+          "localOffset": [
+            2.7,
+            -20.3,
+            -2.8
+          ],
+          "fullName": "10-1.pin_3",
+          "type": "signal"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        520,
+        -128.2,
+        -504.6
+      ],
+      "droneRelativeRot": [
+        0,
+        0,
+        180
+      ]
+    },
+    {
+      "instanceId": "10-2",
+      "componentId": "10",
+      "instanceIndex": 2,
+      "name": "SunnySky motor",
+      "customLabel": "O‘ng dvigatel (Right Motor)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        520,
+        227,
+        518.1
+      ],
+      "rotation": [
+        180,
+        0,
+        0
+      ],
+      "scale": [
+        3.27,
+        3.27,
+        3.27
+      ],
+      "customColor": "#0085eb",
+      "customPins": [
+        {
+          "type": "signal",
+          "localOffset": [
+            2.6,
+            -20.3,
+            -3.1
+          ],
+          "fullName": "10-2.pin_1",
+          "verified": true,
+          "label": "Pin #1 [3, -20, -3]",
+          "pinId": "pin_1",
+          "connectorId": "port",
+          "voltage": "3.3V"
+        },
+        {
+          "fullName": "10-2.pin_2",
+          "verified": true,
+          "connectorId": "port",
+          "type": "signal",
+          "voltage": "3.3V",
+          "pinId": "pin_2",
+          "label": "Pin #2 [0, -20, -3]",
+          "localOffset": [
+            -0.1,
+            -20.3,
+            -2.8
+          ]
+        },
+        {
+          "label": "Pin #3 [-2, -20, -3]",
+          "connectorId": "port",
+          "pinId": "pin_3",
+          "localOffset": [
+            -2.5,
+            -20.3,
+            -3
+          ],
+          "voltage": "3.3V",
+          "type": "signal",
+          "verified": true,
+          "fullName": "10-2.pin_3"
+        }
+      ]
+    },
+    {
+      "instanceId": "11-1",
+      "componentId": "11",
+      "instanceIndex": 1,
+      "name": "AT115A ESC",
+      "customLabel": "Chap motor regulyatori (ESC 1)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -511.5,
+        294.4,
+        327.8
+      ],
+      "rotation": [
+        -117.9,
+        -87.8,
+        -120.9
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "label": "Pin #1 [85, 1, 10]",
+          "pinId": "pin_1",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "localOffset": [
+            85.1,
+            0.9,
+            9.7
+          ],
+          "type": "signal",
+          "fullName": "11-1.pin_1",
+          "verified": true
+        },
+        {
+          "label": "Pin #2 [86, 1, 0]",
+          "pinId": "pin_2",
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "fullName": "11-1.pin_2",
+          "localOffset": [
+            85.5,
+            0.5,
+            0
+          ],
+          "verified": true
+        },
+        {
+          "pinId": "pin_3",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "label": "Pin #3 [85, 1, -9]",
+          "type": "signal",
+          "verified": true,
+          "fullName": "11-1.pin_3",
+          "localOffset": [
+            85.3,
+            1,
+            -9
+          ]
+        },
+        {
+          "label": "POWER -",
+          "type": "signal",
+          "pinId": "pin_4",
+          "fullName": "11-1.pin_4",
+          "verified": true,
+          "localOffset": [
+            -85.5,
+            -2.2,
+            5.3
+          ],
+          "connectorId": "port",
+          "voltage": "3.3V"
+        },
+        {
+          "verified": true,
+          "fullName": "11-1.pin_5",
+          "type": "signal",
+          "localOffset": [
+            -85.5,
+            -3.6,
+            -4.9
+          ],
+          "voltage": "3.3V",
+          "pinId": "pin_5",
+          "connectorId": "port",
+          "label": "POWER +"
+        },
+        {
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            -69,
+            -7.3,
+            -14.7
+          ],
+          "voltage": "3.3V",
+          "label": "S IN",
+          "verified": true,
+          "fullName": "11-1.pin_6",
+          "pinId": "pin_6"
+        }
+      ]
+    },
+    {
+      "instanceId": "11-2",
+      "componentId": "11",
+      "instanceIndex": 2,
+      "name": "AT115A ESC",
+      "customLabel": "O‘ng motor regulyatori (ESC 2)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        513.4,
+        298.3,
+        333.7
+      ],
+      "rotation": [
+        0,
+        -87.6,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "pinId": "pin_1",
+          "label": "Pin #1 [86, -1, -9]",
+          "connectorId": "port",
+          "type": "signal",
+          "voltage": "3.3V",
+          "verified": true,
+          "fullName": "11-2.pin_1",
+          "localOffset": [
+            85.5,
+            -1.5,
+            -8.9
+          ]
+        },
+        {
+          "voltage": "3.3V",
+          "label": "Pin #2 [86, -2, 0]",
+          "localOffset": [
+            85.5,
+            -1.9,
+            -0.3
+          ],
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "type": "signal",
+          "verified": true,
+          "fullName": "11-2.pin_2"
+        },
+        {
+          "fullName": "11-2.pin_3",
+          "verified": true,
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            85.5,
+            -1.8,
+            9.4
+          ],
+          "label": "Pin #3 [86, -2, 9]",
+          "pinId": "pin_3",
+          "voltage": "3.3V"
+        },
+        {
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "verified": true,
+          "fullName": "11-2.pin_4",
+          "type": "signal",
+          "localOffset": [
+            -69,
+            -7.3,
+            -14.8
+          ],
+          "label": "S IN",
+          "pinId": "pin_4"
+        },
+        {
+          "localOffset": [
+            -85.5,
+            -2.5,
+            -6
+          ],
+          "voltage": "3.3V",
+          "type": "signal",
+          "pinId": "pin_5",
+          "label": "POWER +",
+          "verified": true,
+          "connectorId": "port",
+          "fullName": "11-2.pin_5"
+        },
+        {
+          "voltage": "3.3V",
+          "fullName": "11-2.pin_6",
+          "verified": true,
+          "localOffset": [
+            -85.5,
+            -1.5,
+            4.6
+          ],
+          "connectorId": "port",
+          "type": "signal",
+          "label": "POWER -",
+          "pinId": "pin_6"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        -513.4,
+        -61.8,
+        -333.7
+      ],
+      "droneRelativeRot": [
+        -180,
+        87.6,
+        -180
+      ]
+    },
+    {
+      "instanceId": "12-1",
+      "componentId": "12",
+      "instanceIndex": 1,
+      "name": "Savox servo",
+      "customLabel": "Chap qanot eleron 1 (Left Aileron)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -1100,
+        311.4,
+        258
+      ],
+      "rotation": [
+        180,
+        90,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "localOffset": [
+            44.7,
+            -0.3,
+            -24.3
+          ],
+          "type": "signal",
+          "voltage": "3.3V",
+          "verified": true,
+          "fullName": "12-1.pin_1",
+          "label": "Pin #1 [45, 0, -24]",
+          "pinId": "pin_1",
+          "connectorId": "port"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        1100,
+        -48.7,
+        -258
+      ],
+      "droneRelativeRot": [
+        -180,
+        -90,
+        0
+      ]
+    },
+    {
+      "instanceId": "12-2",
+      "componentId": "12",
+      "instanceIndex": 2,
+      "name": "Savox servo",
+      "customLabel": "Chap qanot flap 2 (Left Flap)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -650,
+        304.4,
+        267.3
+      ],
+      "rotation": [
+        180,
+        90,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "label": "Pin #1 [45, 0, -24]",
+          "connectorId": "port",
+          "pinId": "pin_1",
+          "localOffset": [
+            44.7,
+            -0.2,
+            -24.3
+          ],
+          "verified": true,
+          "type": "signal",
+          "fullName": "12-2.pin_1",
+          "voltage": "3.3V"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        650,
+        -55.7,
+        -267.3
+      ],
+      "droneRelativeRot": [
+        -180,
+        -90,
+        0
+      ]
+    },
+    {
+      "instanceId": "12-3",
+      "componentId": "12",
+      "instanceIndex": 3,
+      "name": "Savox servo",
+      "customLabel": "O‘ng qanot eleron 1 (Right Aileron)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        1100,
+        313.4,
+        261.4
+      ],
+      "rotation": [
+        -0.3,
+        -90,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "fullName": "12-3.pin_1",
+          "verified": true,
+          "connectorId": "port",
+          "localOffset": [
+            44.7,
+            0.1,
+            -23.5
+          ],
+          "type": "signal",
+          "label": "Pin #1 [45, 0, -23]",
+          "voltage": "3.3V",
+          "pinId": "pin_1"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        -1100,
+        -46.7,
+        -261.4
+      ],
+      "droneRelativeRot": [
+        0.3,
+        90,
+        0
+      ]
+    },
+    {
+      "instanceId": "12-4",
+      "componentId": "12",
+      "instanceIndex": 4,
+      "name": "Savox servo",
+      "customLabel": "O‘ng qanot flap 2 (Right Flap)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        650,
+        311.9,
+        256.9
+      ],
+      "rotation": [
+        0,
+        -87,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "fullName": "12-4.pin_1",
+          "verified": true,
+          "localOffset": [
+            44.1,
+            0.6,
+            -23.7
+          ],
+          "type": "signal",
+          "voltage": "3.3V",
+          "pinId": "pin_1",
+          "connectorId": "port",
+          "label": "Pin #1 [44, 1, -24]"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        -650,
+        -48.2,
+        -256.9
+      ],
+      "droneRelativeRot": [
+        -180,
+        87,
+        -180
+      ]
+    },
+    {
+      "instanceId": "12-5",
+      "componentId": "12",
+      "instanceIndex": 5,
+      "name": "Savox servo",
+      "customLabel": "Old shassi buruvchi (Nose Gear Steering)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        27,
+        632.3
+      ],
+      "rotation": [
+        90,
+        -0.5,
+        -88.4
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "fullName": "12-5.pin_1",
+          "verified": true,
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            44.7,
+            0.2,
+            -24
+          ],
+          "label": "Pin #1 [45, 0, -24]",
+          "pinId": "pin_1"
+        }
+      ]
+    },
+    {
+      "instanceId": "12-6",
+      "componentId": "12",
+      "instanceIndex": 6,
+      "name": "Savox servo",
+      "customLabel": "Vertikal fin ruder (Vertical Fin)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        495,
+        -980
+      ],
+      "rotation": [
+        -90,
+        -1,
+        -88
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "pinId": "pin_1",
+          "voltage": "3.3V",
+          "label": "Pin #1 [45, 0, -24]",
+          "fullName": "12-6.pin_1",
+          "verified": true,
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            44.7,
+            0.1,
+            -23.9
+          ]
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        0,
+        134.9,
+        980
+      ],
+      "droneRelativeRot": [
+        -90,
+        1,
+        92
+      ]
+    },
+    {
+      "instanceId": "12-7",
+      "componentId": "12",
+      "instanceIndex": 7,
+      "name": "Savox servo",
+      "customLabel": "Chap dum qanotchasi elevon (Left Elevator)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -380,
+        239.3,
+        -950.9
+      ],
+      "rotation": [
+        -0.3,
+        -91,
+        1.6
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "voltage": "3.3V",
+          "label": "Pin #1 [45, 0, -24]",
+          "pinId": "pin_1",
+          "type": "signal",
+          "localOffset": [
+            44.7,
+            -0.2,
+            -24.3
+          ],
+          "verified": true,
+          "connectorId": "port",
+          "fullName": "12-7.pin_1"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        380,
+        -120.8,
+        950.9
+      ],
+      "droneRelativeRot": [
+        0.3,
+        89,
+        1.6
+      ]
+    },
+    {
+      "instanceId": "12-8",
+      "componentId": "12",
+      "instanceIndex": 8,
+      "name": "Savox servo",
+      "customLabel": "O‘ng dum qanotchasi elevon (Right Elevator)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        380,
+        245.1,
+        -944.9
+      ],
+      "rotation": [
+        0,
+        93,
+        180
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "connectorId": "port",
+          "fullName": "12-8.pin_1",
+          "verified": true,
+          "voltage": "3.3V",
+          "pinId": "pin_1",
+          "localOffset": [
+            44.7,
+            -0.3,
+            -23.8
+          ],
+          "type": "signal",
+          "label": "Pin #1 [45, 0, -24]"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        -380,
+        -115,
+        944.9
+      ],
+      "droneRelativeRot": [
+        0,
+        -87,
+        180
+      ]
+    },
+    {
+      "instanceId": "13-1",
+      "componentId": "13",
+      "instanceIndex": 1,
+      "name": "Holybro pitot tube",
+      "customLabel": "Holybro pitot tube #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -149.1,
+        165,
+        1057
+      ],
+      "rotation": [
+        180,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "pinId": "pin_1",
+          "verified": true,
+          "fullName": "13-1.pin_1",
+          "localOffset": [
+            2.1,
+            0,
+            51.4
+          ],
+          "label": "Pin #1 [2, 0, 51]",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "type": "signal"
+        },
+        {
+          "label": "Pin #2 [-14, 0, 42]",
+          "localOffset": [
+            -14.5,
+            0,
+            41.9
+          ],
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "type": "signal",
+          "verified": true,
+          "voltage": "3.3V",
+          "fullName": "13-1.pin_2"
+        }
+      ]
+    },
+    {
+      "instanceId": "14-1",
+      "componentId": "14",
+      "instanceIndex": 1,
+      "name": "Holybro MS5525DSO module",
+      "customLabel": "Holybro MS5525DSO module #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -133.1,
+        153.4,
+        903.8
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "label": "Pin #1 [-3, 1, -1]",
+          "type": "signal",
+          "pinId": "pin_1",
+          "verified": true,
+          "fullName": "14-1.pin_1",
+          "connectorId": "port",
+          "localOffset": [
+            -2.7,
+            1.2,
+            -1.2
+          ],
+          "voltage": "3.3V"
+        },
+        {
+          "localOffset": [
+            2.6,
+            1.2,
+            -1.1
+          ],
+          "verified": true,
+          "fullName": "14-1.pin_2",
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "label": "Pin #2 [3, 1, -1]",
+          "pinId": "pin_2"
+        },
+        {
+          "verified": true,
+          "fullName": "14-1.pin_3",
+          "pinId": "pin_3",
+          "label": "Pin #3 [0, -2, 10]",
+          "type": "signal",
+          "voltage": "3.3V",
+          "localOffset": [
+            -0.1,
+            -2,
+            9.7
+          ],
+          "connectorId": "port"
+        }
+      ]
+    },
+    {
+      "instanceId": "15-1",
+      "componentId": "15",
+      "instanceIndex": 1,
+      "name": "Eagle Eye LED",
+      "customLabel": "Chap qanot uchi navi-chiroq (Left Wingtip Red)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -1887,
+        325.3,
+        436.8
+      ],
+      "rotation": [
+        -90,
+        -85.6,
+        -84.7
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#23b710",
+      "customPins": [
+        {
+          "localOffset": [
+            -0.3,
+            0.1,
+            -18.6
+          ],
+          "label": "Pin #1 [0, 0, -19]",
+          "pinId": "pin_1",
+          "verified": true,
+          "type": "signal",
+          "fullName": "15-1.pin_1",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        }
+      ]
+    },
+    {
+      "instanceId": "15-2",
+      "componentId": "15",
+      "instanceIndex": 2,
+      "name": "Eagle Eye LED",
+      "customLabel": "O‘ng qanot uchi navi-chiroq (Right Wingtip Green)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        1887.2,
+        323.9,
+        418.2
+      ],
+      "rotation": [
+        -180,
+        87.4,
+        180
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#ff0000",
+      "customPins": [
+        {
+          "label": "Pin #1 [0, 0, -17]",
+          "verified": true,
+          "type": "signal",
+          "fullName": "15-2.pin_1",
+          "pinId": "pin_1",
+          "localOffset": [
+            -0.1,
+            0,
+            -16.7
+          ],
+          "connectorId": "port",
+          "voltage": "3.3V"
+        }
+      ]
+    },
+    {
+      "instanceId": "16-1",
+      "componentId": "16",
+      "instanceIndex": 1,
+      "name": "Emergency Stop",
+      "customLabel": "Emergency Stop #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        269.4,
+        -228.5
+      ],
+      "rotation": [
+        -6.1,
+        -2.2,
+        -0.2
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#ff0000",
+      "customPins": [
+        {
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "label": "Pin #1 [14, -35, 5]",
+          "pinId": "pin_1",
+          "fullName": "16-1.pin_1",
+          "verified": true,
+          "type": "signal",
+          "localOffset": [
+            14.3,
+            -35.2,
+            5.3
+          ]
+        },
+        {
+          "localOffset": [
+            -14.4,
+            -35.2,
+            4
+          ],
+          "pinId": "pin_2",
+          "verified": true,
+          "label": "Pin #2 [-14, -35, 4]",
+          "fullName": "16-1.pin_2",
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "type": "signal"
+        }
+      ]
+    },
+    {
+      "instanceId": "17-1",
+      "componentId": "17",
+      "instanceIndex": 1,
+      "name": "Two-blade 20x10 propeller",
+      "customLabel": "Chap propeller (Left Prop 20x10)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -519.8,
+        209.2,
+        548.5
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#0f172a"
+    },
+    {
+      "instanceId": "17-2",
+      "componentId": "17",
+      "instanceIndex": 2,
+      "name": "Two-blade 20x10 propeller",
+      "customLabel": "O‘ng propeller (Right Prop 20x10)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        520.3,
+        207,
+        571.6
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#0f172a"
+    },
+    {
+      "instanceId": "18-1",
+      "componentId": "18",
+      "instanceIndex": 1,
+      "name": "Hobbywing UBEC",
+      "customLabel": "Servo quvvatlash UBEC 12A",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -26.5,
+        157.2,
+        25.8
+      ],
+      "rotation": [
+        -90,
+        0.4,
+        -90.3
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#10b981",
+      "customPins": [
+        {
+          "type": "signal",
+          "fullName": "18-1.pin_1",
+          "verified": true,
+          "localOffset": [
+            -43.1,
+            -3.1,
+            7.2
+          ],
+          "voltage": "3.3V",
+          "label": "Pin #1 [-43, -3, 7]",
+          "pinId": "pin_1",
+          "connectorId": "port"
+        },
+        {
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "label": "Pin #2 [-43, -7, 7]",
+          "type": "signal",
+          "fullName": "18-1.pin_2",
+          "verified": true,
+          "voltage": "3.3V",
+          "localOffset": [
+            -43.1,
+            -7,
+            7.2
+          ]
+        },
+        {
+          "pinId": "pin_3",
+          "label": "Pin #3 [-44, 12, 7]",
+          "type": "signal",
+          "localOffset": [
+            -43.6,
+            12.4,
+            7.2
+          ],
+          "voltage": "3.3V",
+          "connectorId": "port",
+          "verified": true,
+          "fullName": "18-1.pin_3"
+        },
+        {
+          "fullName": "18-1.pin_4",
+          "verified": true,
+          "type": "signal",
+          "connectorId": "port",
+          "pinId": "pin_4",
+          "localOffset": [
+            -43.6,
+            8.5,
+            7.2
+          ],
+          "voltage": "3.3V",
+          "label": "Pin #4 [-44, 9, 7]"
+        },
+        {
+          "fullName": "18-1.pin_5",
+          "verified": true,
+          "type": "signal",
+          "connectorId": "port",
+          "localOffset": [
+            -43.3,
+            4.8,
+            7.2
+          ],
+          "label": "Pin #5 [-43, 5, 7]",
+          "pinId": "pin_5",
+          "voltage": "3.3V"
+        },
+        {
+          "localOffset": [
+            -43.4,
+            0.9,
+            7.2
+          ],
+          "type": "signal",
+          "voltage": "3.3V",
+          "verified": true,
+          "fullName": "18-1.pin_6",
+          "pinId": "pin_6",
+          "label": "Pin #6 [-43, 1, 7]",
+          "connectorId": "port"
+        },
+        {
+          "voltage": "3.3V",
+          "localOffset": [
+            -43.5,
+            -10.3,
+            7.2
+          ],
+          "fullName": "18-1.pin_7",
+          "verified": true,
+          "pinId": "pin_7",
+          "connectorId": "port",
+          "type": "signal",
+          "label": "Pin #7 [-43, -10, 7]"
+        },
+        {
+          "type": "signal",
+          "localOffset": [
+            -43.3,
+            -14.2,
+            7.2
+          ],
+          "connectorId": "port",
+          "label": "Pin #8 [-43, -14, 7]",
+          "fullName": "18-1.pin_8",
+          "verified": true,
+          "pinId": "pin_8",
+          "voltage": "3.3V"
+        },
+        {
+          "pinId": "pin_9",
+          "label": "Pin #9 [45, -13, -3]",
+          "fullName": "18-1.pin_9",
+          "verified": true,
+          "localOffset": [
+            45,
+            -12.6,
+            -2.7
+          ],
+          "type": "signal",
+          "connectorId": "port",
+          "voltage": "3.3V"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        26.5,
+        -202.9,
+        -25.8
+      ],
+      "droneRelativeRot": [
+        -90,
+        -0.4,
+        89.7
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "18-2",
+      "componentId": "18",
+      "instanceIndex": 2,
+      "name": "Hobbywing UBEC",
+      "customLabel": "Avionika va datchiklar UBEC 12A",
+      "isAirframe": false,
+      "placed": false,
+      "locked": false,
+      "visible": true,
+      "position": [
+        254.3,
+        197.9,
+        60
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "19-1",
+      "componentId": "19",
+      "instanceIndex": 1,
+      "name": "Jetson carrier assembly",
+      "customLabel": "Jetson carrier assembly #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -24.7,
+        151.5,
+        934.9
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customColor": "#475569",
+      "customPins": [
+        {
+          "localOffset": [
+            -21.7,
+            -18.8,
+            43.4
+          ],
+          "voltage": "3.3V",
+          "type": "signal",
+          "label": "Pin #1 [-22, -19, 43]",
+          "connectorId": "port",
+          "verified": true,
+          "fullName": "19-1.pin_1",
+          "pinId": "pin_1"
+        },
+        {
+          "connectorId": "port",
+          "verified": true,
+          "fullName": "19-1.pin_2",
+          "type": "signal",
+          "voltage": "3.3V",
+          "localOffset": [
+            -35.8,
+            -17,
+            51
+          ],
+          "label": "Pin #2 [-36, -17, 51]",
+          "pinId": "pin_2"
+        },
+        {
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "fullName": "19-1.pin_3",
+          "verified": true,
+          "pinId": "pin_3",
+          "label": "Pin 6",
+          "localOffset": [
+            -16.2,
+            -16.2,
+            -53.6
+          ],
+          "type": "signal"
+        },
+        {
+          "fullName": "19-1.pin_4",
+          "pinId": "pin_4",
+          "localOffset": [
+            -14,
+            -16.3,
+            -54.9
+          ],
+          "verified": true,
+          "label": "Pin 8",
+          "type": "signal",
+          "connectorId": "port",
+          "voltage": "3.3V"
+        },
+        {
+          "voltage": "3.3V",
+          "pinId": "pin_5",
+          "localOffset": [
+            -11.6,
+            -16.2,
+            -54.9
+          ],
+          "label": "Pin 10",
+          "connectorId": "port",
+          "fullName": "19-1.pin_5",
+          "verified": true,
+          "type": "signal"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        24.7,
+        -208.6,
+        -934.9
+      ],
+      "droneRelativeRot": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "instanceId": "20-1",
+      "componentId": "20",
+      "instanceIndex": 1,
+      "name": "SIYI 4-18S BEC HM30",
+      "customLabel": "SIYI 4-18S BEC HM30 #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -20,
+        87,
+        598.6
+      ],
+      "rotation": [
+        -78,
+        -84.6,
+        -82
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "fullName": "20-1.pin_1",
+          "verified": true,
+          "connectorId": "port",
+          "type": "signal",
+          "localOffset": [
+            104.1,
+            -0.6,
+            0.6
+          ],
+          "label": "Pin #1 [104, -1, 1]",
+          "voltage": "3.3V",
+          "pinId": "pin_1"
+        },
+        {
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "pinId": "pin_2",
+          "type": "signal",
+          "fullName": "20-1.pin_2",
+          "label": "Pin #2 [-104, -1, 1]",
+          "localOffset": [
+            -104.1,
+            -0.9,
+            0.6
+          ],
+          "verified": true
+        }
+      ]
+    },
+    {
+      "instanceId": "21-1",
+      "componentId": "21",
+      "instanceIndex": 1,
+      "name": "Foldable omni antenna",
+      "customLabel": "Foldable omni antenna (Chap / Ant 1)",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -21.2,
+        2.6,
+        885.3
+      ],
+      "rotation": [
+        0,
+        0,
+        88
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        21.2,
+        -357.5,
+        -885.3
+      ],
+      "droneRelativeRot": [
+        -180,
+        0,
+        -92
+      ]
+    },
+    {
+      "instanceId": "22-1",
+      "componentId": "22",
+      "instanceIndex": 1,
+      "name": "RadioMaster DBR4",
+      "customLabel": "Radiomaster #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -22.8,
+        147.7,
+        830.6
+      ],
+      "rotation": [
+        -89.9,
+        0,
+        180
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "localOffset": [
+            -86.6,
+            -80.5,
+            0
+          ],
+          "label": "Pin #1 [-87, -80, 0]",
+          "fullName": "22-1.pin_1",
+          "pinId": "pin_1",
+          "verified": true,
+          "type": "signal",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        22.8,
+        -212.4,
+        -830.6
+      ],
+      "droneRelativeRot": [
+        -90.1,
+        0,
+        0
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "23-1",
+      "componentId": "23",
+      "instanceIndex": 1,
+      "name": "LS1005G Switch",
+      "customLabel": "LS1005G Switch #1",
+      "isAirframe": false,
+      "placed": false,
+      "locked": false,
+      "visible": true,
+      "position": [
+        -37.8,
+        99.9,
+        958
+      ],
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "localOffset": [
+            -34.1,
+            2.7,
+            21.9
+          ],
+          "type": "signal",
+          "verified": true,
+          "fullName": "23-1.pin_1",
+          "pinId": "pin_1",
+          "label": "Pin #1 [-34, 3, 22]",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        },
+        {
+          "label": "Pin #2 [-15, 3, 22]",
+          "pinId": "pin_2",
+          "connectorId": "port",
+          "fullName": "23-1.pin_2",
+          "verified": true,
+          "type": "signal",
+          "localOffset": [
+            -15.1,
+            2.9,
+            21.9
+          ],
+          "voltage": "3.3V"
+        },
+        {
+          "connectorId": "port",
+          "localOffset": [
+            0.1,
+            3.4,
+            21.9
+          ],
+          "pinId": "pin_3",
+          "voltage": "3.3V",
+          "label": "Pin #3 [0, 3, 22]",
+          "verified": true,
+          "fullName": "23-1.pin_3",
+          "type": "signal"
+        },
+        {
+          "localOffset": [
+            16.6,
+            1.9,
+            21.9
+          ],
+          "type": "signal",
+          "connectorId": "port",
+          "verified": true,
+          "fullName": "23-1.pin_4",
+          "label": "Pin #4 [17, 2, 22]",
+          "voltage": "3.3V",
+          "pinId": "pin_4"
+        },
+        {
+          "localOffset": [
+            31.3,
+            2.3,
+            21.9
+          ],
+          "fullName": "23-1.pin_5",
+          "verified": true,
+          "type": "signal",
+          "pinId": "pin_5",
+          "label": "Pin #5 [31, 2, 22]",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        }
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "24-1",
+      "componentId": "24",
+      "instanceIndex": 1,
+      "name": "GigaBlox Switch",
+      "customLabel": "GigaBlox switch #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        86.6,
+        933.1
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "voltage": "3.3V",
+          "pinId": "pin_1",
+          "label": "Pin #1 [16, 1, -13]",
+          "type": "signal",
+          "localOffset": [
+            16.3,
+            1.4,
+            -13.4
+          ],
+          "verified": true,
+          "fullName": "24-1.pin_1",
+          "connectorId": "port"
+        },
+        {
+          "label": "Pin #2 [15, 4, -6]",
+          "pinId": "pin_2",
+          "type": "signal",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "localOffset": [
+            15.4,
+            3.8,
+            -6.2
+          ],
+          "fullName": "24-1.pin_2",
+          "verified": true
+        },
+        {
+          "verified": true,
+          "type": "signal",
+          "fullName": "24-1.pin_3",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "label": "Pin #3 [16, 1, 1]",
+          "pinId": "pin_3",
+          "localOffset": [
+            15.7,
+            1.4,
+            1
+          ]
+        },
+        {
+          "pinId": "pin_4",
+          "localOffset": [
+            15.4,
+            2.8,
+            7.7
+          ],
+          "label": "Pin #4 [15, 3, 8]",
+          "voltage": "3.3V",
+          "type": "signal",
+          "fullName": "24-1.pin_4",
+          "verified": true,
+          "connectorId": "port"
+        },
+        {
+          "localOffset": [
+            16.3,
+            1.4,
+            15.2
+          ],
+          "voltage": "3.3V",
+          "type": "signal",
+          "verified": true,
+          "fullName": "24-1.pin_5",
+          "connectorId": "port",
+          "label": "Pin #5 [16, 1, 15]",
+          "pinId": "pin_5"
+        },
+        {
+          "localOffset": [
+            -20.6,
+            1.4,
+            12.7
+          ],
+          "type": "signal",
+          "verified": true,
+          "fullName": "24-1.pin_6",
+          "pinId": "pin_6",
+          "label": "Pin #6 [-21, 1, 13]",
+          "voltage": "3.3V",
+          "connectorId": "port"
+        }
+      ],
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        0,
+        -273.5,
+        -933.1
+      ],
+      "droneRelativeRot": [
+        180,
+        0,
+        180
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "25-1",
+      "componentId": "25",
+      "instanceIndex": 1,
+      "name": "12V UBEC Pro",
+      "customLabel": "12V UBEC #1",
+      "isAirframe": false,
+      "placed": true,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        212.9,
+        446.3
+      ],
+      "rotation": [
+        -90.1,
+        1.2,
+        -86
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customPins": [
+        {
+          "voltage": "3.3V",
+          "fullName": "25-1.pin_1",
+          "verified": true,
+          "pinId": "pin_1",
+          "localOffset": [
+            66,
+            5.6,
+            -1.1
+          ],
+          "label": "OUT -",
+          "connectorId": "port",
+          "type": "signal"
+        },
+        {
+          "verified": true,
+          "fullName": "25-1.pin_2",
+          "connectorId": "port",
+          "voltage": "3.3V",
+          "type": "signal",
+          "label": "OUT +",
+          "localOffset": [
+            66,
+            -5,
+            -1.2
+          ],
+          "pinId": "pin_2"
+        },
+        {
+          "pinId": "pin_3",
+          "connectorId": "port",
+          "label": "IN +",
+          "type": "signal",
+          "voltage": "3.3V",
+          "localOffset": [
+            -62.1,
+            -5.6,
+            -1.4
+          ],
+          "fullName": "25-1.pin_3",
+          "verified": true
+        },
+        {
+          "pinId": "pin_4",
+          "fullName": "25-1.pin_4",
+          "verified": true,
+          "label": "IN -",
+          "voltage": "3.3V",
+          "localOffset": [
+            -64.8,
+            6,
+            -1.4
+          ],
+          "type": "signal",
+          "connectorId": "port"
+        }
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "26-1",
+      "componentId": "26",
+      "instanceIndex": 1,
+      "name": "UBEC 12V Aux",
+      "customLabel": "UBEC 12V #1",
+      "isAirframe": false,
+      "placed": false,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "27-1",
+      "componentId": "27",
+      "instanceIndex": 1,
+      "name": "UBEC 12V Servo",
+      "customLabel": "UBEC 12V #1",
+      "isAirframe": false,
+      "placed": false,
+      "locked": false,
+      "visible": true,
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "modelVersion": 1788692193326
+    },
+    {
+      "instanceId": "21-2",
+      "componentId": "21",
+      "instanceIndex": 2,
+      "placed": true,
+      "locked": true,
+      "visible": true,
+      "position": [
+        -5.8,
+        2.9,
+        885.9
+      ],
+      "rotation": [
+        0,
+        0,
+        88.3
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ],
+      "customLabel": "Foldable omni antenna (O‘ng / Ant 2)",
+      "attachedToDrone": true,
+      "droneRelativePos": [
+        5.8,
+        -357.2,
+        -885.9
+      ],
+      "droneRelativeRot": [
+        -180,
+        0,
+        -91.7
+      ]
+    }
+  ],
+  "cables": [
+    {
+      "id": "cable_1788510690080_rz4g4e",
+      "strandCount": 2,
+      "curveTension": 0.5,
+      "calculatedLengthMm": 118,
+      "color": "#ef4444",
+      "endStickers": {
+        "enabled": false
+      },
+      "targetPinName": "19-1.pin_2",
+      "wireGauge": "16 AWG",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "slackMm": 0,
+      "strandPitchMm": 2,
+      "isRibbon": true,
+      "targetInstanceId": "19-1",
+      "sourcePinName": "06-1.pin_1",
+      "flowDirection": "forward",
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "sourceInstanceId": "06-1",
+      "routePoints": [
+        {
+          "id": "pt_1788510703124_3mwq",
+          "x": -19.6,
+          "z": 809.2,
+          "y": 94.2,
+          "type": "waypoint"
+        },
+        {
+          "x": 12.2,
+          "z": 840.8,
+          "id": "pt_1788510707756_rv4x",
+          "y": 128.5,
+          "type": "waypoint"
+        }
+      ],
+      "cableType": "Power",
+      "name": "Matek BEC12S PRO #1 [pin_1] → Jetson carrier assembly #1 [pin_2]",
+      "thicknessMm": 3
+    },
+    {
+      "sourcePinName": "20-1.pin_1",
+      "strandPitchMm": 2,
+      "color": "#ef4444",
+      "wireGauge": "16 AWG",
+      "strandCount": 2,
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "flowDirection": "forward",
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "endStickers": {
+        "enabled": false
+      },
+      "name": "SIYI 4-18S BEC HM30 #1 [pin_1] → MK32 HM30 Air Unit #1 [pin_1]",
+      "slackMm": 0,
+      "id": "cable_1788521917444_du2o7t",
+      "calculatedLengthMm": 105,
+      "sourceInstanceId": "20-1",
+      "curveTension": 0.5,
+      "targetInstanceId": "04-1",
+      "routePoints": [
+        {
+          "z": 712.1,
+          "y": 22.1,
+          "id": "pt_1788521985484_slxj",
+          "type": "waypoint",
+          "x": 9.5
+        }
+      ],
+      "cableType": "Power",
+      "targetPinName": "04-1.pin_1",
+      "isRibbon": true,
+      "thicknessMm": 3
+    },
+    {
+      "routePoints": [
+        {
+          "z": 253.1,
+          "y": 297.4,
+          "type": "waypoint",
+          "id": "pt_1788524844886_fs6h",
+          "x": -100.5
+        },
+        {
+          "id": "pt_1788525051309_25y3",
+          "x": -620,
+          "type": "waypoint",
+          "z": 318.3,
+          "y": 321.3
+        }
+      ],
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "id": "cable_1788524645192_gdz2js",
+      "sourceInstanceId": "18-1",
+      "calculatedLengthMm": 905,
+      "targetInstanceId": "12-2",
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "thicknessMm": 3,
+      "strandPitchMm": 1.6,
+      "sourcePinName": "18-1.pin_1",
+      "cableType": "PWM",
+      "flowDirection": "forward",
+      "name": "Servo quvvatlash UBEC 12A [pin_1] → Chap qanot flap 2 (Left Flap) [pin_1]",
+      "curveTension": 0.5,
+      "endStickers": {
+        "enabled": false
+      },
+      "isRibbon": true,
+      "targetPinName": "12-2.pin_1",
+      "strandCount": 3,
+      "slackMm": 0,
+      "color": "#f59e0b",
+      "wireGauge": "22 AWG"
+    },
+    {
+      "slackMm": 0,
+      "routePoints": [
+        {
+          "z": 313.5,
+          "type": "waypoint",
+          "id": "pt_1788526129104_rkc6",
+          "y": 315.8,
+          "x": 637.3
+        },
+        {
+          "z": 239.6,
+          "type": "waypoint",
+          "y": 297.2,
+          "id": "pt_1788526130442_0e9t",
+          "x": 83.2
+        }
+      ],
+      "calculatedLengthMm": 920,
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "thicknessMm": 3,
+      "flowDirection": "reverse",
+      "cableType": "PWM",
+      "id": "cable_1788526114769_yswzts",
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "strandPitchMm": 2,
+      "sourcePinName": "12-4.pin_1",
+      "sourceInstanceId": "12-4",
+      "isRibbon": true,
+      "endStickers": {
+        "enabled": false
+      },
+      "name": "O‘ng qanot flap 2 (Right Flap) [pin_1] → Servo quvvatlash UBEC 12A [pin_3]",
+      "targetInstanceId": "18-1",
+      "strandCount": 3,
+      "targetPinName": "18-1.pin_3",
+      "curveTension": 0.5,
+      "wireGauge": "22 AWG",
+      "color": "#f59e0b"
+    },
+    {
+      "isRibbon": true,
+      "color": "#f59e0b",
+      "targetPinName": "18-1.pin_4",
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "thicknessMm": 3,
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "name": "O‘ng qanot eleron 1 (Right Aileron) [pin_1] → Servo quvvatlash UBEC 12A [pin_4]",
+      "routePoints": [
+        {
+          "y": 311.3,
+          "z": 350.9,
+          "type": "waypoint",
+          "x": 1028.8,
+          "id": "pt_1788526239598_1u52"
+        },
+        {
+          "x": 118.2,
+          "y": 303.9,
+          "z": 262.3,
+          "id": "pt_1788526246509_vkof",
+          "type": "waypoint"
+        }
+      ],
+      "cableType": "PWM",
+      "id": "cable_1788526227295_8iyw0n",
+      "curveTension": 0.5,
+      "slackMm": 0,
+      "wireGauge": "22 AWG",
+      "sourcePinName": "12-3.pin_1",
+      "targetInstanceId": "18-1",
+      "strandPitchMm": 2,
+      "strandCount": 3,
+      "flowDirection": "reverse",
+      "endStickers": {
+        "enabled": false
+      },
+      "calculatedLengthMm": 1380,
+      "sourceInstanceId": "12-3"
+    },
+    {
+      "targetPinName": "12-1.pin_1",
+      "cableType": "PWM",
+      "targetInstanceId": "12-1",
+      "routePoints": [
+        {
+          "y": 279.1,
+          "id": "pt_1788527120675_3b92",
+          "z": 277.2,
+          "type": "waypoint",
+          "x": -119.7
+        },
+        {
+          "z": 346,
+          "type": "waypoint",
+          "y": 326.1,
+          "id": "pt_1788527142605_ol82",
+          "x": -1011.6
+        }
+      ],
+      "curveTension": 0.5,
+      "name": "Servo quvvatlash UBEC 12A [pin_2] → Chap qanot eleron 1 (Left Aileron) [pin_1]",
+      "sourceInstanceId": "18-1",
+      "isRibbon": true,
+      "slackMm": 0,
+      "thicknessMm": 3,
+      "color": "#f59e0b",
+      "id": "cable_1788527065883_p6evhz",
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 3,
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "wireGauge": "22 AWG",
+      "sourcePinName": "18-1.pin_2",
+      "strandPitchMm": 2,
+      "calculatedLengthMm": 1366,
+      "flowDirection": "forward"
+    },
+    {
+      "color": "#f59e0b",
+      "calculatedLengthMm": 1114,
+      "curveTension": 0.5,
+      "isRibbon": true,
+      "routePoints": [
+        {
+          "id": "pt_1788528862742_3w8o",
+          "x": -16.9,
+          "type": "waypoint",
+          "z": -273.5,
+          "y": 159.2
+        },
+        {
+          "z": -638.3,
+          "y": 174.9,
+          "type": "waypoint",
+          "x": -14.5,
+          "id": "pt_1788541483250_ytgs"
+        },
+        {
+          "x": -8.2,
+          "id": "pt_1788528872863_aoip",
+          "type": "waypoint",
+          "y": 241.1,
+          "z": -876.8
+        }
+      ],
+      "cableType": "PWM",
+      "name": "Servo quvvatlash UBEC 12A [pin_6] → Vertikal fin ruder (Vertical Fin) [pin_1]",
+      "strandPitchMm": 2,
+      "targetInstanceId": "12-6",
+      "sourcePinName": "18-1.pin_6",
+      "flowDirection": "forward",
+      "thicknessMm": 3,
+      "sourceInstanceId": "18-1",
+      "strandCount": 3,
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "targetPinName": "12-6.pin_1",
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "endStickers": {
+        "enabled": false
+      },
+      "slackMm": 0,
+      "id": "cable_1788528681056_9koh15",
+      "wireGauge": "22 AWG"
+    },
+    {
+      "targetInstanceId": "18-1",
+      "color": "#f59e0b",
+      "id": "cable_1788528780056_meld3p",
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "sourceInstanceId": "12-8",
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "wireGauge": "22 AWG",
+      "slackMm": 0,
+      "strandCount": 3,
+      "targetPinName": "18-1.pin_5",
+      "endStickers": {
+        "enabled": false
+      },
+      "isRibbon": true,
+      "cableType": "PWM",
+      "strandPitchMm": 2,
+      "sourcePinName": "12-8.pin_1",
+      "curveTension": 0.5,
+      "thicknessMm": 3,
+      "flowDirection": "reverse",
+      "calculatedLengthMm": 1208,
+      "name": "O‘ng dum qanotchasi elevon (Right Elevator) [pin_1] → Servo quvvatlash UBEC 12A [pin_5]",
+      "routePoints": [
+        {
+          "x": 49.6,
+          "z": -889.1,
+          "type": "waypoint",
+          "id": "pt_1788528949162_95z0",
+          "y": 241
+        },
+        {
+          "x": -1.7,
+          "type": "waypoint",
+          "z": -660,
+          "y": 176.8,
+          "id": "pt_1788528998654_5dj2"
+        },
+        {
+          "y": 159.4,
+          "type": "waypoint",
+          "id": "pt_1788528940474_kxjm",
+          "z": -266.2,
+          "x": -3.4
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788547179365_agfh",
+          "y": 165.5,
+          "z": -31.9,
+          "x": -20.1
+        }
+      ]
+    },
+    {
+      "cableType": "PWM",
+      "sourcePinName": "18-1.pin_7",
+      "strandPitchMm": 2,
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "flowDirection": "forward",
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "targetInstanceId": "12-7",
+      "endStickers": {
+        "enabled": false
+      },
+      "color": "#f59e0b",
+      "sourceInstanceId": "18-1",
+      "id": "cable_1788528825897_j9buh8",
+      "isRibbon": true,
+      "calculatedLengthMm": 1188,
+      "strandCount": 3,
+      "name": "Chap dum qanotchasi elevon (Left Elevator) [pin_1] → Servo quvvatlash UBEC 12A [pin_7]",
+      "thicknessMm": 3,
+      "curveTension": 0.5,
+      "wireGauge": "22 AWG",
+      "routePoints": [
+        {
+          "y": 174.2,
+          "type": "waypoint",
+          "z": -658.3,
+          "id": "pt_1788528892155_4vmy",
+          "x": -32.2
+        },
+        {
+          "z": -874.2,
+          "y": 243.3,
+          "id": "pt_1788528909902_5nsc",
+          "type": "waypoint",
+          "x": -50.4
+        }
+      ],
+      "targetPinName": "12-7.pin_1",
+      "slackMm": 0
+    },
+    {
+      "isRibbon": true,
+      "cableType": "PWM",
+      "routePoints": [
+        {
+          "x": -4.5,
+          "id": "pt_1788537524385_t5cm",
+          "type": "waypoint",
+          "y": 62,
+          "z": 363.4
+        },
+        {
+          "id": "pt_1788529490286_7fp7",
+          "z": 250.9,
+          "y": 169,
+          "type": "waypoint",
+          "x": -34.3
+        },
+        {
+          "id": "pt_1788537566251_fncd",
+          "y": 180.2,
+          "z": 135.7,
+          "x": -44.2,
+          "type": "waypoint"
+        },
+        {
+          "x": -41.7,
+          "type": "waypoint",
+          "id": "pt_1788547240790_1wzb",
+          "y": 182.3,
+          "z": 44.5
+        }
+      ],
+      "targetPinName": "18-1.pin_8",
+      "curveTension": 0.5,
+      "name": "Old shassi buruvchi (Nose Gear Steering) [pin_1] → Servo quvvatlash UBEC 12A [pin_8]",
+      "targetInstanceId": "18-1",
+      "thicknessMm": 3,
+      "sourceInstanceId": "12-5",
+      "calculatedLengthMm": 659,
+      "strandCount": 3,
+      "id": "cable_1788529463945_ghnr4i",
+      "wireGauge": "22 AWG",
+      "endStickers": {
+        "enabled": false
+      },
+      "slackMm": 0,
+      "color": "#f59e0b",
+      "flowDirection": "reverse",
+      "strandColors": [
+        "#f59e0b",
+        "#ef4444",
+        "#1e293b"
+      ],
+      "strandLabels": [
+        "Signal (PWM)",
+        "VCC (+5V/+6V)",
+        "GND (Massa)"
+      ],
+      "sourcePinName": "12-5.pin_1",
+      "strandPitchMm": 2
+    },
+    {
+      "curveTension": 0.5,
+      "routePoints": [
+        {
+          "y": 196.4,
+          "z": 217.1,
+          "type": "waypoint",
+          "x": -128.5,
+          "id": "pt_1788543257268_7onp"
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788542729003_eqad",
+          "y": 185.2,
+          "z": 769.6,
+          "x": -113.5
+        },
+        {
+          "y": 198.4,
+          "z": 796.8,
+          "type": "waypoint",
+          "x": 7.9,
+          "id": "pt_1788542645757_0vwz"
+        }
+      ],
+      "cableType": "Power",
+      "thicknessMm": 3,
+      "slackMm": 0,
+      "targetPinName": "02-1.pin_3",
+      "isRibbon": true,
+      "endStickers": {
+        "enabled": false
+      },
+      "flowDirection": "forward",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "targetInstanceId": "02-1",
+      "wireGauge": "16 AWG",
+      "strandPitchMm": 1.5,
+      "sourcePinName": "07-1.pin_1",
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "strandCount": 2,
+      "sourceInstanceId": "07-1",
+      "name": "Holybro PM02 V3 12S #1 [pin_1] → CUBE Orange ADS-B #1 [pin_3]",
+      "color": "#ef4444",
+      "calculatedLengthMm": 793,
+      "id": "cable_1788542632920_dytzof"
+    },
+    {
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "name": "4S avionics battery #1 [pin_1] → Holybro PM02 V3 12S #1 [pin_3]",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "slackMm": -45,
+      "endStickers": {
+        "enabled": false
+      },
+      "wireGauge": "16 AWG",
+      "targetPinName": "07-1.pin_3",
+      "strandCount": 2,
+      "isRibbon": true,
+      "flowDirection": "forward",
+      "id": "cable_1788543416385_gb7bfl",
+      "calculatedLengthMm": 37,
+      "sourceInstanceId": "09-1",
+      "thicknessMm": 8,
+      "curveTension": 0.5,
+      "strandPitchMm": 3.5,
+      "targetInstanceId": "07-1",
+      "sourcePinName": "09-1.pin_1",
+      "routePoints": [
+        {
+          "y": 164.3,
+          "z": 291.3,
+          "type": "waypoint",
+          "x": -150.7,
+          "id": "pt_1788543424769_sjgt"
+        }
+      ],
+      "cableType": "Power",
+      "color": "#ef4444"
+    },
+    {
+      "targetPinName": "18-1.pin_9",
+      "calculatedLengthMm": 139,
+      "strandCount": 2,
+      "endStickers": {
+        "enabled": false
+      },
+      "cableType": "Power",
+      "id": "cable_1788546115710_9cua77",
+      "isRibbon": true,
+      "color": "#ef4444",
+      "targetInstanceId": "18-1",
+      "sourceInstanceId": "07-1",
+      "curveTension": 0.5,
+      "wireGauge": "16 AWG",
+      "routePoints": [
+        {
+          "y": 165.2,
+          "z": 99.4,
+          "id": "pt_1788546136423_a6hw",
+          "type": "waypoint",
+          "x": -134.8
+        },
+        {
+          "type": "waypoint",
+          "z": 99.4,
+          "y": 155.9,
+          "id": "pt_1788546159153_jj2u",
+          "x": -48.5
+        }
+      ],
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "sourcePinName": "07-1.pin_2",
+      "slackMm": 0,
+      "strandPitchMm": 2,
+      "thicknessMm": 3,
+      "name": "Holybro PM02 V3 12S #1 [pin_2] → Servo quvvatlash UBEC 12A [pin_9]",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "flowDirection": "forward"
+    },
+    {
+      "endStickers": {
+        "enabled": false
+      },
+      "curveTension": 0.1,
+      "strandCount": 4,
+      "id": "cable_1788595959021_1uwrrq",
+      "targetPinName": "03-1.pin_1",
+      "wireGauge": "24 AWG",
+      "calculatedLengthMm": 228,
+      "flowDirection": "bidirectional",
+      "routePoints": [
+        {
+          "z": 805.7,
+          "type": "waypoint",
+          "y": 176.3,
+          "id": "pt_1788596107487_b356",
+          "x": -48.3
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788595996696_slju",
+          "x": -1,
+          "z": 700.9,
+          "y": 218.9
+        }
+      ],
+      "strandLabels": [
+        "VCC (+5V)",
+        "CAN_H (High)",
+        "CAN_L (Low)",
+        "GND (Massa)"
+      ],
+      "strandColors": [
+        "#ef4444",
+        "#10b981",
+        "#eab308",
+        "#1e293b"
+      ],
+      "strandPitchMm": 1.2,
+      "isRibbon": true,
+      "sourcePinName": "02-1.pin_4",
+      "targetInstanceId": "03-1",
+      "cableType": "CAN",
+      "color": "#ef4444",
+      "thicknessMm": 1,
+      "slackMm": 15,
+      "name": "CUBE Orange ADS-B #1 [pin_4] → Here3 GPS #1 [pin_1]",
+      "sourceInstanceId": "02-1"
+    },
+    {
+      "thicknessMm": 1,
+      "cableType": "UART",
+      "slackMm": -5,
+      "name": "CUBE Orange ADS-B #1 [pin_2] → Radiomaster #1 [pin_1]",
+      "strandPitchMm": 1.2,
+      "curveTension": 0.05,
+      "sourcePinName": "02-1.pin_2",
+      "routePoints": [
+        {
+          "z": 807.6,
+          "type": "waypoint",
+          "y": 176.7,
+          "x": -40.2,
+          "id": "pt_1788597671012_2ujh"
+        },
+        {
+          "type": "waypoint",
+          "x": 43.4,
+          "z": 761.4,
+          "id": "pt_1788597663295_74re",
+          "y": 157.9
+        }
+      ],
+      "flowDirection": "bidirectional",
+      "color": "#ef4444",
+      "calculatedLengthMm": 156,
+      "id": "cable_1788597575962_17c9mt",
+      "isRibbon": true,
+      "targetInstanceId": "22-1",
+      "targetPinName": "22-1.pin_1",
+      "sourceInstanceId": "02-1",
+      "wireGauge": "26 AWG",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandColors": [
+        "#ef4444",
+        "#10b981",
+        "#f8fafc",
+        "#1e293b"
+      ],
+      "strandLabels": [
+        "VCC (+5V / Quvvat)",
+        "TXD (Uzatish)",
+        "RXD (Qabul)",
+        "GND (Massa)"
+      ],
+      "strandCount": 4
+    },
+    {
+      "strandColors": [
+        "#e0f2fe"
+      ],
+      "targetPinName": "14-1.pin_1",
+      "strandLabels": [
+        "Pin #1 [2, 0, 51]"
+      ],
+      "wireGauge": "Silicone Tube 2.5/4.0mm",
+      "name": "Holybro pitot tube #1 [pin_1] → Holybro MS5525DSO module #1 [pin_1]",
+      "routePoints": [],
+      "isTransparent": true,
+      "isRibbon": false,
+      "endStickers": {
+        "enabled": false
+      },
+      "isTubing": true,
+      "strandCount": 1,
+      "calculatedLengthMm": 102,
+      "thicknessMm": 3,
+      "transparencyOpacity": 0.45,
+      "slackMm": 0,
+      "color": "#e0f2fe",
+      "sourceInstanceId": "13-1",
+      "curveTension": 0.5,
+      "tubeInnerColor": "#38bdf8",
+      "targetInstanceId": "14-1",
+      "strandPitchMm": 2,
+      "sourcePinName": "13-1.pin_1",
+      "id": "cable_1788599243614_burea7",
+      "flowDirection": "forward",
+      "cableType": "Airspeed"
+    },
+    {
+      "isTubing": true,
+      "isTransparent": true,
+      "isRibbon": false,
+      "calculatedLengthMm": 115,
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 1,
+      "curveTension": 0.5,
+      "targetPinName": "14-1.pin_2",
+      "slackMm": 0,
+      "cableType": "Airspeed",
+      "name": "Holybro pitot tube #1 [pin_2] → Holybro MS5525DSO module #1 [pin_2]",
+      "routePoints": [
+        {
+          "y": 155.3,
+          "type": "waypoint",
+          "z": 986.4,
+          "x": -156.8,
+          "id": "pt_1788599359138_lzc0"
+        }
+      ],
+      "id": "cable_1788599295194_qain16",
+      "wireGauge": "Silicone Tube 2.5/4.0mm",
+      "targetInstanceId": "14-1",
+      "strandPitchMm": 2,
+      "sourcePinName": "13-1.pin_2",
+      "flowDirection": "forward",
+      "sourceInstanceId": "13-1",
+      "transparencyOpacity": 0.4,
+      "thicknessMm": 3,
+      "tubeInnerColor": "#38bdf8",
+      "color": "#e0f2fe",
+      "strandLabels": [
+        "Pin #2 [-14, 0, 42]"
+      ],
+      "strandColors": [
+        "#e0f2fe"
+      ]
+    },
+    {
+      "color": "#ef4444",
+      "wireGauge": "28 AWG",
+      "sourcePinName": "14-1.pin_3",
+      "strandPitchMm": 1.2,
+      "curveTension": 0.5,
+      "flowDirection": "bidirectional",
+      "id": "cable_1788600732066_7ml2c8",
+      "thicknessMm": 1,
+      "strandLabels": [
+        "VCC (+5V / +3.3V)",
+        "SCL (I2C Soat signali)",
+        "SDA (I2C Ma'lumot signali)",
+        "GND (Massa)"
+      ],
+      "strandCount": 4,
+      "tubeInnerColor": "#38bdf8",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandColors": [
+        "#ef4444",
+        "#eab308",
+        "#38bdf8",
+        "#1e293b"
+      ],
+      "targetPinName": "02-1.pin_5",
+      "transparencyOpacity": 0.85,
+      "name": "Holybro MS5525DSO module #1 [pin_3] → CUBE Orange ADS-B #1 [pin_5]",
+      "calculatedLengthMm": 159,
+      "cableType": "I2C",
+      "isTubing": false,
+      "isRibbon": true,
+      "routePoints": [
+        {
+          "z": 834.6,
+          "y": 184.3,
+          "type": "waypoint",
+          "x": -39.2,
+          "id": "pt_1788600799819_vk9u"
+        }
+      ],
+      "isTransparent": false,
+      "targetInstanceId": "02-1",
+      "slackMm": 0,
+      "sourceInstanceId": "14-1"
+    },
+    {
+      "strandLabels": [
+        "Pin #1 [-1, -1, 56]"
+      ],
+      "thicknessMm": 3,
+      "strandColors": [
+        "#a855f7"
+      ],
+      "targetInstanceId": "24-1",
+      "sourceInstanceId": "05-1",
+      "targetPinName": "24-1.pin_2",
+      "id": "cable_1788608745515_evbwqe",
+      "wireGauge": "24 AWG",
+      "name": "SIYI ZR10 #1 [pin_1] → undefined [pin_2]",
+      "isTransparent": false,
+      "transparencyOpacity": 0.45,
+      "cableType": "Ethernet",
+      "routePoints": [
+        {
+          "type": "waypoint",
+          "z": 1035.4,
+          "id": "pt_1788608763379_27y2",
+          "y": 46.5,
+          "x": 3.2
+        },
+        {
+          "id": "pt_1788608798434_elvl",
+          "x": 27.2,
+          "z": 988.5,
+          "type": "waypoint",
+          "y": 104.1
+        },
+        {
+          "y": 111,
+          "z": 934.2,
+          "x": 22.4,
+          "id": "pt_1788608839098_n3ny",
+          "type": "waypoint"
+        }
+      ],
+      "calculatedLengthMm": 187,
+      "isTubing": false,
+      "isRibbon": false,
+      "flowDirection": "forward",
+      "sourcePinName": "05-1.pin_1",
+      "tubeInnerColor": "#38bdf8",
+      "curveTension": 0.5,
+      "strandPitchMm": 2,
+      "endStickers": {
+        "enabled": false
+      },
+      "slackMm": 0,
+      "strandCount": 1,
+      "color": "#d1d1d1"
+    },
+    {
+      "name": "undefined [pin_1] → Jetson carrier assembly #1 [pin_1]",
+      "cableType": "Ethernet",
+      "id": "cable_1788608885470_oueq9l",
+      "thicknessMm": 3,
+      "sourceInstanceId": "24-1",
+      "strandLabels": [
+        "Pin #1 [16, 1, -13]"
+      ],
+      "sourcePinName": "24-1.pin_1",
+      "strandPitchMm": 2,
+      "targetInstanceId": "19-1",
+      "slackMm": 0,
+      "flowDirection": "bidirectional",
+      "strandColors": [
+        "#c9c9c9"
+      ],
+      "isRibbon": false,
+      "isTubing": false,
+      "routePoints": [
+        {
+          "y": 101.9,
+          "z": 918.6,
+          "type": "waypoint",
+          "x": 15,
+          "id": "pt_1788608948353_fyur"
+        },
+        {
+          "type": "waypoint",
+          "x": 13.3,
+          "id": "pt_1788608904506_ezwe",
+          "y": 101.8,
+          "z": 874.5
+        },
+        {
+          "x": -0.2,
+          "id": "pt_1788608934122_emx0",
+          "z": 857.3,
+          "type": "waypoint",
+          "y": 129.7
+        }
+      ],
+      "curveTension": 0.5,
+      "targetPinName": "19-1.pin_1",
+      "wireGauge": "24 AWG",
+      "tubeInnerColor": "#38bdf8",
+      "transparencyOpacity": 0.45,
+      "strandCount": 1,
+      "endStickers": {
+        "enabled": false
+      },
+      "color": "#c9c9c9",
+      "isTransparent": false,
+      "calculatedLengthMm": 132
+    },
+    {
+      "calculatedLengthMm": 220,
+      "cableType": "Ethernet",
+      "name": "MK32 HM30 Air Unit #1 [pin_2] → GigaBlox switch #1 [pin_3]",
+      "id": "cable_1788609466655_969hsj",
+      "flowDirection": "bidirectional",
+      "color": "#b8b8b8",
+      "strandPitchMm": 2,
+      "sourcePinName": "04-1.pin_2",
+      "isTubing": false,
+      "thicknessMm": 3,
+      "curveTension": 0.5,
+      "isRibbon": false,
+      "endStickers": {
+        "enabled": false
+      },
+      "slackMm": 0,
+      "tubeInnerColor": "#38bdf8",
+      "strandCount": 1,
+      "strandColors": [
+        "#b8b8b8"
+      ],
+      "strandLabels": [
+        "Pin #2 [17, -24, 7]"
+      ],
+      "targetPinName": "24-1.pin_3",
+      "routePoints": [
+        {
+          "id": "pt_1788609492393_td2k",
+          "x": -44.6,
+          "type": "waypoint",
+          "z": 783.9,
+          "y": 23.3
+        },
+        {
+          "type": "waypoint",
+          "x": -1.5,
+          "id": "pt_1788609519996_5y7z",
+          "z": 921,
+          "y": 105.6
+        }
+      ],
+      "wireGauge": "24 AWG",
+      "targetInstanceId": "24-1",
+      "transparencyOpacity": 0.45,
+      "sourceInstanceId": "04-1",
+      "isTransparent": false
+    },
+    {
+      "breakoutType": "1-to-3",
+      "curveTension": 0.55,
+      "thicknessMm": 1,
+      "sourcePinName": "02-1.pin_1",
+      "strandPitchMm": 1.2,
+      "tubeInnerColor": "#38bdf8",
+      "isRibbon": true,
+      "flowDirection": "bidirectional",
+      "wireGauge": "28 AWG",
+      "isTubing": false,
+      "id": "cable_1788613028305_ocfl7p",
+      "name": "Cube Telem2 ➔ Jetson 3-Pin UART (1-to-3 Y-Breakout)",
+      "calculatedLengthMm": 345,
+      "cableType": "UART",
+      "color": "#0284c7",
+      "routePoints": [
+        {
+          "type": "waypoint",
+          "x": -88.9,
+          "y": 166.7,
+          "z": 817.7,
+          "id": "pt_1788613085610_eltf"
+        },
+        {
+          "id": "pt_1788613167962_i432",
+          "z": 988.8,
+          "type": "waypoint",
+          "y": 145,
+          "x": -99.1
+        },
+        {
+          "x": -14.5,
+          "id": "pt_1788613131948_ws90",
+          "type": "waypoint",
+          "y": 142.5,
+          "z": 1011.5
+        }
+      ],
+      "isBreakout": true,
+      "targetPinName": "19-1.pin_5",
+      "multiTargetPinNames": [
+        "19-1.pin_5",
+        "19-1.pin_4",
+        "19-1.pin_3"
+      ],
+      "strandCount": 3,
+      "endStickers": {
+        "enabled": false
+      },
+      "sourceInstanceId": "02-1",
+      "isTransparent": false,
+      "strandColors": [
+        "#f59e0b",
+        "#10b981",
+        "#0f172a"
+      ],
+      "transparencyOpacity": 0.45,
+      "slackMm": 300,
+      "strandLabels": [
+        "Cube TX ➔ Jetson RX (Pin 10)",
+        "Cube RX ◄ Jetson TX (Pin 8)",
+        "Cube GND ══ Jetson GND (Pin 9)"
+      ],
+      "targetInstanceId": "19-1"
+    },
+    {
+      "isRibbon": true,
+      "tubeInnerColor": "#38bdf8",
+      "isTubing": false,
+      "sourceInstanceId": "05-1",
+      "strandPitchMm": 1.4,
+      "sourcePinName": "05-1.pin_2",
+      "flowDirection": "reverse",
+      "targetInstanceId": "20-1",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 2,
+      "routePoints": [
+        {
+          "id": "pt_1788617582406_o1br",
+          "z": 1005.7,
+          "y": 61.2,
+          "type": "waypoint",
+          "x": -6.9
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788617594802_jupc",
+          "z": 764.2,
+          "y": 57.7,
+          "x": -16.4
+        }
+      ],
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "wireGauge": "16 AWG",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "breakoutType": "1-to-3",
+      "name": "SIYI ZR10 #1 [pin_2] → SIYI 4-18S BEC HM30 #1 [pin_1]",
+      "color": "#ef4444",
+      "slackMm": 0,
+      "isTransparent": false,
+      "cableType": "Power",
+      "curveTension": 0.5,
+      "calculatedLengthMm": 368,
+      "id": "cable_1788617559238_x75593",
+      "thicknessMm": 3,
+      "isBreakout": false,
+      "targetPinName": "20-1.pin_1",
+      "transparencyOpacity": 0.45
+    },
+    {
+      "slackMm": 0,
+      "thicknessMm": 3,
+      "wireGauge": "16 AWG",
+      "targetPinName": "09-1.pin_1",
+      "isTubing": false,
+      "isRibbon": true,
+      "id": "cable_1788617931685_guu8m4",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "transparencyOpacity": 0.45,
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "color": "#ef4444",
+      "calculatedLengthMm": 284,
+      "isTransparent": false,
+      "targetInstanceId": "09-1",
+      "routePoints": [
+        {
+          "id": "pt_1788617950474_1y2f",
+          "y": 128.2,
+          "z": 301.8,
+          "x": -160.9,
+          "type": "waypoint"
+        }
+      ],
+      "name": "SIYI 4-18S BEC HM30 #1 [pin_2] → 4S avionics battery #1 [pin_1]",
+      "sourceInstanceId": "20-1",
+      "breakoutType": "1-to-3",
+      "isBreakout": false,
+      "curveTension": 0.5,
+      "flowDirection": "reverse",
+      "strandCount": 2,
+      "sourcePinName": "20-1.pin_2",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandPitchMm": 2,
+      "tubeInnerColor": "#38bdf8",
+      "cableType": "Power"
+    },
+    {
+      "isTubing": false,
+      "breakoutType": "1-to-3",
+      "thicknessMm": 3,
+      "isRibbon": true,
+      "transparencyOpacity": 0.85,
+      "calculatedLengthMm": 542,
+      "name": "Matek BEC12S PRO #1 [pin_2] → 4S avionics battery #1 [pin_1]",
+      "isBreakout": false,
+      "cableType": "Power",
+      "curveTension": 0.5,
+      "slackMm": 0,
+      "flowDirection": "reverse",
+      "sourceInstanceId": "06-1",
+      "strandPitchMm": 1.2,
+      "targetInstanceId": "09-1",
+      "sourcePinName": "06-1.pin_2",
+      "targetPinName": "09-1.pin_1",
+      "routePoints": [
+        {
+          "z": 754.5,
+          "y": 97.6,
+          "x": -40.1,
+          "type": "waypoint",
+          "id": "pt_1788618234715_vncv"
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788618246061_v9ai",
+          "x": -161.5,
+          "z": 335.2,
+          "y": 129.5
+        }
+      ],
+      "color": "#ef4444",
+      "tubeInnerColor": "#38bdf8",
+      "isTransparent": false,
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 2,
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "wireGauge": "16 AWG",
+      "id": "cable_1788618113345_gfk1ec"
+    },
+    {
+      "name": "4S avionics battery #1 [1 Port] ➔ 12V UBEC #1 [2-Pin Breakout]",
+      "tubeInnerColor": "#38bdf8",
+      "breakoutMode": "1-to-N",
+      "id": "cable_1788627917706_ek6xfa",
+      "targetPinName": "25-1.pin_3",
+      "color": "#ef4444",
+      "slackMm": 0,
+      "isBreakout": true,
+      "curveTension": 0.5,
+      "isRibbon": true,
+      "multiTargetPinNames": [
+        "25-1.pin_3",
+        "25-1.pin_4"
+      ],
+      "thicknessMm": 3,
+      "isTubing": false,
+      "transparencyOpacity": 0.45,
+      "cableType": "Power",
+      "isTransparent": false,
+      "breakoutType": "1-to-N",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "strandLabels": [
+        "V +",
+        "GND -"
+      ],
+      "strandCount": 2,
+      "endStickers": {
+        "enabled": false
+      },
+      "wireGauge": "16 AWG",
+      "sourcePinName": "09-1.pin_1",
+      "calculatedLengthMm": 175,
+      "strandPitchMm": 2,
+      "sourceInstanceId": "09-1",
+      "flowDirection": "smart",
+      "targetInstanceId": "25-1",
+      "routePoints": [
+        {
+          "x": -15.4,
+          "id": "pt_1788627933875_fxw9",
+          "y": 210.5,
+          "z": 386.3,
+          "type": "waypoint"
+        }
+      ]
+    },
+    {
+      "calculatedLengthMm": 1906,
+      "color": "#ef4444",
+      "slackMm": 0,
+      "isTransparent": false,
+      "thicknessMm": 3,
+      "isTubing": false,
+      "breakoutMode": "1-to-N",
+      "cableType": "Power",
+      "isRibbon": true,
+      "breakoutType": "1-to-N",
+      "sourceInstanceId": "15-2",
+      "targetInstanceId": "25-1",
+      "targetPinName": "25-1.pin_2",
+      "curveTension": 0.5,
+      "transparencyOpacity": 0.45,
+      "strandPitchMm": 2,
+      "routePoints": [
+        {
+          "x": 152.1,
+          "z": 503.4,
+          "id": "pt_1788628195409_7eo5",
+          "y": 276.9,
+          "type": "waypoint"
+        },
+        {
+          "type": "waypoint",
+          "id": "pt_1788628234892_s0mr",
+          "z": 511.4,
+          "y": 264.8,
+          "x": 32.3
+        }
+      ],
+      "sourcePinName": "15-2.pin_1",
+      "flowDirection": "reverse",
+      "isBreakout": true,
+      "tubeInnerColor": "#38bdf8",
+      "strandLabels": [
+        "V +",
+        "GND -"
+      ],
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "name": "O‘ng qanot uchi navi-chiroq (Right Wingtip Green) [1 Port] ➔ 12V UBEC #1 [2-Pin Breakout]",
+      "multiTargetPinNames": [
+        "25-1.pin_2",
+        "25-1.pin_1"
+      ],
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 2,
+      "id": "cable_1788628175098_2sohls",
+      "wireGauge": "16 AWG"
+    },
+    {
+      "wireGauge": "16 AWG",
+      "flowDirection": "reverse",
+      "sourcePinName": "15-1.pin_1",
+      "strandPitchMm": 2,
+      "slackMm": 0,
+      "strandLabels": [
+        "V +",
+        "GND -"
+      ],
+      "isRibbon": true,
+      "isTubing": false,
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "routePoints": [
+        {
+          "id": "pt_1788628457865_ijmn",
+          "z": 509.1,
+          "type": "waypoint",
+          "y": 272.6,
+          "x": -81.9
+        }
+      ],
+      "tubeInnerColor": "#38bdf8",
+      "isBreakout": true,
+      "color": "#ef4444",
+      "strandCount": 2,
+      "name": "Chap qanot uchi navi-chiroq (Left Wingtip Red) [1 Port] ➔ 12V UBEC #1 [2-Pin Breakout]",
+      "endStickers": {
+        "enabled": false
+      },
+      "multiTargetPinNames": [
+        "25-1.pin_2",
+        "25-1.pin_1"
+      ],
+      "targetInstanceId": "25-1",
+      "id": "cable_1788628414175_0c1e5q",
+      "sourceInstanceId": "15-1",
+      "thicknessMm": 3,
+      "calculatedLengthMm": 1894,
+      "isTransparent": false,
+      "transparencyOpacity": 0.45,
+      "breakoutMode": "1-to-N",
+      "breakoutType": "1-to-N",
+      "cableType": "Power",
+      "targetPinName": "25-1.pin_2",
+      "curveTension": 0.5
+    },
+    {
+      "curveTension": 0.5,
+      "slackMm": 0,
+      "tubeInnerColor": "#38bdf8",
+      "strandCount": 1,
+      "isTransparent": false,
+      "breakoutType": "1-to-N",
+      "endStickers": {
+        "enabled": false
+      },
+      "isRibbon": false,
+      "isBreakout": false,
+      "isTubing": false,
+      "targetInstanceId": "16-1",
+      "breakoutMode": "1-to-N",
+      "wireGauge": "16 AWG",
+      "sourceInstanceId": "08-1",
+      "targetPinName": "16-1.pin_1",
+      "routePoints": [],
+      "transparencyOpacity": 0.45,
+      "sourcePinName": "08-1.pin_2",
+      "name": "TATTU 22000 mAh battery #1 [pin_2] → Emergency Stop #1 [pin_1]",
+      "strandPitchMm": 2,
+      "cableType": "Power",
+      "color": "#ef4444",
+      "flowDirection": "forward",
+      "calculatedLengthMm": 731,
+      "strandColors": [
+        "#ef4444"
+      ],
+      "strandLabels": [
+        "V +"
+      ],
+      "thicknessMm": 3,
+      "id": "cable_1788630712084_70q4c9"
+    },
+    {
+      "color": "#000000",
+      "calculatedLengthMm": 110,
+      "name": "O‘ng dvigatel (Right Motor) [pin_1] → O‘ng motor regulyatori (ESC 2) [pin_1]",
+      "endStickers": {
+        "enabled": false
+      },
+      "cableType": "Power",
+      "strandCount": 1,
+      "id": "cable_1788632313786_kobqu1",
+      "strandPitchMm": 2,
+      "strandColors": [
+        "#000000"
+      ],
+      "sourcePinName": "10-2.pin_1",
+      "flowDirection": "reverse",
+      "strandLabels": [
+        "Pin #1 [3, -20, -3]"
+      ],
+      "routePoints": [],
+      "transparencyOpacity": 0.45,
+      "curveTension": 0.5,
+      "tubeInnerColor": "#38bdf8",
+      "isBreakout": false,
+      "targetPinName": "11-2.pin_1",
+      "breakoutType": "1-to-N",
+      "isTubing": false,
+      "breakoutMode": "1-to-N",
+      "thicknessMm": 6.4,
+      "isRibbon": false,
+      "slackMm": 0,
+      "targetInstanceId": "11-2",
+      "isTransparent": false,
+      "wireGauge": "16 AWG",
+      "sourceInstanceId": "10-2"
+    },
+    {
+      "targetInstanceId": "11-2",
+      "breakoutType": "1-to-N",
+      "sourceInstanceId": "10-2",
+      "isBreakout": false,
+      "strandCount": 1,
+      "strandPitchMm": 2,
+      "wireGauge": "16 AWG",
+      "sourcePinName": "10-2.pin_2",
+      "endStickers": {
+        "enabled": false
+      },
+      "flowDirection": "reverse",
+      "curveTension": 0.5,
+      "color": "#000000",
+      "routePoints": [],
+      "breakoutMode": "1-to-N",
+      "isTransparent": false,
+      "tubeInnerColor": "#38bdf8",
+      "calculatedLengthMm": 108,
+      "isTubing": false,
+      "isRibbon": false,
+      "transparencyOpacity": 0.45,
+      "name": "O‘ng dvigatel (Right Motor) [pin_2] → O‘ng motor regulyatori (ESC 2) [pin_2]",
+      "targetPinName": "11-2.pin_2",
+      "thicknessMm": 6.6,
+      "strandLabels": [
+        "Pin #2 [0, -20, -3]"
+      ],
+      "slackMm": 0,
+      "id": "cable_1788632364488_daf6yu",
+      "cableType": "Power",
+      "strandColors": [
+        "#000000"
+      ]
+    },
+    {
+      "isRibbon": false,
+      "strandLabels": [
+        "Pin #3 [-2, -20, -3]"
+      ],
+      "color": "#000000",
+      "isTubing": false,
+      "calculatedLengthMm": 109,
+      "strandColors": [
+        "#000000"
+      ],
+      "tubeInnerColor": "#38bdf8",
+      "endStickers": {
+        "enabled": false
+      },
+      "flowDirection": "reverse",
+      "cableType": "Power",
+      "strandCount": 1,
+      "strandPitchMm": 2,
+      "sourcePinName": "10-2.pin_3",
+      "slackMm": 0,
+      "transparencyOpacity": 0.45,
+      "routePoints": [],
+      "isBreakout": false,
+      "name": "O‘ng dvigatel (Right Motor) [pin_3] → O‘ng motor regulyatori (ESC 2) [pin_3]",
+      "targetInstanceId": "11-2",
+      "sourceInstanceId": "10-2",
+      "isTransparent": false,
+      "breakoutMode": "1-to-N",
+      "thicknessMm": 6.6,
+      "targetPinName": "11-2.pin_3",
+      "curveTension": 0.5,
+      "id": "cable_1788632410487_dxcgtu",
+      "breakoutType": "1-to-N",
+      "wireGauge": "16 AWG"
+    },
+    {
+      "breakoutType": "1-to-N",
+      "transparencyOpacity": 0.45,
+      "thicknessMm": 3,
+      "multiTargetPinNames": [
+        "02-1.pin_6",
+        "02-1.pin_7",
+        "02-1.pin_8"
+      ],
+      "strandPitchMm": 2,
+      "sourcePinName": "11-2.pin_4",
+      "curveTension": 0.5,
+      "flowDirection": "reverse",
+      "tubeInnerColor": "#38bdf8",
+      "calculatedLengthMm": 938,
+      "id": "cable_1788633549606_2nkeu8",
+      "slackMm": 0,
+      "wireGauge": "22 AWG",
+      "breakoutMode": "1-to-N",
+      "isTransparent": false,
+      "color": "#f59e0b",
+      "routePoints": [
+        {
+          "x": 504.3,
+          "id": "pt_1788633561963_e894",
+          "type": "waypoint",
+          "y": 285.6,
+          "z": 243.2
+        },
+        {
+          "id": "pt_1788634156096_hrds",
+          "y": 293.1,
+          "z": 483.5,
+          "x": 103.1,
+          "type": "waypoint"
+        },
+        {
+          "id": "pt_1788634172598_rqwz",
+          "x": 104.2,
+          "type": "waypoint",
+          "y": 157.6,
+          "z": 787.8
+        },
+        {
+          "x": 47.1,
+          "type": "waypoint",
+          "id": "pt_1788634174705_c9u9",
+          "z": 832.4,
+          "y": 158.6
+        }
+      ],
+      "cableType": "PWM",
+      "isBreakout": true,
+      "targetPinName": "02-1.pin_6",
+      "name": "O‘ng motor regulyatori (ESC 2) [1 Port] ➔ CUBE Orange ADS-B #1 [3-Pin Breakout]",
+      "strandLabels": [
+        "S",
+        "-",
+        "+"
+      ],
+      "targetInstanceId": "02-1",
+      "strandCount": 3,
+      "endStickers": {
+        "enabled": false
+      },
+      "sourceInstanceId": "11-2",
+      "isTubing": false,
+      "isRibbon": true,
+      "strandColors": [
+        "#f59e0b",
+        "#000000",
+        "#ff0000"
+      ]
+    },
+    {
+      "targetPinName": "16-1.pin_2",
+      "isBreakout": false,
+      "thicknessMm": 3,
+      "isRibbon": false,
+      "wireGauge": "16 AWG",
+      "isTubing": false,
+      "color": "#ef4444",
+      "name": "O‘ng motor regulyatori (ESC 2) [pin_5] → Emergency Stop #1 [pin_2]",
+      "tubeInnerColor": "#38bdf8",
+      "sourceInstanceId": "11-2",
+      "targetInstanceId": "16-1",
+      "isTransparent": false,
+      "strandLabels": [
+        "POWER +"
+      ],
+      "strandColors": [
+        "#ef4444"
+      ],
+      "slackMm": 0,
+      "breakoutType": "1-to-N",
+      "calculatedLengthMm": 760,
+      "transparencyOpacity": 0.45,
+      "id": "cable_1788634000227_3th04n",
+      "curveTension": 0.5,
+      "routePoints": [
+        {
+          "z": 11.2,
+          "y": 294.8,
+          "id": "pt_1788634086495_xyn6",
+          "type": "waypoint",
+          "x": 113.9
+        },
+        {
+          "x": 22.6,
+          "type": "waypoint",
+          "y": 217.1,
+          "id": "pt_1788634033953_wrq3",
+          "z": -195.3
+        }
+      ],
+      "cableType": "Power",
+      "sourcePinName": "11-2.pin_5",
+      "strandPitchMm": 2,
+      "strandCount": 1,
+      "breakoutMode": "1-to-N",
+      "endStickers": {
+        "enabled": false
+      },
+      "flowDirection": "reverse"
+    },
+    {
+      "isTransparent": false,
+      "id": "cable_1788634339053_g11fsg",
+      "breakoutMode": "1-to-N",
+      "isBreakout": false,
+      "targetPinName": "11-2.pin_6",
+      "color": "#000000",
+      "cableType": "Power",
+      "curveTension": 0.5,
+      "thicknessMm": 3,
+      "breakoutType": "1-to-N",
+      "sourceInstanceId": "08-1",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandLabels": [
+        "GND"
+      ],
+      "wireGauge": "16 AWG",
+      "strandColors": [
+        "#000000"
+      ],
+      "targetInstanceId": "11-2",
+      "strandCount": 1,
+      "strandPitchMm": 2,
+      "calculatedLengthMm": 526,
+      "sourcePinName": "08-1.pin_1",
+      "flowDirection": "smart",
+      "isRibbon": false,
+      "routePoints": [
+        {
+          "type": "waypoint",
+          "z": 414.9,
+          "id": "pt_1788634375678_6t57",
+          "y": 265.3,
+          "x": 131.1
+        }
+      ],
+      "isTubing": false,
+      "transparencyOpacity": 0.45,
+      "slackMm": 0,
+      "tubeInnerColor": "#38bdf8",
+      "name": "TATTU 22000 mAh battery #1 [pin_1] → O‘ng motor regulyatori (ESC 2) [pin_6]"
+    },
+    {
+      "isTransparent": false,
+      "id": "cable_1788634509924_to6q2v",
+      "strandCount": 1,
+      "endStickers": {
+        "enabled": false
+      },
+      "tubeInnerColor": "#38bdf8",
+      "targetPinName": "11-1.pin_1",
+      "wireGauge": "16 AWG",
+      "strandLabels": [
+        "Pin #1 [-2, -20, -3]"
+      ],
+      "transparencyOpacity": 0.45,
+      "routePoints": [],
+      "strandColors": [
+        "#000000"
+      ],
+      "calculatedLengthMm": 102,
+      "isTubing": false,
+      "slackMm": 0,
+      "breakoutType": "1-to-N",
+      "isRibbon": false,
+      "cableType": "Power",
+      "flowDirection": "reverse",
+      "sourcePinName": "10-1.pin_1",
+      "curveTension": 0.5,
+      "strandPitchMm": 2,
+      "color": "#000000",
+      "targetInstanceId": "11-1",
+      "thicknessMm": 6.6,
+      "sourceInstanceId": "10-1",
+      "name": "Chap dvigatel (Left Motor) [pin_1] → Chap motor regulyatori (ESC 1) [pin_1]",
+      "isBreakout": false,
+      "breakoutMode": "1-to-N"
+    },
+    {
+      "thicknessMm": 6.6,
+      "calculatedLengthMm": 101,
+      "flowDirection": "reverse",
+      "sourcePinName": "10-1.pin_2",
+      "wireGauge": "16 AWG",
+      "strandPitchMm": 2,
+      "strandColors": [
+        "#000000"
+      ],
+      "color": "#000000",
+      "strandLabels": [
+        "Pin #2 [0, -20, -3]"
+      ],
+      "slackMm": 0,
+      "cableType": "Power",
+      "targetInstanceId": "11-1",
+      "routePoints": [],
+      "transparencyOpacity": 0.45,
+      "isRibbon": false,
+      "sourceInstanceId": "10-1",
+      "breakoutType": "1-to-N",
+      "isTubing": false,
+      "curveTension": 0.5,
+      "targetPinName": "11-1.pin_2",
+      "name": "Chap dvigatel (Left Motor) [pin_2] → Chap motor regulyatori (ESC 1) [pin_2]",
+      "id": "cable_1788634534609_0dc8et",
+      "strandCount": 1,
+      "tubeInnerColor": "#38bdf8",
+      "endStickers": {
+        "enabled": false
+      },
+      "breakoutMode": "1-to-N",
+      "isTransparent": false,
+      "isBreakout": false
+    },
+    {
+      "calculatedLengthMm": 101,
+      "strandCount": 1,
+      "endStickers": {
+        "enabled": false
+      },
+      "transparencyOpacity": 0.45,
+      "wireGauge": "16 AWG",
+      "name": "Chap dvigatel (Left Motor) [pin_3] → Chap motor regulyatori (ESC 1) [pin_3]",
+      "targetPinName": "11-1.pin_3",
+      "slackMm": 0,
+      "routePoints": [],
+      "sourceInstanceId": "10-1",
+      "strandColors": [
+        "#000000"
+      ],
+      "strandLabels": [
+        "Pin #3 [3, -20, -3]"
+      ],
+      "targetInstanceId": "11-1",
+      "isTransparent": false,
+      "isRibbon": false,
+      "isTubing": false,
+      "id": "cable_1788634569019_8n9xvq",
+      "breakoutType": "1-to-N",
+      "isBreakout": false,
+      "curveTension": 0.5,
+      "flowDirection": "reverse",
+      "color": "#000000",
+      "sourcePinName": "10-1.pin_3",
+      "strandPitchMm": 2,
+      "tubeInnerColor": "#38bdf8",
+      "cableType": "Power",
+      "breakoutMode": "1-to-N",
+      "thicknessMm": 5.2
+    },
+    {
+      "breakoutType": "1-to-N",
+      "routePoints": [
+        {
+          "y": 296.2,
+          "z": 47.6,
+          "type": "waypoint",
+          "x": -203.5,
+          "id": "pt_1788634980086_8k97"
+        },
+        {
+          "id": "pt_1788635071576_0fzv",
+          "x": -84.5,
+          "y": 288.5,
+          "type": "waypoint",
+          "z": -24.2
+        },
+        {
+          "z": -90.5,
+          "y": 245.1,
+          "x": -57.9,
+          "id": "pt_1788634966755_2m73",
+          "type": "waypoint"
+        }
+      ],
+      "wireGauge": "16 AWG",
+      "transparencyOpacity": 0.45,
+      "slackMm": 0,
+      "isTransparent": false,
+      "curveTension": 0.5,
+      "calculatedLengthMm": 722,
+      "id": "cable_1788634799296_x1lxj5",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 1,
+      "isBreakout": false,
+      "breakoutMode": "1-to-N",
+      "targetPinName": "16-1.pin_2",
+      "sourceInstanceId": "11-1",
+      "flowDirection": "reverse",
+      "targetInstanceId": "16-1",
+      "strandPitchMm": 2,
+      "sourcePinName": "11-1.pin_5",
+      "tubeInnerColor": "#38bdf8",
+      "thicknessMm": 3,
+      "cableType": "Power",
+      "name": "Chap motor regulyatori (ESC 1) [pin_5] → Emergency Stop #1 [pin_2]",
+      "isRibbon": false,
+      "color": "#ef4444",
+      "isTubing": false,
+      "strandLabels": [
+        "POWER +"
+      ],
+      "strandColors": [
+        "#ef4444"
+      ]
+    },
+    {
+      "isTubing": false,
+      "curveTension": 0.5,
+      "isRibbon": false,
+      "name": "Chap motor regulyatori (ESC 1) [pin_4] → TATTU 22000 mAh battery #1 [pin_1]",
+      "tubeInnerColor": "#38bdf8",
+      "flowDirection": "reverse",
+      "cableType": "Power",
+      "sourcePinName": "11-1.pin_4",
+      "strandPitchMm": 2,
+      "breakoutType": "1-to-N",
+      "breakoutMode": "1-to-N",
+      "color": "#000000",
+      "transparencyOpacity": 0.45,
+      "thicknessMm": 3,
+      "isBreakout": false,
+      "slackMm": 0,
+      "strandCount": 1,
+      "endStickers": {
+        "enabled": false
+      },
+      "isTransparent": false,
+      "id": "cable_1788634834478_9lgfd3",
+      "calculatedLengthMm": 709,
+      "strandColors": [
+        "#000000"
+      ],
+      "sourceInstanceId": "11-1",
+      "routePoints": [
+        {
+          "id": "pt_1788634887439_7361",
+          "x": -523.2,
+          "y": 286.1,
+          "z": 234.3,
+          "type": "waypoint"
+        },
+        {
+          "x": -238.3,
+          "id": "pt_1788635091862_ncx1",
+          "type": "waypoint",
+          "y": 276.1,
+          "z": 335
+        },
+        {
+          "id": "pt_1788634869797_lxft",
+          "x": 66.2,
+          "type": "waypoint",
+          "y": 229,
+          "z": 460.6
+        }
+      ],
+      "strandLabels": [
+        "POWER -"
+      ],
+      "targetPinName": "08-1.pin_1",
+      "targetInstanceId": "08-1",
+      "wireGauge": "16 AWG"
+    },
+    {
+      "cableType": "PWM",
+      "thicknessMm": 3,
+      "sourceInstanceId": "02-1",
+      "targetInstanceId": "11-1",
+      "color": "#f59e0b",
+      "multiTargetPinNames": [
+        "02-1.pin_9",
+        "02-1.pin_10",
+        "02-1.pin_11"
+      ],
+      "strandLabels": [
+        "S",
+        "GND",
+        "V+"
+      ],
+      "isTubing": false,
+      "tubeInnerColor": "#38bdf8",
+      "strandColors": [
+        "#f59e0b",
+        "#000000",
+        "#ff0000"
+      ],
+      "isRibbon": true,
+      "id": "cable_1788636252700_1ml0pi",
+      "flowDirection": "smart",
+      "isBreakout": true,
+      "transparencyOpacity": 0.45,
+      "strandPitchMm": 2,
+      "sourcePinName": "02-1.pin_9",
+      "calculatedLengthMm": 913,
+      "routePoints": [
+        {
+          "y": 170.4,
+          "type": "waypoint",
+          "z": 784,
+          "x": 82.3,
+          "id": "pt_1788636316418_wyxx"
+        },
+        {
+          "y": 292.9,
+          "z": 517.6,
+          "x": -109.5,
+          "type": "waypoint",
+          "id": "pt_1788636291539_i36c"
+        },
+        {
+          "x": -312.2,
+          "type": "waypoint",
+          "z": 459.2,
+          "y": 288.2,
+          "id": "pt_1788636278960_qu5o"
+        }
+      ],
+      "curveTension": 0.5,
+      "targetPinName": "11-1.pin_6",
+      "breakoutType": "1-to-N",
+      "endStickers": {
+        "enabled": false
+      },
+      "strandCount": 3,
+      "breakoutMode": "1-to-N",
+      "isTransparent": false,
+      "wireGauge": "22 AWG",
+      "name": "Chap motor regulyatori (ESC 1) [1 Port] ➔ CUBE Orange ADS-B #1 [3-Pin Breakout]",
+      "slackMm": 0
+    },
+    {
+      "slackMm": 0,
+      "isRibbon": true,
+      "strandLabels": [
+        "V+ (Musbat quvvat)",
+        "GND (Manfiy / Massa)"
+      ],
+      "isTubing": false,
+      "sourcePinName": "24-1.pin_6",
+      "strandPitchMm": 2,
+      "name": "GigaBlox switch #1 [pin_6] → Matek BEC12S PRO #1 [pin_1]",
+      "strandColors": [
+        "#ef4444",
+        "#1e293b"
+      ],
+      "flowDirection": "reverse",
+      "isBreakout": false,
+      "thicknessMm": 3,
+      "transparencyOpacity": 0.45,
+      "wireGauge": "16 AWG",
+      "tubeInnerColor": "#38bdf8",
+      "isTransparent": false,
+      "sourceInstanceId": "24-1",
+      "strandCount": 2,
+      "calculatedLengthMm": 151,
+      "endStickers": {
+        "enabled": false
+      },
+      "targetInstanceId": "06-1",
+      "breakoutMode": "1-to-N",
+      "cableType": "Power",
+      "targetPinName": "06-1.pin_1",
+      "breakoutType": "1-to-N",
+      "color": "#ef4444",
+      "id": "cable_1788688352733_d3i87p",
+      "routePoints": [
+        {
+          "id": "pt_1788688361630_hg1h",
+          "type": "waypoint",
+          "x": -23.2,
+          "y": 98.9,
+          "z": 940.7
+        }
+      ],
+      "curveTension": 0.5
+    }
+  ],
+  "droneFrame": {
+    "color": "#475569",
+    "opacity": 0.05,
+    "wireframe": false,
+    "visible": true
+  },
+  "droneColor": "#475569",
+  "droneOpacity": 0.05,
+  "droneWireframe": false,
+  "droneVisible": true,
+  "sceneTheme": "light",
+  "cameraViewMode": "perspective",
+  "customModels": {
+    "18": {
+      "sourceType": "file",
+      "componentId": "18",
+      "assetKey": "custom_18",
+      "updatedAt": 1788689000000,
+      "format": "glb",
+      "fileUrl": "/models/custom/Hobbywing_UBEC_25A_50A_MAX_colored.glb",
+      "fileName": "Hobbywing_UBEC_25A_50A_MAX_colored.glb",
+      "scaleMultiplier": 1
+    },
+    "19": {
+      "scaleMultiplier": 1,
+      "format": "stl",
+      "updatedAt": 1788689000000,
+      "fileUrl": "/models/custom/Jetson_AGX_Orin_P3737_Blender.stl",
+      "componentId": "19",
+      "assetKey": "custom_19",
+      "sourceType": "file",
+      "fileName": "Jetson_AGX_Orin_P3737_Blender.stl"
+    },
+    "22": {
+      "updatedAt": 1788689000000,
+      "assetKey": "custom_22",
+      "sourceType": "file",
+      "fileUrl": "/models/custom/RadioMaster_DBR4_colored.glb",
+      "componentId": "22",
+      "format": "glb",
+      "fileName": "RadioMaster_DBR4_colored.glb",
+      "scaleMultiplier": 1
+    },
+    "23": {
+      "scaleMultiplier": 1,
+      "fileName": "Ethernet_Switch_5Port_RJ45_Colored__1_.glb",
+      "format": "glb",
+      "assetKey": "custom_23",
+      "sourceType": "file",
+      "updatedAt": 1788689000000,
+      "fileUrl": "/models/custom/Ethernet_Switch_5Port_RJ45_Colored__1_.glb",
+      "componentId": "23"
+    },
+    "24": {
+      "fileName": "GigaBlox_RevC_Colored.glb",
+      "sourceType": "file",
+      "scaleMultiplier": 1,
+      "assetKey": "custom_24",
+      "componentId": "24",
+      "updatedAt": 1788689000000,
+      "fileUrl": "/models/custom/GigaBlox_RevC_Colored.glb",
+      "format": "glb"
+    },
+    "25": {
+      "assetKey": "custom_25",
+      "componentId": "25",
+      "sourceType": "file",
+      "updatedAt": 1788689000000,
+      "fileName": "UBEC_12_PRO_12V_8A_colored.glb",
+      "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "scaleMultiplier": 1,
+      "format": "glb"
+    },
+    "26": {
+      "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "assetKey": "custom_26",
+      "updatedAt": 1788689000000,
+      "componentId": "26",
+      "format": "glb",
+      "scaleMultiplier": 1,
+      "sourceType": "file",
+      "fileName": "UBEC_12_PRO_12V_8A_colored.glb"
+    },
+    "27": {
+      "scaleMultiplier": 1,
+      "updatedAt": 1788689000000,
+      "componentId": "27",
+      "assetKey": "custom_27",
+      "fileUrl": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "sourceType": "file",
+      "fileName": "UBEC_12_PRO_12V_8A_colored.glb",
+      "format": "glb"
+    }
+  },
+  "customManifest": [
+    {
+      "id": "22",
+      "component": "RadioMaster DBR4",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/RadioMaster_DBR4_colored.glb",
+      "original_source": "",
+      "notes": "Dual-band telemetry receiver"
+    },
+    {
+      "id": "23",
+      "component": "LS1005G Switch",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/Ethernet_Switch_5Port_RJ45_Colored__1_.glb",
+      "original_source": "",
+      "notes": "5-Port RJ45 Gigabit Ethernet switch"
+    },
+    {
+      "id": "24",
+      "component": "GigaBlox Switch",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/GigaBlox_RevC_Colored.glb",
+      "original_source": "",
+      "notes": "GigaBlox RevC Gigabit Switch"
+    },
+    {
+      "id": "25",
+      "component": "12V UBEC Pro",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "original_source": "",
+      "notes": "UBEC 12V 8A PRO regulator"
+    },
+    {
+      "id": "26",
+      "component": "UBEC 12V Aux",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "original_source": "",
+      "notes": "UBEC 12V 8A Aux regulator"
+    },
+    {
+      "id": "27",
+      "component": "UBEC 12V Servo",
+      "quantity": 1,
+      "preferred_web_file": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb",
+      "original_source": "",
+      "notes": "UBEC 12V 8A Servo regulator"
+    }
+  ]
+}

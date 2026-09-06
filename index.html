@@ -12,8 +12,9 @@
       // /model-parts). On a GitHub Pages project site those assets live below the
       // repository path, so transparently prefix same-origin root requests.
       (() => {
-        const repoBase = location.hostname.endsWith("github.io")
-          ? "/drone-avionics-3d-editor"
+        const pathSegments = location.pathname.split("/").filter(Boolean);
+        const repoBase = (location.hostname.endsWith("github.io") && pathSegments.length > 0)
+          ? "/" + pathSegments[0]
           : "";
         if (!repoBase) return;
 

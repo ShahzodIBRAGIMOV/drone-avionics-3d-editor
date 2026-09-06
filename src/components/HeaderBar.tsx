@@ -110,6 +110,10 @@ interface HeaderBarProps {
   onToggleVideo?: () => void;
   dimUnselected?: boolean;
   onToggleDimUnselected?: () => void;
+  onExportZIP?: () => void;
+  onImportZIP?: (file: File) => void;
+  isExportingZip?: boolean;
+  zipProgress?: { text: string; percent: number } | null;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -173,10 +177,25 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onToggleVideo,
   dimUnselected = false,
   onToggleDimUnselected,
+  onExportZIP,
+  onImportZIP,
+  isExportingZip = false,
+  zipProgress = null,
 }) => {
   const { t, language, setLanguage } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipFileInputRef = useRef<HTMLInputElement>(null);
   const fileMenuButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleZipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onImportZIP) {
+      onImportZIP(file);
+    }
+    if (e.target) {
+      e.target.value = "";
+    }
+  };
   const fileMenuDropdownRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -716,6 +735,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             accept=".json"
             style={{ display: "none" }}
           />
+          <input
+            type="file"
+            ref={zipFileInputRef}
+            onChange={handleZipFileChange}
+            accept=".zip"
+            style={{ display: "none" }}
+          />
 
           {/* Offline Cache Status Pill */}
           <button
@@ -818,7 +844,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   : "bg-emerald-600/90 hover:bg-emerald-500 text-white border-emerald-400/80 shadow-[0_0_10px_rgba(16,185,129,0.25)] active:scale-95"
               }`}
               onClick={handleManualSaveClick}
-              title={`${t("common.save")} (Ctrl+S)`}
+              title="Loyiha holati va 3D modellarni Git repozitoriyasiga saqlash (Ctrl+S)"
             >
               {isJustSaved ? (
                 <Check size={13} className="text-white" />
@@ -915,6 +941,46 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 right: `${menuCoords.right}px`,
               }}
             >
+              {onExportZIP && (
+                <button
+                  id="btn-export-full-zip"
+                  className="file-menu-item font-bold text-cyan-300 hover:bg-cyan-950/70 flex items-center justify-between border-b border-cyan-800/40 pb-2 mb-1"
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    onExportZIP();
+                  }}
+                  title="Barcha 3D modellar, kabellar va oflayn viewer saqlangan to'liq ZIP to'plamni yuklab olish"
+                >
+                  <span className="flex items-center gap-2">
+                    <FolderDown size={15} className="text-cyan-400" />
+                    <span>To‘liq ZIP to‘plam (Oflayn 3D)</span>
+                  </span>
+                  <span className="text-[10px] bg-cyan-900/80 border border-cyan-400/50 px-1.5 py-0.5 rounded font-mono text-cyan-200 font-bold">
+                    ZIP
+                  </span>
+                </button>
+              )}
+
+              {onImportZIP && (
+                <button
+                  id="btn-import-full-zip"
+                  className="file-menu-item font-semibold text-emerald-300 hover:bg-emerald-950/60 flex items-center justify-between border-b border-slate-700/60 pb-2 mb-1"
+                  onClick={() => {
+                    setIsFileMenuOpen(false);
+                    zipFileInputRef.current?.click();
+                  }}
+                  title="ZIP to'plamdan loyiha va barcha 3D modellarni ochish"
+                >
+                  <span className="flex items-center gap-2">
+                    <Upload size={14} className="text-emerald-400" />
+                    <span>ZIP to‘plamni ochish (Import)</span>
+                  </span>
+                  <span className="text-[10px] bg-emerald-950/80 border border-emerald-500/50 px-1 py-0.5 rounded font-mono text-emerald-300">
+                    .ZIP
+                  </span>
+                </button>
+              )}
+
               {onForceSave && (
                 <button
                   id="btn-menu-save-project"
@@ -1226,6 +1292,34 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <ChevronRight size={16} />
           </button>
         </>
+      )}
+
+      {/* ZIP Progress Modal Overlay */}
+      {zipProgress && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col items-center gap-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-cyan-950/80 border border-cyan-400 flex items-center justify-center animate-pulse">
+              <FolderDown size={24} className="text-cyan-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-100 mb-1">
+                {isExportingZip ? "ZIP To‘plam Tayyorlanmoqda" : "ZIP To‘plam Tiklanmoqda"}
+              </h3>
+              <p className="text-xs text-slate-400 font-medium">
+                {zipProgress.text}
+              </p>
+            </div>
+            <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700">
+              <div
+                className="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2.5 rounded-full transition-all duration-200"
+                style={{ width: `${Math.min(100, Math.max(5, zipProgress.percent))}%` }}
+              />
+            </div>
+            <span className="text-[11px] font-mono text-cyan-400 font-semibold">
+              {zipProgress.percent}%
+            </span>
+          </div>
+        </div>
       )}
     </div>
   );

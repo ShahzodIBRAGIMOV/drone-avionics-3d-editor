@@ -35,6 +35,9 @@ async function seedDefaultLayout() {
     layout.showGrid = layout.showGrid ?? true;
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+    if (layout.customModels) {
+      localStorage.setItem("drone_custom_models_registry", JSON.stringify(layout.customModels));
+    }
     sessionStorage.setItem("drone_avionics_backup_v1", JSON.stringify(layout));
     localStorage.setItem(DEFAULT_LAYOUT_SEEDED_KEY, "1");
   } catch (error) {

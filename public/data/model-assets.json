@@ -33,7 +33,7 @@
   },
   "hobbywing-ubec": {
     "format": "glb",
-    "path": "/models/hobbywing-ubec/model.glb"
+    "path": "/models/custom/Hobbywing_UBEC_25A_50A_MAX_colored.glb"
   },
   "jetson-p3737": {
     "format": "stl",
@@ -118,5 +118,29 @@
   "foldable-omni-antenna": {
     "format": "glb",
     "path": "/models/foldable-omni-antenna/model.glb"
+  },
+  "radiomaster-dbr4": {
+    "format": "glb",
+    "path": "/models/custom/RadioMaster_DBR4_colored.glb"
+  },
+  "ls1005g-switch": {
+    "format": "glb",
+    "path": "/models/custom/Ethernet_Switch_5Port_RJ45_Colored__1_.glb"
+  },
+  "gigablox-switch": {
+    "format": "glb",
+    "path": "/models/custom/GigaBlox_RevC_Colored.glb"
+  },
+  "ubec-12v-pro": {
+    "format": "glb",
+    "path": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb"
+  },
+  "ubec-12v-aux": {
+    "format": "glb",
+    "path": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb"
+  },
+  "ubec-12v-servo": {
+    "format": "glb",
+    "path": "/models/custom/UBEC_12_PRO_12V_8A_colored.glb"
   }
 }

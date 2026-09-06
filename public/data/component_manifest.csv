@@ -20,3 +20,9 @@ id,component,quantity,preferred_web_file,original_source,notes,asset_key
 19,Jetson carrier assembly,1,/models/jetson-p3737/model.glb,,P3737 detailed assembly accepted by user as the project Jetson computer,jetson-p3737
 20,SIYI 4-18S BEC HM30,1,/models/siyi-bec/model.glb,,Generated engineering model,siyi-bec
 21,Foldable omni antenna,1,/models/foldable-omni-antenna/model.glb,,User-approved visual model; 146.5 mm high; SMA-style connector,foldable-omni-antenna
+22,RadioMaster DBR4,1,/models/custom/RadioMaster_DBR4_colored.glb,,Dual-band telemetry receiver,radiomaster-dbr4
+23,LS1005G Switch,1,/models/custom/Ethernet_Switch_5Port_RJ45_Colored__1_.glb,,5-Port RJ45 Gigabit Ethernet switch,ls1005g-switch
+24,GigaBlox Switch,1,/models/custom/GigaBlox_RevC_Colored.glb,,GigaBlox RevC Gigabit Switch,gigablox-switch
+25,12V UBEC Pro,1,/models/custom/UBEC_12_PRO_12V_8A_colored.glb,,UBEC 12V 8A PRO regulator,ubec-12v-pro
+26,UBEC 12V Aux,1,/models/custom/UBEC_12_PRO_12V_8A_colored.glb,,UBEC 12V 8A Aux regulator,ubec-12v-aux
+27,UBEC 12V Servo,1,/models/custom/UBEC_12_PRO_12V_8A_colored.glb,,UBEC 12V 8A Servo regulator,ubec-12v-servo

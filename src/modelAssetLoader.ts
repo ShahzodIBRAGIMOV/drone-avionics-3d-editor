@@ -173,6 +173,45 @@ export async function setCachedBuffer(key: string, buffer: ArrayBuffer): Promise
   }
 }
 
+export async function getAllCustomCachedBuffers(): Promise<Record<string, ArrayBuffer>> {
+  const result: Record<string, ArrayBuffer> = {};
+  for (const [k, v] of memoryCache.entries()) {
+    if (k.startsWith("custom_model_buffer_")) {
+      const compId = k.replace("custom_model_buffer_", "");
+      result[compId] = v;
+    }
+  }
+  try {
+    const db = await openCacheDB();
+    if (db) {
+      await new Promise<void>((resolve) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.openCursor();
+        req.onsuccess = (e: any) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            const key = String(cursor.key);
+            if (key.startsWith("custom_model_buffer_")) {
+              const compId = key.replace("custom_model_buffer_", "");
+              if (cursor.value instanceof ArrayBuffer && cursor.value.byteLength > 50) {
+                result[compId] = cursor.value;
+              }
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => resolve();
+      });
+    }
+  } catch (err) {
+    console.warn("getAllCustomCachedBuffers error:", err);
+  }
+  return result;
+}
+
 export async function clearAllModelCache(): Promise<void> {
   memoryCache.clear();
   indexMemoryCache = null;
@@ -203,9 +242,10 @@ export async function clearAllModelCache(): Promise<void> {
   } catch {}
 }
 
-export async function clearSingleModelCache(assetKey: string): Promise<void> {
+export async function clearSingleModelCache(assetKey: string, allowCustomBuffer = false): Promise<void> {
   // Clear memory cache keys matching assetKey
   for (const k of Array.from(memoryCache.keys())) {
+    if (!allowCustomBuffer && k.startsWith("custom_model_buffer_")) continue;
     if (k.includes(assetKey)) {
       memoryCache.delete(k);
     }
@@ -217,6 +257,7 @@ export async function clearSingleModelCache(assetKey: string): Promise<void> {
       const cache = await caches.open(CACHE_NAME);
       const keys = await cache.keys();
       for (const req of keys) {
+        if (!allowCustomBuffer && req.url.includes("custom_model_buffer_")) continue;
         if (req.url.includes(assetKey)) {
           await cache.delete(req);
         }
@@ -235,7 +276,12 @@ export async function clearSingleModelCache(assetKey: string): Promise<void> {
         req.onsuccess = (e) => {
           const cursor = (e.target as any).result;
           if (cursor) {
-            if (String(cursor.key).includes(assetKey)) {
+            const keyStr = String(cursor.key);
+            if (!allowCustomBuffer && keyStr.startsWith("custom_model_buffer_")) {
+              cursor.continue();
+              return;
+            }
+            if (keyStr.includes(assetKey)) {
               cursor.delete();
             }
             cursor.continue();
@@ -342,6 +388,13 @@ export async function loadModelAsset(asset: ModelAsset, cacheBuster?: number): P
     }
 
     finalBuffer = await response.arrayBuffer();
+    if (finalBuffer.byteLength > 0) {
+      const slice = new Uint8Array(finalBuffer.slice(0, 16));
+      const str = String.fromCharCode(...slice).toLowerCase();
+      if (str.includes("<!do") || str.includes("<html") || str.includes("<?xml")) {
+        throw new Error(`Model fayli mavjud emas yoki noto'g'ri (HTML qaytdi): ${asset.path}`);
+      }
+    }
   } else if (asset.parts?.length) {
     // Fetch parts (each individually cached in browser storage)
     const encodedParts = await Promise.all(
