@@ -52,6 +52,7 @@ import {
 import { AlertTriangle, CheckCircle2, PanelLeft, PanelRight, Undo2, Redo2, Keyboard } from "lucide-react";
 import { modelManager } from "./services/modelManager";
 import { exportProjectZipPackage, importProjectFromZipPackage } from "./services/zipPackageService";
+import { downloadCustomModelsFromCloud } from "./services/cloudModelAssetService";
 
 const STORAGE_KEY = "drone_avionics_state_v1";
 
@@ -675,6 +676,18 @@ export default function App() {
                 cloudProj.cables = localParsed.cables;
               }
               restoreFromData(cloudProj);
+              // restoreFromData registers the cloud asset metadata. Fetch the model
+              // chunks now and replace any temporary fallback geometry in the scene.
+              downloadCustomModelsFromCloud(cloudProj.customModels || {})
+                .then(() => modelManager.restoreCustomModelsFromStorage())
+                .then((cloudModelIds) => {
+                  if (cloudModelIds.length > 0) {
+                    const version = Date.now();
+                    setInstances((prev) => prev.map((inst) =>
+                      cloudModelIds.includes(inst.componentId) ? { ...inst, modelVersion: version } : inst
+                    ));
+                  }
+                }).catch((err) => console.warn("Cloud model restore notice:", err));
               setCurrentCloudProject(cloudProj);
               setCloudCode(cloudProj.cloudCode);
               localStorage.setItem("drone_avionics_cloud_code", cloudProj.cloudCode);
@@ -1159,6 +1172,17 @@ export default function App() {
             modelManager.saveCustomModelRecord(record);
           }
         }
+        downloadCustomModelsFromCloud(remoteData.customModels)
+          .then(() => modelManager.restoreCustomModelsFromStorage())
+          .then((restoredIds) => {
+            if (restoredIds.length > 0) {
+              const version = Date.now();
+              setInstances((prev) => prev.map((inst) =>
+                restoredIds.includes(inst.componentId) ? { ...inst, modelVersion: version } : inst
+              ));
+            }
+          })
+          .catch((err) => console.warn("Remote custom model restore notice:", err));
       }
       if (remoteData.sceneTheme) {
         setSceneTheme(remoteData.sceneTheme as any);
@@ -1279,6 +1303,11 @@ export default function App() {
       });
 
       lastKnownRemoteUpdateRef.current = savedProj.updatedAt;
+      if (savedProj.customModels) {
+        Object.values(savedProj.customModels).forEach((record: any) => {
+          if (record?.componentId) modelManager.saveCustomModelRecord(record);
+        });
+      }
       setCurrentCloudProject(savedProj);
       setCloudCode(savedProj.cloudCode);
       localStorage.setItem("drone_avionics_cloud_code", savedProj.cloudCode);
@@ -1286,10 +1315,10 @@ export default function App() {
       setAutoSaveStatus("saved");
 
       showToast(`✓ Loyiha xotiraga va Git repozitoriyasiga saqlandi! (Kod: ${savedProj.cloudCode})`);
-    } catch (err) {
+    } catch (err: any) {
       console.warn("Manual save cloud notice:", err);
       setAutoSaveStatus("saved");
-      showToast("✓ Loyiha brauzer xotirasiga va Git repozitoriyasiga saqlandi!");
+      showToast(`Loyiha lokal saqlandi, lekin bulutga yuborilmadi: ${err?.message || err}`);
     } finally {
       setIsCloudSaving(false);
       setAutoSaveStatus("saved");
@@ -3063,6 +3092,7 @@ export default function App() {
         cables,
         droneParams: { width: 3800, length: 2400, height: 400, fuselageWidth: 260 },
         customModels: modelManager.getCustomModelRegistry(),
+        customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
         droneOpacity,
         droneColor,
         droneWireframe,
@@ -3089,29 +3119,25 @@ export default function App() {
         setZipProgress({ text, percent });
       });
 
-      if (res.instances && Array.isArray(res.instances) && res.instances.length > 0) {
-        setInstances((prev) => {
-          return prev.map((base) => {
-            const matching = res.instances.find(
-              (item: any) =>
-                item.componentId === base.componentId &&
-                item.instanceIndex === base.instanceIndex
-            );
-            if (matching) {
-              return {
-                ...base,
-                placed: !!matching.placed,
-                locked: !!matching.locked,
-                visible: matching.visible !== false,
-                position: Array.isArray(matching.position) ? matching.position : base.position,
-                rotation: Array.isArray(matching.rotation) ? matching.rotation : base.rotation,
-                scale: Array.isArray(matching.scale) ? matching.scale : base.scale,
-                customPins: Array.isArray((matching as any).customPins) ? (matching as any).customPins : base.customPins,
-              };
-            }
-            return base;
-          });
+      if (Array.isArray(res.customManifest) && res.customManifest.length > 0) {
+        setManifest((prev) => {
+          const byId = new Map(prev.map((item) => [item.id, item]));
+          res.customManifest!.forEach((item) => byId.set(item.id, item));
+          const merged = Array.from(byId.values());
+          localStorage.setItem("drone_avionics_custom_manifest", JSON.stringify(res.customManifest));
+          return merged;
         });
+      }
+
+      if (res.instances && Array.isArray(res.instances) && res.instances.length > 0) {
+        // The package is authoritative. Mapping only over the current default list used
+        // to discard instances belonging to custom components on another computer.
+        setInstances(res.instances.map((item) => ({
+          ...item,
+          placed: !!item.placed,
+          locked: !!item.locked,
+          visible: item.visible !== false,
+        })));
       }
 
       if (Array.isArray(res.cables)) {
@@ -3289,6 +3315,7 @@ export default function App() {
         isManualSave: true,
         manualSaveTimestamp: Date.now(),
         customManifest: manifest.filter((m) => Number(m.id) > 21 || m.id.startsWith("custom")),
+        customModels: modelManager.getCustomModelRegistry(),
         droneFrame: {
           color: droneColor,
           opacity: droneOpacity,
@@ -3296,6 +3323,11 @@ export default function App() {
           visible: droneVisible,
         },
       });
+      if (saved.customModels) {
+        Object.values(saved.customModels).forEach((record: any) => {
+          if (record?.componentId) modelManager.saveCustomModelRecord(record);
+        });
+      }
       lastKnownRemoteUpdateRef.current = saved.updatedAt;
       setCurrentCloudProject(saved);
       setCloudCode(saved.cloudCode);
@@ -3311,7 +3343,7 @@ export default function App() {
     }
   };
 
-  const handleApplyCloudProject = (project: CloudProjectData) => {
+  const handleApplyCloudProject = async (project: CloudProjectData) => {
     if (Array.isArray(project.customManifest) && project.customManifest.length > 0) {
       setManifest((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
@@ -3338,6 +3370,19 @@ export default function App() {
       if (typeof project.droneFrame.wireframe === "boolean") setDroneWireframe(project.droneFrame.wireframe);
       if (typeof project.droneFrame.visible === "boolean") setDroneVisible(project.droneFrame.visible);
       if (typeof project.droneFrame.color === "string") setDroneColor(project.droneFrame.color);
+    }
+    if (project.customModels && typeof project.customModels === "object") {
+      await downloadCustomModelsFromCloud(project.customModels);
+      Object.values(project.customModels).forEach((record: any) => {
+        if (record?.componentId) modelManager.saveCustomModelRecord(record);
+      });
+      const restoredIds = await modelManager.restoreCustomModelsFromStorage();
+      if (restoredIds.length > 0) {
+        const version = Date.now();
+        setInstances((prev) => prev.map((inst) =>
+          restoredIds.includes(inst.componentId) ? { ...inst, modelVersion: version } : inst
+        ));
+      }
     }
     setCurrentCloudProject(project);
     setCloudCode(project.cloudCode);
