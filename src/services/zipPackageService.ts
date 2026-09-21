@@ -45,6 +45,20 @@ export interface ExportZipOptions {
   onProgress?: (step: string, percent: number) => void;
 }
 
+interface PackagedModelAsset {
+  componentId: string;
+  assetKey: string;
+  path: string;
+  fileName: string;
+  format: "obj" | "stl" | "glb" | "gltf";
+  byteLength: number;
+  custom: boolean;
+}
+
+function safeZipFileName(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
 export async function exportProjectZipPackage(options: ExportZipOptions): Promise<void> {
   const {
     instances,
@@ -61,29 +75,8 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
   onProgress?.("ZIP arxivi tayyorlanmoqda...", 5);
   const zip = new JSZip();
 
-  // 1. Prepare project state JSON
-  const projectState = {
-    instances,
-    cables,
-    customModels,
-    customManifest,
-    metadata: {
-      droneName: "Drone Avionics 3D",
-      droneWidth: droneParams?.width || 1200,
-      droneLength: droneParams?.length || 1000,
-      droneHeight: droneParams?.height || 200,
-      fuselageWidth: droneParams?.fuselageWidth || 180,
-      droneOpacity,
-      droneColor,
-      droneWireframe,
-      exportedAt: new Date().toISOString(),
-      version: "2.0-standalone"
-    }
-  };
-
-  zip.file("project_state.json", JSON.stringify(projectState, null, 2));
-
-  // 2. Load model index for asset lookups & gather custom buffers from IndexedDB
+  // Load model index for asset lookups & gather custom buffers from IndexedDB.
+  // Binary buffers are the source of truth for files uploaded from the computer.
   const modelIndex = await loadModelIndex().catch(() => ({} as Record<string, ModelAsset>));
   const allCustomBuffers = await getAllCustomCachedBuffers().catch(() => ({} as Record<string, ArrayBuffer>));
 
@@ -99,6 +92,7 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
 
   const modelsFolder = zip.folder("models");
   const embeddedModels: Record<string, string> = {};
+  const modelAssets: Record<string, PackagedModelAsset> = {};
 
   const total = uniqueComponentIds.length;
   for (let i = 0; i < total; i++) {
@@ -110,7 +104,7 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
     try {
       let buffer: ArrayBuffer | null = null;
       let ext = "glb";
-      let fileName = `${compId}_${assetKey}.glb`;
+      let fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.glb`;
 
       // 1. Check local custom buffers uploaded from user's computer
       if (allCustomBuffers[compId] && allCustomBuffers[compId].byteLength > 50) {
@@ -122,7 +116,8 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
       // Check custom models registry
       const customRec = customModels[compId] || customModels[assetKey];
       if (customRec) {
-        fileName = customRec.fileName || `custom_${compId}.${customRec.format || "glb"}`;
+        const originalName = customRec.fileName || `custom_${compId}.${customRec.format || "glb"}`;
+        fileName = `${safeZipFileName(compId)}__${safeZipFileName(originalName)}`;
         ext = customRec.format || "glb";
 
         if (!buffer || buffer.byteLength < 50) {
@@ -144,7 +139,7 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
         const asset = modelIndex[assetKey] || modelIndex[compId];
         if (asset) {
           ext = asset.format || "glb";
-          fileName = `${compId}_${assetKey}.${ext}`;
+          fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.${ext}`;
           buffer = await loadModelAsset(asset).catch(() => null);
         }
       }
@@ -174,7 +169,7 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
               if (testBuf.byteLength > 100) {
                 buffer = testBuf;
                 ext = cand.endsWith(".obj") ? "obj" : "glb";
-                fileName = `${compId}_${assetKey}.${ext}`;
+                fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.${ext}`;
                 break;
               }
             }
@@ -186,6 +181,15 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
       if (buffer && buffer.byteLength > 50) {
         // Add to zip folder
         modelsFolder?.file(fileName, buffer);
+        modelAssets[compId] = {
+          componentId: compId,
+          assetKey,
+          path: `models/${fileName}`,
+          fileName: customRec?.fileName || fileName,
+          format: ext as PackagedModelAsset["format"],
+          byteLength: buffer.byteLength,
+          custom: !!customRec || Object.prototype.hasOwnProperty.call(allCustomBuffers, compId),
+        };
 
         // Add to embedded map for zero-CORS file:/// offline viewing
         const b64 = arrayBufferToBase64(buffer);
@@ -200,6 +204,28 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
       console.warn(`Model yuklanmadi (#${compId}):`, err);
     }
   }
+
+  // Write the state after the exact component -> packaged file mapping is known.
+  const projectState = {
+    instances,
+    cables,
+    customModels,
+    customManifest,
+    modelAssets,
+    metadata: {
+      droneName: "Drone Avionics 3D",
+      droneWidth: droneParams?.width || 1200,
+      droneLength: droneParams?.length || 1000,
+      droneHeight: droneParams?.height || 200,
+      fuselageWidth: droneParams?.fuselageWidth || 180,
+      droneOpacity,
+      droneColor,
+      droneWireframe,
+      exportedAt: new Date().toISOString(),
+      version: "2.1-standalone"
+    }
+  };
+  zip.file("project_state.json", JSON.stringify(projectState, null, 2));
 
   // 4. Create embedded project data script for offline viewer
   onProgress?.("Oflayn skriptlar yaratilmoqda...", 75);
@@ -313,6 +339,7 @@ export interface ImportZipResult {
   customModels?: Record<string, CustomModelRecord>;
   customManifest?: any[];
   metadata?: any;
+  restoredModelIds?: string[];
 }
 
 export async function importProjectFromZipPackage(
@@ -336,6 +363,8 @@ export async function importProjectFromZipPackage(
   const cables = stateData.cables || [];
   const customModels = stateData.customModels || {};
   const customManifest = stateData.customManifest || [];
+  const modelAssets = (stateData.modelAssets || {}) as Record<string, PackagedModelAsset>;
+  const restoredModelIds: string[] = [];
 
   // 2. Extract and cache all 3D model files from models/ folder
   const modelFiles = zip.folder("models");
@@ -355,18 +384,42 @@ export async function importProjectFromZipPackage(
         const buffer = await fileObj.async("arraybuffer");
         const justName = filePath.split("/").pop() || "";
 
-        // Try extracting component ID from file name (e.g., '22_RadioMaster...' or 'comp_22.glb')
+        // v2.1+ has an explicit component -> binary path map, including custom-* IDs.
         let targetCompId: string | null = null;
-        const match = justName.match(/^([0-9]{2})/);
-        if (match) {
-          targetCompId = match[1];
+        const mappedEntry = Object.values(modelAssets).find((entry) => entry.path === filePath);
+        if (mappedEntry) {
+          targetCompId = mappedEntry.componentId;
         } else {
-          const compMatch = justName.match(/comp_([0-9]{2})/);
-          if (compMatch) targetCompId = compMatch[1];
+          // Backward compatibility for packages made before the mapping existed.
+          const recordMatch = Object.values(customModels as Record<string, CustomModelRecord>).find(
+            (record) => !!record.fileName && record.fileName === justName
+          );
+          if (recordMatch) {
+            targetCompId = recordMatch.componentId;
+          } else {
+            const prefixed = justName.match(/^(.+?)__/);
+            const numeric = justName.match(/^([0-9]{2})(?:_|\.)/) || justName.match(/comp_([0-9]{2})/);
+            targetCompId = prefixed?.[1] || numeric?.[1] || null;
+          }
         }
 
         if (targetCompId && buffer.byteLength > 50) {
           await setCachedBuffer(`custom_model_buffer_${targetCompId}`, buffer);
+          restoredModelIds.push(targetCompId);
+
+          const mapped = modelAssets[targetCompId];
+          const existing = customModels[targetCompId] as CustomModelRecord | undefined;
+          if (mapped?.custom && !existing) {
+            customModels[targetCompId] = {
+              componentId: targetCompId,
+              assetKey: mapped.assetKey || targetCompId,
+              sourceType: "file",
+              format: mapped.format,
+              scaleMultiplier: 1,
+              fileName: mapped.fileName,
+              updatedAt: Date.now(),
+            };
+          }
         }
       }
     }
@@ -378,6 +431,7 @@ export async function importProjectFromZipPackage(
     cables,
     customModels,
     customManifest,
-    metadata: stateData.metadata
+    metadata: stateData.metadata,
+    restoredModelIds,
   };
 }
