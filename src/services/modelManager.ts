@@ -943,7 +943,9 @@ class ModelManager {
   async reloadAllModelsWithOriginalColors(
     onProgress?: (current: number, total: number, name: string) => void
   ): Promise<{ loaded: number; failed: number }> {
-    await this.clearCache(true);
+    // Uploaded models live in the persistent custom_model_buffer_* cache. Clearing
+    // persistent storage here used to delete them after ZIP import or manual reload.
+    await this.clearCache(false);
     return await this.preloadAllModels(onProgress);
   }
 
@@ -1014,6 +1016,17 @@ class ModelManager {
       localStorage.setItem(this.customRegistryKey, JSON.stringify(current));
     } catch (e) {
       console.warn("Could not save custom model record:", e);
+    }
+  }
+
+  replaceCustomModelRegistry(records: Record<string, CustomModelRecord>) {
+    if (typeof localStorage === "undefined") return;
+    try {
+      this.templateCache.clear();
+      this.loadingPromises.clear();
+      localStorage.setItem(this.customRegistryKey, JSON.stringify(records || {}));
+    } catch (e) {
+      console.warn("Could not replace custom model registry:", e);
     }
   }
 
