@@ -3119,6 +3119,13 @@ export default function App() {
         setZipProgress({ text, percent });
       });
 
+      // A ZIP is a complete project snapshot. Remove custom-model associations left
+      // by a previously opened project before restoring this package.
+      modelManager.replaceCustomModelRegistry(res.customModels || {});
+      await modelManager.clearCache(false);
+      await modelManager.restoreCustomModelsFromStorage();
+      const importedModelVersion = Date.now();
+
       if (Array.isArray(res.customManifest) && res.customManifest.length > 0) {
         setManifest((prev) => {
           const byId = new Map(prev.map((item) => [item.id, item]));
@@ -3137,6 +3144,7 @@ export default function App() {
           placed: !!item.placed,
           locked: !!item.locked,
           visible: item.visible !== false,
+          modelVersion: importedModelVersion,
         })));
       }
 
@@ -3144,13 +3152,6 @@ export default function App() {
         setCables(res.cables);
       }
 
-      if (res.customModels) {
-        Object.values(res.customModels).forEach((rec) => {
-          modelManager.saveCustomModelRecord(rec);
-        });
-      }
-
-      await modelManager.reloadAllModelsWithOriginalColors();
       showToast("Loyiha va barcha 3D modellar ZIP arxivdan to‘liq tiklandi!");
     } catch (err: any) {
       console.error("ZIP import xatosi:", err);

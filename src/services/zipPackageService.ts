@@ -59,6 +59,22 @@ function safeZipFileName(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function isModelBufferValid(
+  buffer: ArrayBuffer | null | undefined,
+  format?: "obj" | "stl" | "glb" | "gltf"
+): buffer is ArrayBuffer {
+  if (!buffer || buffer.byteLength < 50) return false;
+  const prefix = new TextDecoder("utf-8").decode(buffer.slice(0, Math.min(256, buffer.byteLength))).trimStart();
+  const lower = prefix.toLowerCase();
+  if (lower.startsWith("<!doctype") || lower.startsWith("<html") || lower.startsWith("<?xml")) return false;
+  if (format === "glb") {
+    return String.fromCharCode(...new Uint8Array(buffer.slice(0, 4))) === "glTF";
+  }
+  if (format === "gltf") return prefix.startsWith("{");
+  if (format === "obj") return /^(#|v |o |g |mtllib )/m.test(prefix);
+  return true;
+}
+
 export async function exportProjectZipPackage(options: ExportZipOptions): Promise<void> {
   const {
     instances,
@@ -107,9 +123,9 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
       let fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.glb`;
 
       // 1. Check local custom buffers uploaded from user's computer
-      if (allCustomBuffers[compId] && allCustomBuffers[compId].byteLength > 50) {
+      if (isModelBufferValid(allCustomBuffers[compId])) {
         buffer = allCustomBuffers[compId];
-      } else if (allCustomBuffers[assetKey] && allCustomBuffers[assetKey].byteLength > 50) {
+      } else if (isModelBufferValid(allCustomBuffers[assetKey])) {
         buffer = allCustomBuffers[assetKey];
       }
 
@@ -120,37 +136,42 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
         fileName = `${safeZipFileName(compId)}__${safeZipFileName(originalName)}`;
         ext = customRec.format || "glb";
 
-        if (!buffer || buffer.byteLength < 50) {
+        if (!isModelBufferValid(buffer, customRec.format)) {
+          buffer = null;
           // Try IndexedDB buffer
           const cached = await getCachedBuffer(`custom_model_buffer_${compId}`);
-          if (cached && cached.byteLength > 50) {
+          if (isModelBufferValid(cached, customRec.format)) {
             buffer = cached;
           } else if (customRec.fileUrl) {
             const res = await fetch(customRec.fileUrl).catch(() => null);
-            if (res && res.ok) {
-              buffer = await res.arrayBuffer();
+            if (res && res.ok && !String(res.headers.get("content-type") || "").includes("text/html")) {
+              const fetched = await res.arrayBuffer();
+              if (isModelBufferValid(fetched, customRec.format)) buffer = fetched;
             }
           }
         }
       }
 
       // 2. Check standard assets using assetKey or compId
-      if (!buffer || buffer.byteLength < 50) {
+      if (!isModelBufferValid(buffer)) {
+        buffer = null;
         const asset = modelIndex[assetKey] || modelIndex[compId];
         if (asset) {
           ext = asset.format || "glb";
           fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.${ext}`;
-          buffer = await loadModelAsset(asset).catch(() => null);
+          const loaded = await loadModelAsset(asset).catch(() => null);
+          if (isModelBufferValid(loaded, ext as PackagedModelAsset["format"])) buffer = loaded;
         }
       }
 
       // 3. Fallback direct paths if buffer still empty
-      if (!buffer || buffer.byteLength < 50) {
+      if (!isModelBufferValid(buffer)) {
+        buffer = null;
         if (assetKey === "drone" || compId === "01") {
           const res = await fetch("/models/drone/model.glb?v=8334383e79073810").catch(() => null);
-          if (res && res.ok) {
+          if (res && res.ok && !String(res.headers.get("content-type") || "").includes("text/html")) {
             const buf = await res.arrayBuffer();
-            if (buf.byteLength > 100) {
+            if (isModelBufferValid(buf, "glb")) {
               buffer = buf;
               ext = "glb";
               fileName = "01_drone.glb";
@@ -164,11 +185,12 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
           ];
           for (const cand of directCandidates) {
             const res = await fetch(cand).catch(() => null);
-            if (res && res.ok) {
+            if (res && res.ok && !String(res.headers.get("content-type") || "").includes("text/html")) {
               const testBuf = await res.arrayBuffer();
-              if (testBuf.byteLength > 100) {
+              const candidateFormat = cand.endsWith(".obj") ? "obj" : "glb";
+              if (isModelBufferValid(testBuf, candidateFormat)) {
                 buffer = testBuf;
-                ext = cand.endsWith(".obj") ? "obj" : "glb";
+                ext = candidateFormat;
                 fileName = `${safeZipFileName(compId)}_${safeZipFileName(assetKey)}.${ext}`;
                 break;
               }
@@ -178,7 +200,7 @@ export async function exportProjectZipPackage(options: ExportZipOptions): Promis
       }
 
       // If buffer found, add to models folder & embedded base64
-      if (buffer && buffer.byteLength > 50) {
+      if (isModelBufferValid(buffer, ext as PackagedModelAsset["format"])) {
         // Add to zip folder
         modelsFolder?.file(fileName, buffer);
         modelAssets[compId] = {
@@ -387,6 +409,7 @@ export async function importProjectFromZipPackage(
         // v2.1+ has an explicit component -> binary path map, including custom-* IDs.
         let targetCompId: string | null = null;
         const mappedEntry = Object.values(modelAssets).find((entry) => entry.path === filePath);
+        let isCustomAsset = !!mappedEntry?.custom;
         if (mappedEntry) {
           targetCompId = mappedEntry.componentId;
         } else {
@@ -396,6 +419,7 @@ export async function importProjectFromZipPackage(
           );
           if (recordMatch) {
             targetCompId = recordMatch.componentId;
+            isCustomAsset = true;
           } else {
             const prefixed = justName.match(/^(.+?)__/);
             const numeric = justName.match(/^([0-9]{2})(?:_|\.)/) || justName.match(/comp_([0-9]{2})/);
@@ -403,21 +427,26 @@ export async function importProjectFromZipPackage(
           }
         }
 
-        if (targetCompId && buffer.byteLength > 50) {
+        // Built-in assets are already part of the application. Caching every packaged
+        // built-in as a custom override allowed stale files to replace correct models.
+        if (targetCompId && isCustomAsset && buffer.byteLength > 50) {
           await setCachedBuffer(`custom_model_buffer_${targetCompId}`, buffer);
           restoredModelIds.push(targetCompId);
 
           const mapped = modelAssets[targetCompId];
           const existing = customModels[targetCompId] as CustomModelRecord | undefined;
-          if (mapped?.custom && !existing) {
+          if (mapped?.custom) {
             customModels[targetCompId] = {
-              componentId: targetCompId,
-              assetKey: mapped.assetKey || targetCompId,
-              sourceType: "file",
+              ...(existing || {
+                componentId: targetCompId,
+                assetKey: mapped.assetKey || targetCompId,
+                sourceType: "file" as const,
+                scaleMultiplier: 1,
+              }),
               format: mapped.format,
-              scaleMultiplier: 1,
               fileName: mapped.fileName,
-              updatedAt: Date.now(),
+              fileUrl: undefined,
+              updatedAt: existing?.updatedAt || Date.now(),
             };
           }
         }

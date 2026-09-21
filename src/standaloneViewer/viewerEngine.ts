@@ -66,7 +66,18 @@ export interface ViewerProjectData {
       droneColor?: string;
       droneWireframe?: boolean;
       savedAt?: string;
+      exportedAt?: string;
     };
+    customModels?: Record<string, {
+      componentId: string;
+      format?: "obj" | "stl" | "glb" | "gltf";
+      scaleMultiplier?: number;
+    }>;
+    modelAssets?: Record<string, {
+      componentId: string;
+      format: "obj" | "stl" | "glb" | "gltf";
+      custom: boolean;
+    }>;
   };
   models?: Record<string, string>; // base64 string or data URL for each componentId/assetKey
 }
@@ -301,10 +312,15 @@ class StandaloneDroneViewer {
       // ignore
     }
 
-    if (localSaved && localSaved.state) {
+    const packagedStamp = window.__DRONE_PROJECT_DATA__?.state?.metadata?.exportedAt;
+    const localStamp = localSaved?.state?.metadata?.exportedAt;
+    const localBelongsToPackage = !!packagedStamp && packagedStamp === localStamp;
+
+    if (localSaved && localSaved.state && localBelongsToPackage) {
       this.data = localSaved;
       if (window.__DRONE_PROJECT_DATA__?.models) {
-        this.data.models = { ...window.__DRONE_PROJECT_DATA__.models, ...this.data.models };
+        // The ZIP's binaries are authoritative; stale locally saved models must not win.
+        this.data.models = { ...this.data.models, ...window.__DRONE_PROJECT_DATA__.models };
       }
       this.updateStatus("Saqlangan loyiha holati tiklandi!");
     } else if (window.__DRONE_PROJECT_DATA__) {
@@ -394,7 +410,10 @@ class StandaloneDroneViewer {
     const droneBuffer = this.getModelBuffer("01") || this.getModelBuffer("drone");
     if (droneBuffer) {
       try {
-        const rawObj = await this.parseModelBuffer(droneBuffer, "glb");
+        const droneFormat = this.data?.state.modelAssets?.["01"]?.format
+          || this.data?.state.customModels?.["01"]?.format
+          || "glb";
+        const rawObj = await this.parseModelBuffer(droneBuffer, droneFormat);
         if (rawObj) {
           const preBox = new THREE.Box3().setFromObject(rawObj);
           const initialSize = new THREE.Vector3();
@@ -551,10 +570,13 @@ class StandaloneDroneViewer {
 
       let rawObj: THREE.Object3D | null = null;
       const buffer = this.getModelBuffer(inst.componentId) || this.getModelBuffer(inst.name);
+      const customRecord = this.data?.state.customModels?.[inst.componentId];
+      const assetRecord = this.data?.state.modelAssets?.[inst.componentId];
+      const formatHint = assetRecord?.format || customRecord?.format || "auto";
 
       if (buffer) {
         try {
-          rawObj = await this.parseModelBuffer(buffer, "auto");
+          rawObj = await this.parseModelBuffer(buffer, formatHint);
         } catch (e) {
           console.warn(`Model yuklanmadi (${inst.name}):`, e);
         }
@@ -574,12 +596,17 @@ class StandaloneDroneViewer {
         rawObj.updateMatrixWorld(true);
       }
 
+      if (customRecord?.scaleMultiplier && customRecord.scaleMultiplier !== 1) {
+        rawObj.scale.multiplyScalar(customRecord.scaleMultiplier);
+        rawObj.updateMatrixWorld(true);
+      }
+
       // CAD Z-UP Orientation Fix
       const CAD_Z_UP = new Set([
         "02", "03", "04", "11", "14", "16", "19", "20",
         "cube-orange", "here3", "hm30", "esc", "airspeed-module", "estop", "jetson-p3737", "siyi-bec"
       ]);
-      if (CAD_Z_UP.has(inst.componentId)) {
+      if (!customRecord && CAD_Z_UP.has(inst.componentId)) {
         rawObj.rotation.x = -Math.PI / 2;
         rawObj.updateMatrixWorld(true);
       }
@@ -981,55 +1008,36 @@ class StandaloneDroneViewer {
   async parseModelBuffer(buffer: ArrayBuffer, formatHint = "auto"): Promise<THREE.Object3D> {
     const magic = new Uint8Array(buffer.slice(0, 4));
     const magicStr = String.fromCharCode(...magic);
+    const textPrefix = new TextDecoder("utf-8").decode(buffer.slice(0, Math.min(buffer.byteLength, 256))).trimStart();
+    const detectedFormat = formatHint === "auto"
+      ? (magicStr === "glTF" ? "glb" : (/^(v |o |g |#|mtllib )/m.test(textPrefix) ? "obj" : (textPrefix.startsWith("{") ? "gltf" : "stl")))
+      : formatHint;
 
-    if (magicStr === "glTF" || formatHint === "glb") {
+    if (detectedFormat === "obj") {
+      const text = new TextDecoder("utf-8").decode(buffer);
+      return this.objLoader.parse(text);
+    }
+
+    if (detectedFormat === "stl") {
+      const geom = this.stlLoader.parse(buffer);
+      geom.computeVertexNormals();
+      const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.6 });
+      return new THREE.Mesh(geom, mat);
+    }
+
+    if (detectedFormat === "glb" || detectedFormat === "gltf") {
+      const source = detectedFormat === "gltf" ? new TextDecoder("utf-8").decode(buffer) : buffer;
       return new Promise((resolve, reject) => {
         this.gltfLoader.parse(
-          buffer,
+          source,
           "",
           (gltf) => resolve(gltf.scene),
-          (err) => {
-            try {
-              const geom = this.stlLoader.parse(buffer);
-              geom.computeVertexNormals();
-              const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.6 });
-              resolve(new THREE.Mesh(geom, mat));
-            } catch {
-              reject(err);
-            }
-          }
+          (err) => reject(err)
         );
       });
     }
 
-    if (formatHint === "stl" || buffer.byteLength > 84) {
-      try {
-        const geom = this.stlLoader.parse(buffer);
-        geom.computeVertexNormals();
-        const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.6 });
-        return new THREE.Mesh(geom, mat);
-      } catch {
-        // Fallback
-      }
-    }
-
-    return new Promise((resolve, reject) => {
-      this.gltfLoader.parse(
-        buffer,
-        "",
-        (gltf) => resolve(gltf.scene),
-        () => {
-          try {
-            const geom = this.stlLoader.parse(buffer);
-            geom.computeVertexNormals();
-            const mat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.4, metalness: 0.6 });
-            resolve(new THREE.Mesh(geom, mat));
-          } catch (stlErr) {
-            reject(stlErr);
-          }
-        }
-      );
-    });
+    throw new Error(`Noma’lum 3D model formati: ${formatHint}`);
   }
 
   // --- INTERACTION, SELECTION & PIN TOOLTIP ---
