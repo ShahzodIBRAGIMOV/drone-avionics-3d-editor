@@ -14,6 +14,11 @@ export interface CustomModelRecord {
   fileUrl?: string;
   sourceUrl?: string;
   presetKey?: string;
+  cloudAsset?: {
+    assetId: string;
+    chunks: number;
+    byteLength: number;
+  };
   updatedAt: number;
 }
 
