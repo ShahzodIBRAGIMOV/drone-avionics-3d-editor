@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { CloudProjectData, CloudProjectSummary, PhysicalInstance, CableConnection } from "../types";
+import { uploadCustomModelsForCloud } from "./cloudModelAssetService";
 
 export const COLLECTION_NAME = "drone_projects";
 const QUOTA_STORAGE_KEY = "drone_firestore_quota_exhausted_ts";
@@ -224,6 +225,11 @@ export async function saveProjectToCloud(input: SaveCloudProjectInput): Promise<
   // without attempting remote writes that would hang in retry backoff
   if (isCloudQuotaExhausted()) {
     return projectData;
+  }
+
+  // Manual cloud save must include the actual binary assets, not just local file names.
+  if (input.isManualSave && input.customModels) {
+    projectData.customModels = await uploadCustomModelsForCloud(docId, input.customModels);
   }
 
   const docRef = doc(db, COLLECTION_NAME, docId);
