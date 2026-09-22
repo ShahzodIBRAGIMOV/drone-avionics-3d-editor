@@ -13,6 +13,7 @@ import {
   SceneTheme,
   CableFlowType,
 } from "../types";
+import type { MassProperties } from "../utils/massProperties";
 import {
   Activity,
   Zap,
@@ -328,6 +329,7 @@ interface Viewport3DProps {
   }) => void;
   dimUnselected?: boolean;
   onToggleDimUnselected?: () => void;
+  massProperties?: MassProperties;
 }
 
 /**
@@ -432,6 +434,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   onRegisterVideoRecorder,
   dimUnselected = false,
   onToggleDimUnselected,
+  massProperties,
 }) => {
   const effectiveIsolate = isIsolatedView || (hideObstacles === true);
   const handleToggleIsolate = onToggleIsolatedView || onToggleHideObstacles;
@@ -451,6 +454,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
   const cableWaypointsGroupRef = useRef<THREE.Group>(new THREE.Group());
   const multiPivotGroupRef = useRef<THREE.Group>(new THREE.Group());
   const gridHelperRef = useRef<THREE.GridHelper | null>(null);
+  const cgMarkerRef = useRef<THREE.Group | null>(null);
 
   // Flow animation group & particles registry
   const cableFlowGroupRef = useRef<THREE.Group>(new THREE.Group());
@@ -517,6 +521,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
   const showCablesRef = useRef<boolean>(showCables);
   showCablesRef.current = showCables;
+
+  const droneOpacityRef = useRef<number>(droneOpacity);
+  droneOpacityRef.current = droneOpacity;
 
   const clockRef = useRef<THREE.Clock>(new THREE.Clock());
 
@@ -1400,6 +1407,7 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
         if (flowParticlesRef.current.length > 0) {
           cableFlowGroupRef.current.visible = true;
         const time = clockRef.current.getElapsedTime();
+        const flowVisibility = THREE.MathUtils.clamp(1 - droneOpacityRef.current, 0, 1);
         const speedMult = flowSpeedRef.current;
         const particles = flowParticlesRef.current;
         const pLen = particles.length;
@@ -1411,6 +1419,9 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
 
         for (let i = 0; i < pLen; i++) {
           const p = particles[i];
+          p.mesh.visible = flowVisibility > 0.01;
+          p.material.transparent = true;
+          p.material.opacity = flowVisibility;
 
           let pulseMovingReverse = false;
           let u: number;
@@ -1492,12 +1503,27 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
             (p.material as THREE.MeshStandardMaterial).emissiveIntensity = pulse;
           }
           if (p.auraMaterial) {
-            p.auraMaterial.opacity = p.isPower
+            p.auraMaterial.opacity = (p.isPower
               ? 0.55 + 0.2 * Math.sin(time * 9 + p.baseOffset * 10)
-              : 0.58 + 0.2 * Math.sin(time * 14 + p.baseOffset * 15);
+              : 0.58 + 0.2 * Math.sin(time * 14 + p.baseOffset * 15)) * flowVisibility;
           }
         }
       }
+
+      // Cable flow also represents an energized propulsion system: spin paired propellers
+      // in opposite directions while the animation is active.
+      const spinTime = performance.now() / 1000;
+      instancesRef.current.forEach((instance) => {
+        if (instance.componentId !== "17" || !instance.placed || !instance.visible) return;
+        const wrapper = instanceMeshesRef.current.get(instance.instanceId);
+        const rotor = wrapper?.children[0];
+        if (!rotor) return;
+        if (rotor.userData.propellerBaseRotationY === undefined) {
+          rotor.userData.propellerBaseRotationY = rotor.rotation.y;
+        }
+        const direction = instance.instanceIndex % 2 === 0 ? -1 : 1;
+        rotor.rotation.y = rotor.userData.propellerBaseRotationY + direction * spinTime * 12 * flowSpeedRef.current;
+      });
     } else {
       cableFlowGroupRef.current.visible = false;
     }
@@ -2178,6 +2204,57 @@ export const Viewport3D: React.FC<Viewport3DProps> = ({
       isMounted = false;
     };
   }, [instances, cables, effectiveSelectedIds, droneColor, droneOpacity, droneWireframe, droneVisible, selectedCableId, selectedWaypointId, dimUnselected]);
+
+  // Center-of-gravity marker. It is driven by the same mass model used by the inspector.
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const disposeMarker = (marker: THREE.Group) => {
+      marker.traverse((obj) => {
+        const mesh = obj as THREE.Mesh;
+        mesh.geometry?.dispose?.();
+        const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+        if (Array.isArray(material)) material.forEach((item) => item.dispose());
+        else material?.dispose?.();
+      });
+    };
+    if (cgMarkerRef.current) {
+      scene.remove(cgMarkerRef.current);
+      disposeMarker(cgMarkerRef.current);
+      cgMarkerRef.current = null;
+    }
+    if (!massProperties?.centerOfGravity) return;
+
+    const marker = new THREE.Group();
+    marker.name = "center_of_gravity_marker";
+    marker.position.set(...massProperties.centerOfGravity);
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(18, 20, 16),
+      new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false })
+    );
+    sphere.renderOrder = 50;
+    marker.add(sphere);
+    for (const axis of ["x", "y", "z"] as const) {
+      const ring = new THREE.Mesh(
+        new THREE.TorusGeometry(30, 2, 8, 48),
+        new THREE.MeshBasicMaterial({ color: 0xff7a00, depthTest: false })
+      );
+      if (axis === "x") ring.rotation.y = Math.PI / 2;
+      if (axis === "y") ring.rotation.x = Math.PI / 2;
+      ring.renderOrder = 49;
+      marker.add(ring);
+    }
+    marker.userData = { isCenterOfGravity: true };
+    scene.add(marker);
+    cgMarkerRef.current = marker;
+    return () => {
+      if (cgMarkerRef.current === marker) {
+        scene.remove(marker);
+        disposeMarker(marker);
+        cgMarkerRef.current = null;
+      }
+    };
+  }, [massProperties]);
 
   // Synchronize 3D Pin Markers
   useEffect(() => {
