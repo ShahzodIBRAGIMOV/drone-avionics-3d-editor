@@ -49,6 +49,8 @@ import {
   GitBranch,
 } from "lucide-react";
 import { PhysicalInstance, CableConnection, CableRoutePoint, PinDefinition } from "../types";
+import type { MassProperties } from "../utils/massProperties";
+import { inferCableMassPerMeterG } from "../utils/massProperties";
 import { useLanguage } from "../i18n/LanguageContext";
 import { COMPONENT_PINS } from "../data/pinDefinitions";
 import {
@@ -124,6 +126,12 @@ interface PlacedInspectorPanelProps {
   onChangeModel?: (componentId: string) => void;
   isIsolatedView?: boolean;
   onToggleIsolatedView?: () => void;
+  onUpdateInstanceDetails?: (
+    instanceId: string,
+    updated: Partial<Pick<PhysicalInstance, "customLabel" | "weightG" | "parameters">>
+  ) => void;
+  onDeleteInstancePermanently?: (instanceId: string) => void;
+  massProperties?: MassProperties;
 }
 
 const PRESET_COMPONENT_COLORS = [
@@ -265,6 +273,9 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/30">
             {cable.calculatedLengthMm || 0} mm
+          </span>
+          <span className="text-[10px] font-mono text-amber-300 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/25">
+            {(((cable.calculatedLengthMm || 0) / 1000) * inferCableMassPerMeterG(cable)).toFixed(1)} g
           </span>
           <button
             type="button"
@@ -420,6 +431,25 @@ const CableItemCard: React.FC<CableItemCardProps> = ({
           className="mt-3 pt-3 border-t border-slate-700/60 space-y-3"
           onClick={(e) => e.stopPropagation()}
         >
+          <div className="grid grid-cols-2 gap-2 rounded border border-amber-500/20 bg-amber-950/20 p-2">
+            <label className="text-[10px] text-slate-400">
+              Massa / metr (g/m)
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                value={cable.massPerMeterG ?? inferCableMassPerMeterG(cable)}
+                onChange={(event) => onUpdateCable?.(cable.id, { massPerMeterG: Math.max(0, Number(event.target.value) || 0) })}
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] text-amber-200"
+              />
+            </label>
+            <div className="text-[10px] text-slate-400">
+              Hisoblangan og‘irlik
+              <div className="mt-1 rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-mono text-amber-200">
+                {(((cable.calculatedLengthMm || 0) / 1000) * inferCableMassPerMeterG(cable)).toFixed(2)} g
+              </div>
+            </div>
+          </div>
           {/* Cable Type / Communication Protocol Selector */}
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs">
@@ -1547,6 +1577,9 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   onChangeModel,
   isIsolatedView = false,
   onToggleIsolatedView,
+  onUpdateInstanceDetails,
+  onDeleteInstancePermanently,
+  massProperties,
 }) => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"inspector" | "pins" | "cables">("inspector");
@@ -1567,6 +1600,8 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
   const [newPinX, setNewPinX] = useState<number>(0);
   const [newPinY, setNewPinY] = useState<number>(0);
   const [newPinZ, setNewPinZ] = useState<number>(0);
+  const [newParameterName, setNewParameterName] = useState("");
+  const [newParameterValue, setNewParameterValue] = useState("");
 
   const handlePosChange = (axis: 0 | 1 | 2, value: number) => {
     if (!selectedInstance) return;
@@ -1734,6 +1769,21 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
       </div>
 
       <div className="inspector-content-scroll">
+        {massProperties && (
+          <div className="m-3 mb-1 rounded-xl border border-amber-500/35 bg-gradient-to-br from-amber-950/35 to-slate-950 p-3 shadow-lg" id="mass-properties-summary">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold text-amber-200">⚖️ Og‘irlik va markaz</span>
+              <span className="text-[10px] font-mono text-amber-300">{massProperties.totalWeightG.toFixed(1)} g</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+              <div className="rounded bg-slate-900/70 p-1.5 text-slate-400">Elementlar <b className="block text-slate-100">{massProperties.componentWeightG.toFixed(1)} g</b></div>
+              <div className="rounded bg-slate-900/70 p-1.5 text-slate-400">Harness <b className="block text-cyan-200">{massProperties.harnessLengthMm.toFixed(0)} mm / {massProperties.harnessWeightG.toFixed(1)} g</b></div>
+            </div>
+            <div className="mt-1.5 rounded bg-slate-900/70 p-1.5 text-[10px] text-slate-400">
+              CG (sariq marker): <span className="font-mono text-amber-200">{massProperties.centerOfGravity ? massProperties.centerOfGravity.map((value) => value.toFixed(1)).join(" / ") + " mm" : "og‘irliklar kiritilmagan"}</span>
+            </div>
+          </div>
+        )}
         {/* Multi-selection summary card when >1 items selected */}
         {selectedInstances.length > 1 && (
           <div
@@ -1993,6 +2043,65 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                     {selectedInstance.customLabel || selectedInstance.name}
                   </h3>
 
+                  <div className="mt-3 space-y-2 rounded-lg border border-cyan-500/20 bg-slate-950/55 p-2.5">
+                    <label className="block text-[10px] text-slate-400">
+                      Element nomi
+                      <input
+                        type="text"
+                        value={selectedInstance.customLabel || selectedInstance.name}
+                        onChange={(event) => onUpdateInstanceDetails?.(selectedInstance.instanceId, { customLabel: event.target.value })}
+                        className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-slate-100"
+                      />
+                    </label>
+                    <label className="block text-[10px] text-slate-400">
+                      Element og‘irligi (g)
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.1"
+                        value={selectedInstance.weightG ?? ""}
+                        placeholder="Masalan: 125"
+                        onChange={(event) => onUpdateInstanceDetails?.(selectedInstance.instanceId, { weightG: Math.max(0, Number(event.target.value) || 0) })}
+                        className="mt-1 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs font-mono text-amber-200"
+                      />
+                    </label>
+                    <div className="text-[10px] text-slate-400">Muhandislik parametrlari</div>
+                    {Object.entries(selectedInstance.parameters || {}).map(([key, value]) => (
+                      <div key={key} className="grid grid-cols-[1fr_1fr_auto] gap-1">
+                        <input value={key} readOnly className="min-w-0 rounded border border-slate-800 bg-slate-950 px-1.5 py-1 text-[10px] text-slate-400" />
+                        <input
+                          value={String(value)}
+                          onChange={(event) => onUpdateInstanceDetails?.(selectedInstance.instanceId, { parameters: { ...(selectedInstance.parameters || {}), [key]: event.target.value } })}
+                          className="min-w-0 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-100"
+                        />
+                        <button
+                          type="button"
+                          className="rounded border border-red-900/70 px-1.5 text-red-400"
+                          onClick={() => {
+                            const next = { ...(selectedInstance.parameters || {}) };
+                            delete next[key];
+                            onUpdateInstanceDetails?.(selectedInstance.instanceId, { parameters: next });
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                    <div className="grid grid-cols-[1fr_1fr_auto] gap-1">
+                      <input value={newParameterName} onChange={(event) => setNewParameterName(event.target.value)} placeholder="Parametr" className="min-w-0 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-100" />
+                      <input value={newParameterValue} onChange={(event) => setNewParameterValue(event.target.value)} placeholder="Qiymat" className="min-w-0 rounded border border-slate-700 bg-slate-900 px-1.5 py-1 text-[10px] text-slate-100" />
+                      <button
+                        type="button"
+                        className="rounded border border-cyan-600/60 px-2 text-cyan-300"
+                        onClick={() => {
+                          const key = newParameterName.trim();
+                          if (!key) return;
+                          onUpdateInstanceDetails?.(selectedInstance.instanceId, { parameters: { ...(selectedInstance.parameters || {}), [key]: newParameterValue } });
+                          setNewParameterName("");
+                          setNewParameterValue("");
+                        }}
+                      >+</button>
+                    </div>
+                  </div>
+
                   {/* Lock / Hide / Remove Buttons */}
                   <div className="inst-action-toolbar">
                     <button
@@ -2004,6 +2113,21 @@ export const PlacedInspectorPanel: React.FC<PlacedInspectorPanelProps> = ({
                       {selectedInstance.locked ? <Lock size={14} /> : <Unlock size={14} />}
                       <span>{selectedInstance.locked ? "Qulflangan" : "Qulflash"}</span>
                     </button>
+                    {!selectedInstance.isAirframe && selectedInstance.componentId !== "01" && onDeleteInstancePermanently && (
+                      <button
+                        type="button"
+                        className="inst-tool-btn danger"
+                        title="Elementni inventar ro‘yxatidan va unga ulangan kabellar bilan birga butunlay o‘chirish"
+                        onClick={() => {
+                          if (window.confirm(`“${selectedInstance.customLabel || selectedInstance.name}” elementini ro‘yxatdan butunlay o‘chirasizmi?`)) {
+                            onDeleteInstancePermanently(selectedInstance.instanceId);
+                          }
+                        }}
+                      >
+                        <Trash2 size={14} />
+                        <span>Ro‘yxatdan o‘chirish</span>
+                      </button>
+                    )}
 
                     <button
                       id={`btn-vis-${selectedInstance.instanceId}`}

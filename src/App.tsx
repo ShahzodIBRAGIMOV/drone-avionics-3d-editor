@@ -53,6 +53,7 @@ import { AlertTriangle, CheckCircle2, PanelLeft, PanelRight, Undo2, Redo2, Keybo
 import { modelManager } from "./services/modelManager";
 import { exportProjectZipPackage, importProjectFromZipPackage } from "./services/zipPackageService";
 import { downloadCustomModelsFromCloud } from "./services/cloudModelAssetService";
+import { calculateMassProperties } from "./utils/massProperties";
 
 const STORAGE_KEY = "drone_avionics_state_v1";
 
@@ -1567,6 +1568,37 @@ export default function App() {
     setSelectedInstanceIds((prev) => prev.filter((id) => id !== instanceId));
     setSelectedPinFullName(null);
   };
+
+  const handleDeleteInstancePermanently = useCallback((instanceId: string) => {
+    const target = instancesRef.current.find((item) => item.instanceId === instanceId);
+    if (!target || target.isAirframe || target.componentId === "01") return;
+    recordSnapshot(`Element ro‘yxatdan o‘chirildi: ${target.customLabel || target.name}`);
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    const nextInstances = instancesRef.current.filter((item) => item.instanceId !== instanceId);
+    const nextCables = cablesRef.current.filter(
+      (cable) => cable.sourceInstanceId !== instanceId && cable.targetInstanceId !== instanceId
+    );
+    setInstances(nextInstances);
+    setCables(nextCables);
+    setSelectedInstanceIds((previous) => previous.filter((id) => id !== instanceId));
+    setSelectedPinFullName(null);
+    performLocalSave(nextInstances, nextCables);
+    showToast(`🗑️ “${target.customLabel || target.name}” ro‘yxatdan butunlay o‘chirildi`);
+  }, [performLocalSave, recordSnapshot, showToast]);
+
+  const handleUpdateInstanceDetails = useCallback((
+    instanceId: string,
+    updated: Partial<Pick<PhysicalInstance, "customLabel" | "weightG" | "parameters">>
+  ) => {
+    hasLocalModificationsRef.current = true;
+    lastLocalActionTimeRef.current = Date.now();
+    setInstances((previous) => {
+      const next = previous.map((item) => item.instanceId === instanceId ? { ...item, ...updated } : item);
+      performLocalSave(next);
+      return next;
+    });
+  }, [performLocalSave]);
 
   const handleUpdatePosition = (instanceId: string, pos: [number, number, number]) => {
     setInstances((prev) => {
@@ -3168,6 +3200,8 @@ export default function App() {
       "Component ID",
       "Component Name",
       "Instance Label",
+      "Weight (g)",
+      "Engineering Parameters",
       "Status",
       "Pos X (mm)",
       "Pos Y (mm)",
@@ -3182,6 +3216,8 @@ export default function App() {
       inst.componentId,
       `"${inst.name}"`,
       `"${inst.customLabel || ""}"`,
+      inst.weightG || 0,
+      `"${JSON.stringify(inst.parameters || {}).replace(/"/g, '""')}"`,
       inst.placed ? "Sahnada" : "Joylashtirilmagan",
       Math.round(inst.position[0]),
       Math.round(inst.position[1]),
@@ -3396,6 +3432,10 @@ export default function App() {
     () => instances.find((i) => i.instanceId === selectedInstanceId) || null,
     [instances, selectedInstanceId]
   );
+  const massProperties = useMemo(
+    () => calculateMassProperties(instances, cables),
+    [instances, cables]
+  );
 
   const placedCount = useMemo(() => instances.filter((i) => i.placed).length, [instances]);
 
@@ -3555,6 +3595,7 @@ export default function App() {
             onOpenModelImport={handleOpenModelImport}
             onReloadJetson={handleReloadJetson}
             isReloadingJetson={isReloadingJetson}
+            onDeleteInstancePermanently={handleDeleteInstancePermanently}
           />
         )}
 
@@ -3663,6 +3704,7 @@ export default function App() {
                 }}
                 dimUnselected={dimUnselected}
                 onToggleDimUnselected={handleToggleDimUnselected}
+                massProperties={massProperties}
               />
 
               {/* Top Floating Viewport HUD (Unified Bar: Camera View Presets on Left, Quick Tools on Right) */}
@@ -3785,6 +3827,9 @@ export default function App() {
             onChangeModel={handleOpenModelImport}
             isIsolatedView={isIsolatedView}
             onToggleIsolatedView={handleToggleIsolatedView}
+            onUpdateInstanceDetails={handleUpdateInstanceDetails}
+            onDeleteInstancePermanently={handleDeleteInstancePermanently}
+            massProperties={massProperties}
           />
         )}
       </div>

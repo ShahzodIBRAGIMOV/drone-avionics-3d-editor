@@ -56,6 +56,8 @@ export type PhysicalInstance = {
   droneRelativeRot?: [number, number, number]; // Local rotation [Pitch, Yaw, Roll] relative to drone in degrees
   modelVersion?: number; // Monotonically increasing or timestamp version for 3D model hot-reload
   customModelName?: string; // Display name of custom loaded 3D model
+  weightG?: number; // Installed component mass in grams
+  parameters?: Record<string, string | number | boolean>; // User-editable engineering parameters
 };
 
 export type CableConstruction =
@@ -236,6 +238,8 @@ export type CableConnection = {
   twistedPairs?: number;
   hasCanTerminator120?: boolean;
   calculatedLengthMm?: number;
+  massPerMeterG?: number; // Harness linear mass entered by the user or inferred from AWG
+  calculatedMassG?: number;
   minimumBendRadiusMm?: number;
   bendRadiusViolations?: number;
   estimatedVoltageDropV?: number;

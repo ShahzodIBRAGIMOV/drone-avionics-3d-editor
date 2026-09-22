@@ -13,6 +13,7 @@ import {
   Globe,
   RefreshCw,
   Box,
+  Trash2,
 } from "lucide-react";
 import { ComponentManifestItem, PhysicalInstance } from "../types";
 import { useLanguage } from "../i18n/LanguageContext";
@@ -30,6 +31,7 @@ interface UnplacedInventoryPanelProps {
   onOpenModelImport?: (defaultComponentId?: string) => void;
   onReloadJetson?: () => void;
   isReloadingJetson?: boolean;
+  onDeleteInstancePermanently?: (instanceId: string) => void;
 }
 
 export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
@@ -45,6 +47,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
   onOpenModelImport,
   onReloadJetson,
   isReloadingJetson,
+  onDeleteInstancePermanently,
 }) => {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,6 +62,7 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
   };
 
   const filteredManifest = manifest.filter((item) => {
+    if (!instances.some((instance) => instance.componentId === item.id)) return false;
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -305,6 +309,22 @@ export const UnplacedInventoryPanel: React.FC<UnplacedInventoryPanelProps> = ({
                         </div>
 
                         <div className="instance-actions">
+                          {inst.componentId !== "01" && onDeleteInstancePermanently && (
+                            <button
+                              type="button"
+                              className="btn-row-action"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (window.confirm(`“${inst.customLabel || inst.name}” elementini ro‘yxatdan butunlay o‘chirasizmi?`)) {
+                                  onDeleteInstancePermanently(inst.instanceId);
+                                }
+                              }}
+                              title="Ro‘yxatdan butunlay o‘chirish"
+                              aria-label={`${inst.customLabel || inst.name} elementini o‘chirish`}
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          )}
                           {inst.placed ? (
                             <button
                               id={`btn-select-inst-${inst.instanceId}`}
