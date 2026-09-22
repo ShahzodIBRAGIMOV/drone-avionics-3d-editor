@@ -731,6 +731,10 @@ export function generateViewerHTML(droneName = "Drone Avionics 3D"): string {
         <span class="stat-label">Kabellar:</span> <span class="stat-value highlight" id="hud-cables-count">0</span>
         <span class="stat-sub">•</span>
         <span class="stat-label">Pinlar:</span> <span class="stat-value highlight" id="hud-pins-count">0</span>
+        <span class="stat-sub">•</span>
+        <span class="stat-label">Harness:</span> <span class="stat-value highlight" id="hud-harness-stats">0 mm / 0 g</span>
+        <span class="stat-sub">•</span>
+        <span class="stat-label">Jami:</span> <span class="stat-value highlight" id="hud-total-weight">0 g</span>
       </div>
 
       <!-- Top Right Actions -->
@@ -783,6 +787,16 @@ export function generateViewerHTML(droneName = "Drone Avionics 3D"): string {
         </div>
 
         <div style="font-size: 10px; color: #38bdf8; font-family: monospace; margin-bottom: 10px;" id="inspector-id">ID: -</div>
+
+        <!-- Same engineering identity/mass controls as the online editor -->
+        <div class="control-row">
+          <div class="control-label"><span>Element nomi va og‘irligi</span><span style="color:#facc15;font-size:9px;">CG hisobiga kiradi</span></div>
+          <input type="text" id="inp-component-name" class="form-select" placeholder="Element nomi" onchange="window.DroneViewerApp && window.DroneViewerApp.onEngineeringDetailsInput()">
+          <input type="number" id="inp-component-weight" class="form-select" min="0" step="0.1" placeholder="Og‘irlik (g)" onchange="window.DroneViewerApp && window.DroneViewerApp.onEngineeringDetailsInput()">
+          <label style="font-size:9px;color:#94a3b8;display:block;margin:4px 0 2px;">Parametrlar (JSON, masalan {&quot;kuchlanish&quot;:&quot;12V&quot;})</label>
+          <textarea id="inp-component-parameters" class="form-select" rows="3" style="resize:vertical;" onchange="window.DroneViewerApp && window.DroneViewerApp.onEngineeringDetailsInput()"></textarea>
+          <div style="margin-top:6px;padding:6px;border:1px solid rgba(245,158,11,.35);border-radius:6px;background:rgba(120,53,15,.18);font-size:10px;color:#fcd34d;" id="inspector-cg-summary">CG: og‘irliklar kiritilmagan</div>
+        </div>
 
         <!-- Component Position Editor -->
         <div class="control-row">
@@ -916,6 +930,9 @@ export function generateViewerHTML(droneName = "Drone Avionics 3D"): string {
             <span style="font-size: 10px; color: #94a3b8;">Uzunlik:</span>
             <span style="font-size: 11px; font-weight: 700; color: #f8fafc; font-family: monospace;" id="cable-inspector-length">- mm</span>
           </div>
+          <label style="font-size:10px;color:#94a3b8;display:block;margin-top:7px;">Harness massasi (g/m)
+            <input type="number" id="inp-cable-mass-per-meter" class="form-select" min="0" step="0.1" onchange="window.DroneViewerApp && window.DroneViewerApp.onCableMassInput(parseFloat(this.value))">
+          </label>
         </div>
 
         <!-- Swap Endpoints Button -->
