@@ -15,6 +15,8 @@ export interface ViewerProjectData {
       instanceId: string;
       componentId: string;
       name: string;
+      customLabel?: string;
+      instanceIndex?: number;
       placed: boolean;
       position: [number, number, number];
       rotation: [number, number, number];
@@ -23,6 +25,8 @@ export interface ViewerProjectData {
       customColor?: string;
       locked?: boolean;
       customPins?: PinDefinition[];
+      weightG?: number;
+      parameters?: Record<string, string | number | boolean>;
     }>;
     cables: Array<{
       id: string;
@@ -55,6 +59,9 @@ export interface ViewerProjectData {
       multiTargetPinNames?: string[];
       routePoints?: Array<{ x: number; y: number; z: number } | [number, number, number]>;
       curveTension?: number;
+      calculatedLengthMm?: number;
+      massPerMeterG?: number;
+      calculatedMassG?: number;
     }>;
     metadata?: {
       droneName?: string;
@@ -148,6 +155,7 @@ class StandaloneDroneViewer {
   cablesGroup = new THREE.Group();
   pinsGroup = new THREE.Group();
   helpersGroup = new THREE.Group();
+  cgMarkerGroup = new THREE.Group();
 
   gltfLoader = new GLTFLoader();
   stlLoader = new STLLoader();
@@ -252,6 +260,7 @@ class StandaloneDroneViewer {
     this.scene.add(this.cablesGroup);
     this.scene.add(this.pinsGroup);
     this.scene.add(this.helpersGroup);
+    this.scene.add(this.cgMarkerGroup);
 
     // 9. Event listeners
     window.addEventListener("resize", this.onWindowResize.bind(this));
@@ -353,6 +362,7 @@ class StandaloneDroneViewer {
     this.updateHUD();
     this.populateSidebarLists();
     this.populateCableAdderDropdowns();
+    this.updateMassProperties();
 
     this.updateStatus("Loyiha to‘liq tayyor!");
     setTimeout(() => this.hideStatus(), 1000);
@@ -965,7 +975,9 @@ class StandaloneDroneViewer {
 
       // Flowing Pulse Spheres
       const pulseGeom = new THREE.SphereGeometry(2.2, 10, 10);
-      const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      cable.calculatedLengthMm = Math.round(curve.getLength());
+      cable.calculatedMassG = (cable.calculatedLengthMm / 1000) * this.getCableMassPerMeter(cable);
+      const pulseMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true });
       const pulseObj = new THREE.Mesh(pulseGeom, pulseMat);
       pulseObj.position.copy(p1);
       this.cablesGroup.add(pulseObj);
@@ -983,6 +995,7 @@ class StandaloneDroneViewer {
 
       this.cablesMap.set(cable.id, { curve, meshes: createdMeshes, pulseObj });
     });
+    this.updateMassProperties();
   }
 
   // --- MODEL BUFFER PARSER & CACHE ---
@@ -1230,6 +1243,7 @@ class StandaloneDroneViewer {
       const colorPreview = document.getElementById("cable-color-preview");
       const colorInput = document.getElementById("inp-cable-color") as HTMLInputElement;
       const colorLabel = document.getElementById("cable-color-label");
+      const massPerMeterInput = document.getElementById("inp-cable-mass-per-meter") as HTMLInputElement;
 
       const srcInst = this.data?.state.instances.find(i => i.instanceId === (cable.sourceInstanceId || cable.fromInstanceId));
       const tgtInst = this.data?.state.instances.find(i => i.instanceId === (cable.targetInstanceId || cable.toInstanceId));
@@ -1254,13 +1268,15 @@ class StandaloneDroneViewer {
             len = Math.round(entry.curve.getLength());
           }
         }
-        lengthEl.textContent = len ? `${len} mm` : "N/A";
+        const mass = len ? (len / 1000) * this.getCableMassPerMeter(cable) : 0;
+        lengthEl.textContent = len ? `${len} mm / ${mass.toFixed(2)} g` : "N/A";
       }
 
       const activeColor = cable.color || "#0284c7";
       if (colorPreview) colorPreview.style.backgroundColor = activeColor;
       if (colorInput) colorInput.value = activeColor.startsWith("#") ? activeColor : "#" + activeColor;
       if (colorLabel) colorLabel.textContent = activeColor;
+      if (massPerMeterInput) massPerMeterInput.value = String(this.getCableMassPerMeter(cable));
 
       // Breakout UI controls
       const checkBreakout = document.getElementById("check-cable-breakout") as HTMLInputElement;
@@ -1339,7 +1355,7 @@ class StandaloneDroneViewer {
     const rotY = document.getElementById("inp-rot-y") as HTMLInputElement;
     const rotZ = document.getElementById("inp-rot-z") as HTMLInputElement;
 
-    if (nameEl) nameEl.textContent = inst.name;
+    if (nameEl) nameEl.textContent = inst.customLabel || inst.name;
     if (idEl) idEl.textContent = `ID: #${inst.instanceId} (${inst.componentId})`;
 
     if (posX) posX.value = Math.round(inst.position[0]).toString();
@@ -1349,6 +1365,14 @@ class StandaloneDroneViewer {
     if (rotX) rotX.value = Math.round(inst.rotation[0]).toString();
     if (rotY) rotY.value = Math.round(inst.rotation[1]).toString();
     if (rotZ) rotZ.value = Math.round(inst.rotation[2]).toString();
+
+    const nameInput = document.getElementById("inp-component-name") as HTMLInputElement;
+    const weightInput = document.getElementById("inp-component-weight") as HTMLInputElement;
+    const parametersInput = document.getElementById("inp-component-parameters") as HTMLTextAreaElement;
+    if (nameInput) nameInput.value = inst.customLabel || inst.name;
+    if (weightInput) weightInput.value = inst.weightG ? String(inst.weightG) : "";
+    if (parametersInput) parametersInput.value = JSON.stringify(inst.parameters || {}, null, 2);
+    this.updateMassProperties();
 
     // Populate Inspector Pins List
     const pinsList = document.getElementById("inspector-pins-list");
@@ -1414,6 +1438,110 @@ class StandaloneDroneViewer {
       } else {
         btnApplyAll.style.display = "none";
       }
+    }
+  }
+
+  onEngineeringDetailsInput() {
+    if (!this.selectedInstanceId || !this.data) return;
+    const inst = this.data.state.instances.find((item) => item.instanceId === this.selectedInstanceId);
+    if (!inst) return;
+    const nameInput = document.getElementById("inp-component-name") as HTMLInputElement;
+    const weightInput = document.getElementById("inp-component-weight") as HTMLInputElement;
+    const parametersInput = document.getElementById("inp-component-parameters") as HTMLTextAreaElement;
+    let parameters: Record<string, string | number | boolean> = {};
+    try {
+      parameters = parametersInput?.value.trim() ? JSON.parse(parametersInput.value) : {};
+    } catch {
+      this.updateStatus("Parametrlar JSON formatida noto‘g‘ri yozilgan", 2500);
+      return;
+    }
+    inst.customLabel = nameInput?.value.trim() || inst.name;
+    inst.weightG = Math.max(0, Number(weightInput?.value) || 0);
+    inst.parameters = parameters;
+    this.saveProjectLocally();
+    this.populateSidebarLists();
+    this.updateMassProperties();
+    this.updateStatus("Element nomi, parametrlari va og‘irligi saqlandi", 1600);
+  }
+
+  onCableMassInput(value: number) {
+    if (!this.selectedCableId || !this.data) return;
+    const cable = this.data.state.cables.find((item) => item.id === this.selectedCableId);
+    if (!cable) return;
+    cable.massPerMeterG = Math.max(0, Number(value) || 0);
+    this.buildCables();
+    this.saveProjectLocally();
+    this.updateInspectorUI();
+  }
+
+  getCableMassPerMeter(cable: ViewerProjectData["state"]["cables"][number]): number {
+    if (Number.isFinite(cable.massPerMeterG) && (cable.massPerMeterG || 0) >= 0) return cable.massPerMeterG || 0;
+    const cableData = cable as typeof cable & { awg?: string | number; wireGauge?: string };
+    const gaugeText = String(cableData.awg || cableData.wireGauge || "").replace(/[^0-9.]/g, "");
+    const awgMass: Record<string, number> = { "30": 1.1, "28": 1.7, "26": 2.7, "24": 4.1, "22": 6.4, "20": 10, "18": 15.5, "16": 24.5, "14": 38.5, "12": 61, "10": 97 };
+    const strands = Math.max(1, cable.strandCount || 1);
+    return Math.round((awgMass[gaugeText] || 5) * strands * 1.35 * 10) / 10;
+  }
+
+  updateMassProperties() {
+    if (!this.data) return;
+    let componentWeight = 0;
+    let harnessLength = 0;
+    let harnessWeight = 0;
+    const moment = new THREE.Vector3();
+    const instances = this.data.state.instances.filter((item) => item.placed);
+    instances.forEach((item) => {
+      const weight = Math.max(0, Number(item.weightG) || 0);
+      componentWeight += weight;
+      moment.add(new THREE.Vector3(...item.position).multiplyScalar(weight));
+    });
+    this.data.state.cables.forEach((cable) => {
+      const entry = this.cablesMap.get(cable.id);
+      const length = cable.calculatedLengthMm || cable.lengthMm || (entry?.curve ? entry.curve.getLength() : 0);
+      const weight = (length / 1000) * this.getCableMassPerMeter(cable);
+      cable.calculatedLengthMm = Math.round(length);
+      cable.calculatedMassG = weight;
+      harnessLength += length;
+      harnessWeight += weight;
+      const source = instances.find((item) => item.instanceId === (cable.sourceInstanceId || cable.fromInstanceId));
+      const target = instances.find((item) => item.instanceId === (cable.targetInstanceId || cable.toInstanceId));
+      if (source && target && weight > 0) {
+        moment.add(new THREE.Vector3(
+          (source.position[0] + target.position[0]) / 2,
+          (source.position[1] + target.position[1]) / 2,
+          (source.position[2] + target.position[2]) / 2
+        ).multiplyScalar(weight));
+      }
+    });
+    const totalWeight = componentWeight + harnessWeight;
+    const cg = totalWeight > 0 ? moment.divideScalar(totalWeight) : null;
+    const harnessEl = document.getElementById("hud-harness-stats");
+    const totalEl = document.getElementById("hud-total-weight");
+    const cgEl = document.getElementById("inspector-cg-summary");
+    if (harnessEl) harnessEl.textContent = `${Math.round(harnessLength)} mm / ${harnessWeight.toFixed(1)} g`;
+    if (totalEl) totalEl.textContent = `${totalWeight.toFixed(1)} g`;
+    if (cgEl) cgEl.textContent = cg ? `CG: X ${cg.x.toFixed(1)} / Y ${cg.y.toFixed(1)} / Z ${cg.z.toFixed(1)} mm` : "CG: og‘irliklar kiritilmagan";
+
+    this.cgMarkerGroup.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      mesh.geometry?.dispose?.();
+      const material = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (Array.isArray(material)) material.forEach((item) => item.dispose());
+      else material?.dispose?.();
+    });
+    this.cgMarkerGroup.clear();
+    if (cg) {
+      this.cgMarkerGroup.position.copy(cg);
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(18, 20, 16), new THREE.MeshBasicMaterial({ color: 0xfacc15, depthTest: false }));
+      sphere.renderOrder = 50;
+      this.cgMarkerGroup.add(sphere);
+      [0, 1, 2].forEach((axis) => {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(30, 2, 8, 48), new THREE.MeshBasicMaterial({ color: 0xff7a00, depthTest: false }));
+        if (axis === 0) ring.rotation.y = Math.PI / 2;
+        if (axis === 1) ring.rotation.x = Math.PI / 2;
+        ring.renderOrder = 49;
+        this.cgMarkerGroup.add(ring);
+      });
     }
   }
 
@@ -1597,6 +1725,7 @@ class StandaloneDroneViewer {
     this.data.state.instances = this.data.state.instances.filter(i => i.instanceId !== id);
     this.data.state.cables = this.data.state.cables.filter(c => (c.sourceInstanceId || c.fromInstanceId) !== id && (c.targetInstanceId || c.toInstanceId) !== id);
 
+    this.saveProjectLocally();
     this.clearSelection();
     this.initSceneFromData();
     this.updateStatus(`Element o‘chirildi: #${id}`);
@@ -2031,7 +2160,7 @@ window.__DRONE_PROJECT_DATA__ = ${JSON.stringify(this.data, null, 2)};
           <div class="item-title">
             <span style="display: flex; align-items: center; gap: 6px;">
               <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background-color: ${dotColor}; flex-shrink: 0; box-shadow: 0 0 5px ${dotColor}88;"></span>
-              ${inst.name}
+              ${inst.customLabel || inst.name}
             </span>
             <span class="item-badge">#${inst.instanceId}</span>
           </div>
@@ -2049,8 +2178,8 @@ window.__DRONE_PROJECT_DATA__ = ${JSON.stringify(this.data, null, 2)};
         const toId = c.targetInstanceId || c.toInstanceId;
         const fromInst = this.data?.state.instances.find(i => i.instanceId === fromId);
         const toInst = this.data?.state.instances.find(i => i.instanceId === toId);
-        const fromName = fromInst ? fromInst.name : `#${fromId}`;
-        const toName = toInst ? toInst.name : `#${toId}`;
+        const fromName = fromInst ? (fromInst.customLabel || fromInst.name) : `#${fromId}`;
+        const toName = toInst ? (toInst.customLabel || toInst.name) : `#${toId}`;
         const fromPin = c.sourcePinName ? ` (${c.sourcePinName.split('.').pop()})` : '';
         const toPin = c.targetPinName ? ` (${c.targetPinName.split('.').pop()})` : '';
 
@@ -2077,7 +2206,7 @@ window.__DRONE_PROJECT_DATA__ = ${JSON.stringify(this.data, null, 2)};
 
         return `
           <div style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.4); border-radius: 8px; padding: 8px; margin-bottom: 8px;">
-            <div style="font-size: 11px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">${inst.name} (#${inst.instanceId})</div>
+            <div style="font-size: 11px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">${inst.customLabel || inst.name} (#${inst.instanceId})</div>
             <div style="font-size: 10px; color: #94a3b8;">${pins.length} ta elektr pin / port</div>
           </div>
         `;
@@ -2091,7 +2220,7 @@ window.__DRONE_PROJECT_DATA__ = ${JSON.stringify(this.data, null, 2)};
     if (!fromSelect || !toSelect || !this.data) return;
 
     const instances = this.data.state.instances.filter(i => i.placed && i.componentId !== "01");
-    const options = instances.map(i => `<option value="${i.instanceId}">${i.name} (#${i.instanceId})</option>`).join("");
+    const options = instances.map(i => `<option value="${i.instanceId}">${i.customLabel || i.name} (#${i.instanceId})</option>`).join("");
     fromSelect.innerHTML = options;
     toSelect.innerHTML = options;
     if (instances.length > 1) {
@@ -2225,7 +2354,22 @@ window.__DRONE_PROJECT_DATA__ = ${JSON.stringify(this.data, null, 2)};
         if (pulseObj && curve) {
           const pt = curve.getPoint(this.pulseTime);
           pulseObj.position.copy(pt);
+          const material = pulseObj.material as THREE.MeshBasicMaterial;
+          material.opacity = THREE.MathUtils.clamp(1 - this.droneOpacity, 0, 1);
+          pulseObj.visible = material.opacity > 0.01;
         }
+      });
+
+      const spinTime = performance.now() / 1000;
+      this.data?.state.instances.forEach((instance) => {
+        if (instance.componentId !== "17" || !instance.placed) return;
+        const rotor = this.componentMeshes.get(instance.instanceId)?.children[0];
+        if (!rotor) return;
+        if (rotor.userData.propellerBaseRotationY === undefined) {
+          rotor.userData.propellerBaseRotationY = rotor.rotation.y;
+        }
+        const direction = (instance.instanceIndex || 1) % 2 === 0 ? -1 : 1;
+        rotor.rotation.y = rotor.userData.propellerBaseRotationY + direction * spinTime * 12;
       });
     }
 
